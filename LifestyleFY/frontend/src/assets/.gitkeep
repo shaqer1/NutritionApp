@@ -1,0 +1,2 @@
+# App icons (icon-192.png, icons/icon-512.png) go under assets/icons for PWA install.
+# The app builds and runs without them; add real icons before shipping the installable PWA.
