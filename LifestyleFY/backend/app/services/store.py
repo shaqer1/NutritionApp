@@ -6,6 +6,7 @@ process memory so the API runs offline with no GCP calls.
 """
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import date, datetime, timezone
 
@@ -15,6 +16,9 @@ from ..models import Goals, InventoryItem, LogRequest, Macros, Profile, TodaySum
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+log = logging.getLogger(__name__)
 
 
 class Store:
@@ -256,7 +260,8 @@ class Store:
     def sync_summary_to_sheet(self, uid: str) -> bool:
         """Write today's summary as a row in the workout spreadsheet's
         NutritionSummary tab so the Apps Script app can read it. No-op in stubs
-        or when WORKOUT_SHEET_ID is unset."""
+        or when WORKOUT_SHEET_ID is unset. Best-effort: failures are logged,
+        not raised, so a broken sheet sync can't take down meal logging."""
         if self.stub or not self.s.workout_sheet_id:
             return False
         summary = self.get_today_summary(uid)
@@ -270,19 +275,24 @@ class Store:
             round(summary.pct_to_goal * 100), summary.coach_tip or "",
         ]]
         from googleapiclient.discovery import build
+        from googleapiclient.errors import HttpError
         import google.auth
 
-        creds, _ = google.auth.default(
-            scopes=["https://www.googleapis.com/auth/spreadsheets"])
-        svc = build("sheets", "v4", credentials=creds)
-        # Overwrite a single "today" row at A2 (header assumed in row 1).
-        svc.spreadsheets().values().update(
-            spreadsheetId=self.s.workout_sheet_id,
-            range="NutritionSummary!A2:K2",
-            valueInputOption="RAW",
-            body={"values": row},
-        ).execute()
-        return True
+        try:
+            creds, _ = google.auth.default(
+                scopes=["https://www.googleapis.com/auth/spreadsheets"])
+            svc = build("sheets", "v4", credentials=creds)
+            # Overwrite a single "today" row at A2 (header assumed in row 1).
+            svc.spreadsheets().values().update(
+                spreadsheetId=self.s.workout_sheet_id,
+                range="NutritionSummary!A2:K2",
+                valueInputOption="RAW",
+                body={"values": row},
+            ).execute()
+            return True
+        except HttpError:
+            log.warning("sync_summary_to_sheet failed for uid=%s", uid, exc_info=True)
+            return False
 
 
 _store: Store | None = None
