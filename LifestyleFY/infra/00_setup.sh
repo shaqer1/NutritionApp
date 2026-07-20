@@ -9,13 +9,12 @@
 set -euo pipefail
 
 # ----- EDIT THESE -----
-PROJECT_ID="${PROJECT_ID:-shafay-nutrition}"
+PROJECT_ID="${PROJECT_ID:-gen-lang-client-0347523959}"
 REGION="${REGION:-us-central1}"
 DATASET="nutrition"
 SA_NAME="nutrition-run"                       # Cloud Run service account
-WORKOUT_SHEET_ID="${WORKOUT_SHEET_ID:-PUT_SPREADSHEET_ID_HERE}"  # for summary sync
+WORKOUT_SHEET_ID="${WORKOUT_SHEET_ID:-1E7FIHlr2-_KCVCSOBqnTr6v3ymhlJ9RXnYkm5loXjww}"  # for summary sync
 # ----------------------
-
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
 echo "==> Set project"

@@ -1,8 +1,15 @@
-// Development environment. Points at the local FastAPI backend running in
-// stub mode (DEV_NO_AUTH=true). No auth token is sent in dev.
+// Development environment. Points at the deployed Cloud Run backend and
+// requires a real Firebase sign-in (backend enforces auth, DEV_NO_AUTH=false).
 export const environment = {
   production: false,
-  apiBase: 'http://localhost:8080',
-  // When you wire Firebase Auth, set this true and provide getIdToken().
-  useAuth: false,
+  apiBase: 'https://nutrition-api-311101817139.us-central1.run.app',
+  useAuth: true,
+  firebaseConfig: {
+    apiKey: 'AIzaSyCHBQ6vkjr7Tox-k7mwY8DZ87fIr46Y2-I',
+    authDomain: 'gen-lang-client-0347523959.firebaseapp.com',
+    projectId: 'gen-lang-client-0347523959',
+    storageBucket: 'gen-lang-client-0347523959.firebasestorage.app',
+    messagingSenderId: '311101817139',
+    appId: '1:311101817139:web:737cf1ba2b493655cebe46',
+  },
 };

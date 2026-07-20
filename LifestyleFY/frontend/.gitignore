@@ -2,5 +2,6 @@
 /dist
 /out-tsc
 /.angular
+/.firebase
 *.log
 .env

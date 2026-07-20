@@ -2,12 +2,21 @@
 
 In local dev with DEV_NO_AUTH=true, verification is skipped and a fixed
 'dev-user' uid is returned so you can exercise the API without Firebase.
+
+Beyond a valid token, the caller's email must also appear in the
+`config/access` Firestore doc (`allowed_emails` array) — manage that list
+from the Firebase Console (Firestore Data tab) without redeploying.
 """
+import time
+
 from fastapi import Depends, Header, HTTPException, status
 
 from .config import Settings, get_settings
 
 _firebase_ready = False
+_allowlist_cache: set[str] | None = None
+_allowlist_cache_at = 0.0
+_ALLOWLIST_TTL_SECONDS = 60
 
 
 def _ensure_firebase() -> None:
@@ -19,6 +28,21 @@ def _ensure_firebase() -> None:
     if not firebase_admin._apps:
         firebase_admin.initialize_app()
     _firebase_ready = True
+
+
+def _is_allowed(email: str | None, settings: Settings) -> bool:
+    if not email:
+        return False
+    global _allowlist_cache, _allowlist_cache_at
+    now = time.monotonic()
+    if _allowlist_cache is None or now - _allowlist_cache_at > _ALLOWLIST_TTL_SECONDS:
+        from google.cloud import firestore
+
+        fs = firestore.Client(project=settings.gcp_project)
+        doc = fs.collection("config").document("access").get()
+        _allowlist_cache = set(doc.to_dict().get("allowed_emails", [])) if doc.exists else set()
+        _allowlist_cache_at = now
+    return email in _allowlist_cache
 
 
 def current_uid(
@@ -45,4 +69,10 @@ def current_uid(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid token",
         ) from exc
+
+    if not _is_allowed(decoded.get("email"), settings):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Not authorized",
+        )
     return decoded["uid"]
