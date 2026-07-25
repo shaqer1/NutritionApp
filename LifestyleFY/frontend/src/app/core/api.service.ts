@@ -21,6 +21,9 @@ export class ApiService {
     return this.http.get<{ results: FoodItem[] }>(
       `${this.base}/search`, { params: { q } });
   }
+  getRawProduct(barcode: string): Observable<{ product: any }> {
+    return this.http.get<{ product: any }>(`${this.base}/product/${barcode}/raw`);
+  }
 
   // --- inventory ---
   listInventory(): Observable<{ items: InventoryItem[] }> {

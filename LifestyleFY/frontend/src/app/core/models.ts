@@ -26,9 +26,10 @@ export interface FoodItem {
 
 export interface InventoryItem extends FoodItem {
   item_id?: string | null;
-  qty: number;
+  qty: number; // servings remaining
   unit: string;
   location: string; // pantry | fridge | freezer
+  initial_qty?: number | null; // servings at creation; never mutated after
 }
 
 export interface Goals {
@@ -70,6 +71,7 @@ export interface LogRequest {
   servings: number;
   macros: Macros;
   from_inventory?: boolean;
+  inventory_item_id?: string | null;
 }
 
 export interface CoachMessage {

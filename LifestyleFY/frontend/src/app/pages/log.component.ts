@@ -50,7 +50,7 @@ import { InventoryItem, Macros } from '../core/models';
         <p class="muted">Tap to prefill from an item you scanned in.</p>
         @for (p of pantry; track p.item_id) {
           <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
-            <span>{{ p.name }}</span>
+            <span>{{ p.name }} <span class="muted">— {{ p.qty }} left</span></span>
             <button class="ghost" (click)="fromPantry(p)">Use</button>
           </div>
         }
@@ -70,6 +70,7 @@ export class LogComponent implements OnInit {
     sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
   };
   fromInventory = false;
+  selectedItemId: string | null = null;
   pantry: InventoryItem[] = [];
 
   ngOnInit(): void {
@@ -80,12 +81,14 @@ export class LogComponent implements OnInit {
     this.name = p.name;
     this.macros = { ...p.per_serving };
     this.fromInventory = true;
+    this.selectedItemId = p.item_id ?? null;
   }
 
   submit(): void {
     this.api.log({
       meal: this.meal, item_name: this.name, servings: this.servings,
       macros: this.macros, source: 'manual', from_inventory: this.fromInventory,
+      inventory_item_id: this.selectedItemId,
     }).subscribe(() => this.router.navigate(['/today']));
   }
 }

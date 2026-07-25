@@ -93,6 +93,58 @@ interface Shelf {
             </div>
             @if (editingId === it.item_id && editDraft) {
               <div style="margin-top:10px">
+                @if (it.initial_qty) {
+                  <div class="muted">{{ it.qty }} of {{ it.initial_qty }} servings left</div>
+                  <div class="bar"><span [style.width.%]="(it.qty / it.initial_qty) * 100"></span></div>
+                }
+                @if (it.serving_size || it.serving_qty_g) {
+                  <p class="muted" style="margin:8px 0 0">
+                    {{ it.serving_size || (it.serving_qty_g + 'g') }} per serving
+                    @if (it.serving_qty_g) {
+                      · ≈{{ it.qty * it.serving_qty_g | number:'1.0-0' }}g remaining
+                    }
+                  </p>
+                }
+
+                <div style="margin-top:10px">
+                  <div class="row spread"><span class="muted">Calories</span><span>{{ it.per_serving.cal | number:'1.0-0' }}</span></div>
+                  <div class="row spread"><span class="muted">Protein</span><span>{{ it.per_serving.protein | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Carbs</span><span>{{ it.per_serving.carbs | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Fat</span><span>{{ it.per_serving.fat | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Sugar</span><span>{{ it.per_serving.sugar_g | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Fiber</span><span>{{ it.per_serving.fiber_g | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Saturated fat</span><span>{{ it.per_serving.sat_fat_g | number:'1.0-1' }} g</span></div>
+                  <div class="row spread"><span class="muted">Sodium</span><span>{{ it.per_serving.sodium_mg | number:'1.0-0' }} mg</span></div>
+                </div>
+
+                @if (it.barcode && !detailCache.has(it.item_id!)) {
+                  <p class="muted" style="margin-top:8px">Loading full details…</p>
+                }
+                @if (detailCache.get(it.item_id!); as raw) {
+                  <div style="margin-top:10px">
+                    <div class="row" style="flex-wrap:wrap;gap:6px">
+                      @if (raw.nutriscore_grade) {
+                        <span class="muted">Nutri-Score {{ raw.nutriscore_grade.toUpperCase() }}</span>
+                      }
+                      @if (raw.nova_group) { <span class="muted">NOVA {{ raw.nova_group }}</span> }
+                      @if (raw.ecoscore_grade) {
+                        <span class="muted">Eco-Score {{ raw.ecoscore_grade.toUpperCase() }}</span>
+                      }
+                    </div>
+                    @if (raw.ingredients_text_en || raw.ingredients_text) {
+                      <p class="muted" style="margin-top:8px">
+                        {{ raw.ingredients_text_en || raw.ingredients_text }}
+                      </p>
+                    }
+                    @if (raw.allergens_tags?.length) {
+                      <p class="muted">Allergens: {{ formatTags(raw.allergens_tags) }}</p>
+                    }
+                    @if (raw.packagings?.length) {
+                      <p class="muted">Packaging: {{ formatPackaging(raw.packagings) }}</p>
+                    }
+                  </div>
+                }
+
                 <div class="row">
                   <div style="flex:1"><label>Category</label>
                     <select [(ngModel)]="editDraft.category">
@@ -134,6 +186,7 @@ export class InventoryComponent implements OnInit {
   locationTouched = false;
   editingId: string | null = null;
   editDraft: Pick<InventoryItem, 'category' | 'location' | 'qty' | 'image_url'> | null = null;
+  detailCache = new Map<string, any>();
 
   categories = APP_CATEGORIES;
   locations = LOCATIONS;
@@ -182,6 +235,27 @@ export class InventoryComponent implements OnInit {
       category: it.category, location: it.location,
       qty: it.qty, image_url: it.image_url,
     };
+    if (it.barcode && it.item_id && !this.detailCache.has(it.item_id)) {
+      this.api.getRawProduct(it.barcode).subscribe({
+        next: (r) => this.detailCache.set(it.item_id!, r.product),
+        error: () => this.detailCache.set(it.item_id!, null),
+      });
+    }
+  }
+
+  formatTags(tags: string[]): string {
+    return (tags || []).map((t) => this.cleanTag(t)).join(', ');
+  }
+
+  formatPackaging(packagings: any[]): string {
+    return (packagings || [])
+      .map((p) => this.cleanTag(p.material))
+      .filter(Boolean)
+      .join(', ');
+  }
+
+  private cleanTag(tag?: string): string {
+    return (tag || '').replace(/^[a-z]{2}:/, '').replace(/-/g, ' ');
   }
 
   saveEdit(it: InventoryItem): void {

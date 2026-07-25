@@ -91,16 +91,28 @@ class FoodResolver:
         return []
 
     # ---------- Open Food Facts ----------
-    async def _off_barcode(self, barcode: str) -> FoodItem | None:
+    async def _fetch_off_raw(self, barcode: str) -> dict | None:
+        """Full raw OFF product dict for a barcode, or None if not found."""
         try:
             async with httpx.AsyncClient(timeout=8, headers=_UA) as c:
-                r = await c.get(OFF_PRODUCT.format(barcode=barcode))
+                r = await c.get(OFF_PRODUCT.format(barcode=barcode),
+                                params={"lc": "en", "cc": "us"})
             data = r.json()
         except (httpx.HTTPError, ValueError):
             return None
         if data.get("status") != 1:
             return None
-        p = data["product"]
+        return data["product"]
+
+    async def raw_product(self, barcode: str) -> dict | None:
+        """Full raw OFF product dict, fetched live (no caching — see plan notes:
+        OFF is free and this is only ever called on an explicit user action)."""
+        return await self._fetch_off_raw(barcode)
+
+    async def _off_barcode(self, barcode: str) -> FoodItem | None:
+        p = await self._fetch_off_raw(barcode)
+        if p is None:
+            return None
         name = p.get("product_name") or p.get("generic_name") or "Unknown"
         return FoodItem(
             name=name, barcode=barcode,

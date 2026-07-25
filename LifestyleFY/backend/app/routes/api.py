@@ -40,6 +40,12 @@ async def search(q: str, uid: str = Depends(current_uid),
     return {"results": await resolver.search(q)}
 
 
+@router.get("/product/{barcode}/raw")
+async def raw_product(barcode: str, uid: str = Depends(current_uid),
+                      resolver: FoodResolver = Depends(resolver_dep)):
+    return {"product": await resolver.raw_product(barcode)}
+
+
 # ---------- Inventory ----------
 @router.get("/inventory")
 def list_inventory(uid: str = Depends(current_uid),

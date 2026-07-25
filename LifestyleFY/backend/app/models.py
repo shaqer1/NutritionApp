@@ -35,9 +35,10 @@ class ScanRequest(BaseModel):
 
 class InventoryItem(FoodItem):
     item_id: str | None = None
-    qty: float = 1
+    qty: float = 1  # servings remaining
     unit: str = "unit"
     location: str = "pantry"  # pantry | fridge | freezer
+    initial_qty: float | None = None  # servings at creation; never mutated after
 
 
 class LogRequest(BaseModel):
@@ -48,6 +49,7 @@ class LogRequest(BaseModel):
     servings: float = 1
     macros: Macros
     from_inventory: bool = False
+    inventory_item_id: str | None = None  # decrements this item's qty when set
     ts: datetime | None = None  # defaults to now server-side
 
 

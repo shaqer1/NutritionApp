@@ -103,6 +103,8 @@ class Store:
 
     def add_inventory(self, uid: str, item: InventoryItem) -> InventoryItem:
         item.item_id = item.item_id or uuid.uuid4().hex
+        if item.initial_qty is None:
+            item.initial_qty = item.qty
         data = item.model_dump()
         data["added_at"] = _now().isoformat()
         if self.stub:
@@ -116,6 +118,20 @@ class Store:
             self._inventory.get(uid, {}).pop(item_id, None)
             return
         self._user_doc(uid).collection("inventory").document(item_id).delete()
+
+    def _decrement_inventory(self, uid: str, item_id: str, servings: float) -> None:
+        """Best-effort: a missing/invalid item_id is a silent no-op, since meal
+        logging must never fail because of a stale inventory reference."""
+        if self.stub:
+            data = self._inventory.get(uid, {}).get(item_id)
+            if data:
+                data["qty"] = max(0.0, data["qty"] - servings)
+            return
+        ref = self._user_doc(uid).collection("inventory").document(item_id)
+        snap = ref.get()
+        if snap.exists:
+            new_qty = max(0.0, snap.to_dict().get("qty", 0) - servings)
+            ref.update({"qty": new_qty})
 
     # ---------- Barcode cache (shared, top-level) ----------
     def cache_get(self, barcode: str) -> dict | None:
@@ -151,6 +167,8 @@ class Store:
         self._bq_insert("food_log", [row])
         if self.stub:
             self._food_log.append(row)
+        if req.inventory_item_id:
+            self._decrement_inventory(uid, req.inventory_item_id, req.servings)
         return self.recompute_today_summary(uid, day=ts.date())
 
     def record_scan(self, uid: str, barcode: str, matched_source: str,
