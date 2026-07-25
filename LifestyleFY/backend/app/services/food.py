@@ -16,6 +16,7 @@ import httpx
 
 from ..config import Settings
 from ..models import FoodItem, Macros
+from .categories import category_from_off
 from .store import Store
 
 OFF_PRODUCT = "https://world.openfoodfacts.org/api/v2/product/{barcode}.json"
@@ -41,7 +42,19 @@ def _macros_from_off(nutriments: dict) -> Macros:
         protein=g("proteins"),
         carbs=g("carbohydrates"),
         fat=g("fat"),
+        sugar_g=g("sugars"),
+        fiber_g=g("fiber"),
+        sat_fat_g=g("saturated-fat"),
+        sodium_mg=g("sodium") * 1000,  # OFF reports sodium in grams
     )
+
+
+def _parse_serving_qty(v) -> float | None:
+    """OFF's serving_quantity is a numeric-looking string, e.g. "15"."""
+    try:
+        return float(v) if v not in (None, "") else None
+    except (TypeError, ValueError):
+        return None
 
 
 class FoodResolver:
@@ -89,15 +102,24 @@ class FoodResolver:
             return None
         p = data["product"]
         name = p.get("product_name") or p.get("generic_name") or "Unknown"
-        return FoodItem(name=name, barcode=barcode,
-                        per_serving=_macros_from_off(p.get("nutriments", {})),
-                        source="off")
+        return FoodItem(
+            name=name, barcode=barcode,
+            per_serving=_macros_from_off(p.get("nutriments", {})),
+            source="off",
+            brand=p.get("brands") or None,
+            serving_size=p.get("serving_size") or None,
+            serving_qty_g=_parse_serving_qty(p.get("serving_quantity")),
+            image_url=p.get("image_front_url") or p.get("image_url") or None,
+            nutrition_grade=p.get("nutriscore_grade") or None,
+            category=category_from_off(p.get("pnns_groups_1"), p.get("categories_tags")))
 
     async def _off_search(self, query: str, limit: int) -> list[FoodItem]:
         params = {
             "search_terms": query, "search_simple": 1, "action": "process",
             "json": 1, "page_size": limit,
-            "fields": "product_name,code,nutriments",
+            "fields": "product_name,code,nutriments,brands,serving_size,"
+                      "serving_quantity,image_front_url,nutriscore_grade,"
+                      "pnns_groups_1,categories_tags",
         }
         try:
             async with httpx.AsyncClient(timeout=8, headers=_UA) as c:
@@ -112,7 +134,13 @@ class FoodResolver:
             out.append(FoodItem(
                 name=p["product_name"], barcode=p.get("code"),
                 per_serving=_macros_from_off(p.get("nutriments", {})),
-                source="off"))
+                source="off",
+                brand=p.get("brands") or None,
+                serving_size=p.get("serving_size") or None,
+                serving_qty_g=_parse_serving_qty(p.get("serving_quantity")),
+                image_url=p.get("image_front_url") or None,
+                nutrition_grade=p.get("nutriscore_grade") or None,
+                category=category_from_off(p.get("pnns_groups_1"), p.get("categories_tags"))))
         return out
 
     # ---------- Chomp ----------
@@ -155,6 +183,13 @@ class FoodResolver:
                     return float(v)
             return 0.0
 
+        def txt(*keys) -> str | None:
+            for k in keys:
+                v = it.get(k)
+                if isinstance(v, str) and v:
+                    return v
+            return None
+
         return FoodItem(
             name=it.get("name", "Unknown"), barcode=barcode,
             per_serving=Macros(
@@ -162,5 +197,14 @@ class FoodResolver:
                 protein=num("protein"),
                 carbs=num("carbohydrate", "carbohydrates", "carbs"),
                 fat=num("fat", "total_fat"),
+                sugar_g=num("sugar", "sugars"),
+                fiber_g=num("fiber", "dietary_fiber"),
+                sat_fat_g=num("saturated_fat", "sat_fat"),
+                sodium_mg=num("sodium"),  # unit unverified against a live key
             ),
-            source="chomp")
+            source="chomp",
+            brand=txt("brand", "brand_name", "manufacturer"),
+            serving_size=txt("serving_size", "serving"),
+            serving_qty_g=_parse_serving_qty(it.get("serving_size_g") or it.get("serving_weight_grams")),
+            image_url=txt("image", "image_url", "img_url", "thumb"),
+            nutrition_grade=None)

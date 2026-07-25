@@ -5,6 +5,10 @@ export interface Macros {
   protein: number;
   carbs: number;
   fat: number;
+  sugar_g: number;
+  fiber_g: number;
+  sat_fat_g: number;
+  sodium_mg: number;
 }
 
 export interface FoodItem {
@@ -12,13 +16,19 @@ export interface FoodItem {
   barcode?: string | null;
   per_serving: Macros;
   source: string; // off | chomp | cache | manual
+  brand?: string | null;
+  serving_size?: string | null; // human label, e.g. "15g" or "1 cup (240ml)"
+  serving_qty_g?: number | null; // parsed grams, for scaling
+  image_url?: string | null;
+  nutrition_grade?: string | null; // e.g. Nutri-Score a-e
+  category?: string | null; // id from core/categories.ts
 }
 
 export interface InventoryItem extends FoodItem {
   item_id?: string | null;
   qty: number;
   unit: string;
-  category?: string | null;
+  location: string; // pantry | fridge | freezer
 }
 
 export interface Goals {

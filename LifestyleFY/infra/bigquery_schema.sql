@@ -20,10 +20,21 @@ CREATE TABLE IF NOT EXISTS nutrition.food_log (
   protein_g     FLOAT64,
   carbs_g       FLOAT64,
   fat_g         FLOAT64,
+  sugar_g       FLOAT64,
+  fiber_g       FLOAT64,
+  sat_fat_g     FLOAT64,
+  sodium_mg     FLOAT64,
   from_inventory BOOL
 )
 PARTITION BY DATE(ts)
 OPTIONS (description = 'Append-only meal log, one row per food item');
+
+-- Migration: run these if `food_log` was created before the sugar/fiber/
+-- sat-fat/sodium columns existed. Safe to re-run (IF NOT EXISTS).
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sugar_g FLOAT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS fiber_g FLOAT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sat_fat_g FLOAT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sodium_mg FLOAT64;
 
 -- Every barcode scan attempt (for coverage analytics + dedupe).
 CREATE TABLE IF NOT EXISTS nutrition.scans (

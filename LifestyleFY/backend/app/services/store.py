@@ -142,6 +142,10 @@ class Store:
             "protein_g": req.macros.protein * req.servings,
             "carbs_g": req.macros.carbs * req.servings,
             "fat_g": req.macros.fat * req.servings,
+            "sugar_g": req.macros.sugar_g * req.servings,
+            "fiber_g": req.macros.fiber_g * req.servings,
+            "sat_fat_g": req.macros.sat_fat_g * req.servings,
+            "sodium_mg": req.macros.sodium_mg * req.servings,
             "from_inventory": req.from_inventory,
         }
         self._bq_insert("food_log", [row])
@@ -167,7 +171,8 @@ class Store:
             return [r for r in self._food_log
                     if r["uid"] == uid and r["ts"][:10] == day_iso]
         q = f"""
-            SELECT calories, protein_g, carbs_g, fat_g
+            SELECT calories, protein_g, carbs_g, fat_g,
+                   sugar_g, fiber_g, sat_fat_g, sodium_mg
             FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
             WHERE uid=@uid AND DATE(ts)=@day
         """
@@ -188,6 +193,10 @@ class Store:
             protein=sum(r["protein_g"] or 0 for r in rows),
             carbs=sum(r["carbs_g"] or 0 for r in rows),
             fat=sum(r["fat_g"] or 0 for r in rows),
+            sugar_g=sum(r.get("sugar_g") or 0 for r in rows),
+            fiber_g=sum(r.get("fiber_g") or 0 for r in rows),
+            sat_fat_g=sum(r.get("sat_fat_g") or 0 for r in rows),
+            sodium_mg=sum(r.get("sodium_mg") or 0 for r in rows),
         )
         goals = self.get_goals(uid)
         if goals:

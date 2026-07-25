@@ -9,6 +9,10 @@ class Macros(BaseModel):
     protein: float = 0
     carbs: float = 0
     fat: float = 0
+    sugar_g: float = 0
+    fiber_g: float = 0
+    sat_fat_g: float = 0
+    sodium_mg: float = 0
 
 
 class FoodItem(BaseModel):
@@ -17,6 +21,12 @@ class FoodItem(BaseModel):
     barcode: str | None = None
     per_serving: Macros = Field(default_factory=Macros)
     source: str = "manual"  # off | chomp | cache | manual
+    brand: str | None = None
+    serving_size: str | None = None  # human label, e.g. "15g" or "1 cup (240ml)"
+    serving_qty_g: float | None = None  # parsed grams, for scaling
+    image_url: str | None = None
+    nutrition_grade: str | None = None  # e.g. Nutri-Score a-e
+    category: str | None = None  # id from services/categories.py
 
 
 class ScanRequest(BaseModel):
@@ -27,7 +37,7 @@ class InventoryItem(FoodItem):
     item_id: str | None = None
     qty: float = 1
     unit: str = "unit"
-    category: str | None = None
+    location: str = "pantry"  # pantry | fridge | freezer
 
 
 class LogRequest(BaseModel):

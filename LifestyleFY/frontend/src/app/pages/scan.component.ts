@@ -7,6 +7,7 @@ import { Router } from '@angular/router';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { ApiService } from '../core/api.service';
 import { FoodItem, InventoryItem } from '../core/models';
+import { defaultLocation } from '../core/categories';
 
 @Component({
   selector: 'app-scan',
@@ -131,8 +132,8 @@ export class ScanComponent implements AfterViewInit, OnDestroy {
   addToPantry(): void {
     if (!this.found) return;
     const item: InventoryItem = {
-      ...this.found, qty: this.qty, unit: 'unit',
-      category: null, item_id: null,
+      ...this.found, qty: this.qty, unit: 'unit', item_id: null,
+      location: defaultLocation(this.found.category),
     };
     this.api.addInventory(item).subscribe(() => {
       this.status = `Added ${this.found!.name} to pantry.`;

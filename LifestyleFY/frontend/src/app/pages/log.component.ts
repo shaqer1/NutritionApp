@@ -65,7 +65,10 @@ export class LogComponent implements OnInit {
   meal = 'lunch';
   name = '';
   servings = 1;
-  macros: Macros = { cal: 0, protein: 0, carbs: 0, fat: 0 };
+  macros: Macros = {
+    cal: 0, protein: 0, carbs: 0, fat: 0,
+    sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+  };
   fromInventory = false;
   pantry: InventoryItem[] = [];
 

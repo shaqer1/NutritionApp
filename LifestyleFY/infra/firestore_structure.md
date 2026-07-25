@@ -15,12 +15,19 @@ users/{uid}
 │                                     remaining:{cal,protein,carbs,fat},
 │                                     meals_logged, pct_to_goal, last_updated }
 ├── inventory/{itemId}     (docs)  { name, barcode, qty, unit,
-│                                     per_serving:{cal,protein,carbs,fat},
-│                                     category, source:'off'|'chomp'|'manual', added_at }
+│                                     per_serving:{cal,protein,carbs,fat,
+│                                       sugar_g,fiber_g,sat_fat_g,sodium_mg},
+│                                     category (see services/categories.py),
+│                                     location:'pantry'|'fridge'|'freezer',
+│                                     source:'off'|'chomp'|'manual',
+│                                     brand, serving_size, serving_qty_g,
+│                                     image_url, nutrition_grade, added_at }
 └── coach_messages/{msgId} (docs)  { text, type:'nudge'|'goal'|'recipe',
                                       created_at, read }
 
-barcode_cache/{barcode}    (doc)   { name, per_serving:{...}, source, cached_at }
+barcode_cache/{barcode}    (doc)   { name, per_serving:{...}, source,
+                                      brand, serving_size, serving_qty_g,
+                                      image_url, nutrition_grade, cached_at }
 ```
 
 Notes:
