@@ -5,14 +5,20 @@
   and for the open-ended recipe/grocery/nudge generation.
 - nudge(): meal-time check. If behind pace, ask Gemini for one realistic,
   quick, energy-boosting meal that closes the gap using on-hand inventory.
-- recipes()/grocery(): open-ended generation from inventory + goals + prefs.
+- suggest_recipe(): structured (JSON) recipe draft built from real pantry
+  ingredients — distinct from grocery()'s free-text generation, since a
+  recipe needs to be editable/saveable as a Recipe, not just prose.
+- grocery(): open-ended generation from inventory + goals + prefs.
 
-USE_STUBS returns canned text so the API runs with no Gemini key.
+USE_STUBS returns canned text (or a canned Recipe) so the API runs with no
+Gemini key.
 """
 from __future__ import annotations
 
+import json
+
 from ..config import Settings
-from ..models import Goals, InventoryItem, Macros, Profile, TodaySummary
+from ..models import Goals, InventoryItem, Profile, Recipe, RecipeIngredient, TodaySummary
 
 ACTIVITY = {
     "sedentary": 1.2, "light": 1.375, "moderate": 1.55,
@@ -99,18 +105,64 @@ class Coach:
         return self._generate(prompt)
 
     # ---------- Recipes ----------
-    def recipes(self, inventory: list[InventoryItem], remaining: Macros,
-                prefs: list[str], allergies: list[str], count: int = 3) -> str:
-        on_hand = ", ".join(f"{i.name} (x{i.qty})" for i in inventory) or "basic staples"
+    def suggest_recipe(self, inventory: list[InventoryItem], prefs: list[str],
+                       allergies: list[str]) -> Recipe:
+        """A structured (not free-text) recipe draft, built preferentially from
+        real pantry ingredients so it's directly editable/saveable and its
+        ingredient lines can later be logged against actual inventory."""
+        if self.s.use_stubs or not self.s.gemini_api_key:
+            sample = inventory[:2]
+            return Recipe(
+                name="Stubbed Recipe (no Gemini key)",
+                servings=1,
+                instructions="This is a stub — set GEMINI_API_KEY for real AI suggestions.",
+                ingredients=[
+                    RecipeIngredient(
+                        item_id=i.item_id, name=i.name, quantity=1, unit=i.unit,
+                        macros=i.per_serving,
+                    )
+                    for i in sample
+                ],
+                source="ai",
+            )
+
+        on_hand = [
+            {
+                "item_id": i.item_id, "name": i.name, "unit": i.unit,
+                "serving_qty": i.serving_qty, "serving_unit": i.serving_unit,
+                "macros_per_serving": i.per_serving.model_dump(),
+            }
+            for i in inventory
+        ]
         prompt = (
-            f"Ingredients on hand: {on_hand}. Dietary prefs: "
-            f"{', '.join(prefs) or 'none'}. Allergies: {', '.join(allergies) or 'none'}. "
-            f"Suggest {count} muscle-gain recipes that together roughly hit "
-            f"{round(remaining.cal)} kcal and {round(remaining.protein)}g protein "
-            f"remaining today. For each: name, ingredients used, quick steps, and "
-            f"approx macros. Prefer high-protein, calorie-dense options."
+            "You are a recipe assistant for a muscle-gain nutrition app. Using "
+            "ONLY (or as much as possible) the ingredients listed below from the "
+            "user's own pantry, suggest ONE high-protein, calorie-dense recipe. "
+            f"Dietary prefs: {', '.join(prefs) or 'none'}. "
+            f"Allergies: {', '.join(allergies) or 'none'} (must avoid).\n\n"
+            f"Pantry ingredients (JSON): {json.dumps(on_hand)}\n\n"
+            "Respond with ONLY valid JSON (no markdown fences, no commentary) "
+            "matching exactly this shape:\n"
+            '{"name": "string", "servings": number, "instructions": "string", '
+            '"ingredients": [{"item_id": "string or null", "name": "string", '
+            '"quantity": number, "unit": "string", "macros": {"cal": number, '
+            '"protein": number, "carbs": number, "fat": number, "sugar_g": number, '
+            '"fiber_g": number, "sat_fat_g": number, "sodium_mg": number}}]}\n'
+            "The macros object per ingredient should reflect that ingredient's "
+            "quantity in this recipe (not per-serving-of-the-original-product)."
         )
-        return self._generate(prompt, smart=True)
+        text = self._generate(prompt, smart=True)
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.lower().startswith("json"):
+                cleaned = cleaned[4:]
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AI returned malformed recipe JSON: {e}") from e
+        data["source"] = "ai"
+        return Recipe(**data)
 
     # ---------- Grocery list ----------
     def grocery(self, inventory: list[InventoryItem], goals: Goals,

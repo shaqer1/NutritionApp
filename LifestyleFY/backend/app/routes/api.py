@@ -1,12 +1,13 @@
 """All HTTP routes for the nutrition API."""
-from datetime import datetime
+from datetime import date as date_type
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from ..auth import current_uid
 from ..deps import coach_dep, resolver_dep, store_dep
 from ..models import (
-    Goals, InventoryItem, LogRequest, Profile, ScanRequest, TodaySummary,
+    Goals, InventoryItem, LogRequest, Profile, Recipe, ScanRequest, TodaySummary,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.food import FoodResolver
@@ -80,6 +81,14 @@ def today(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return store.get_today_summary(uid)
 
 
+@router.get("/log")
+def get_log(date: date_type | None = None, uid: str = Depends(current_uid),
+           store: Store = Depends(store_dep)):
+    # Default to today in UTC, matching how `ts` is stored (store.py:_now()) —
+    # naive local time would disagree with the stored UTC date near midnight.
+    return {"entries": store.list_log(uid, date or datetime.now(timezone.utc).date())}
+
+
 # ---------- Profile & goals ----------
 @router.get("/profile")
 def get_profile(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
@@ -128,17 +137,40 @@ def advance_goal(uid: str = Depends(current_uid), store: Store = Depends(store_d
     return {"goals": goals}
 
 
-# ---------- AI: recipes, grocery, coach ----------
-@router.post("/recipes")
-def recipes(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
-            coach: Coach = Depends(coach_dep)):
+# ---------- Recipes: AI-suggested draft, then explicit save/list/delete ----------
+@router.post("/recipes/suggest")
+def suggest_recipe(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                   coach: Coach = Depends(coach_dep)):
     profile = store.get_profile(uid)
-    summary = store.get_today_summary(uid)
-    text = coach.recipes(
-        store.list_inventory(uid), summary.remaining,
-        profile.dietary_prefs if profile else [],
-        profile.allergies if profile else [])
-    return {"recipes": text}
+    try:
+        recipe = coach.suggest_recipe(
+            store.list_inventory(uid),
+            profile.dietary_prefs if profile else [],
+            profile.allergies if profile else [])
+    except ValueError as e:
+        raise HTTPException(502, f"Recipe generation failed: {e}") from e
+    return {"recipe": recipe}
+
+
+@router.post("/recipes")
+def save_recipe(recipe: Recipe, uid: str = Depends(current_uid),
+                store: Store = Depends(store_dep)):
+    return {"recipe": store.save_recipe(uid, recipe)}
+
+
+@router.get("/recipes")
+def list_recipes(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return {"recipes": store.list_recipes(uid)}
+
+
+@router.delete("/recipes/{recipe_id}")
+def delete_recipe(recipe_id: str, uid: str = Depends(current_uid),
+                  store: Store = Depends(store_dep)):
+    store.delete_recipe(uid, recipe_id)
+    return {"ok": True}
+
+
+# ---------- AI: grocery, coach ----------
 
 
 @router.post("/grocery")

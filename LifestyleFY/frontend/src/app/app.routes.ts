@@ -7,21 +7,24 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/today.component').then((m) => m.TodayComponent),
   },
   {
-    path: 'scan',
-    loadComponent: () => import('./pages/scan.component').then((m) => m.ScanComponent),
-  },
-  {
-    path: 'log',
-    loadComponent: () => import('./pages/log.component').then((m) => m.LogComponent),
-  },
-  {
     path: 'inventory',
     loadComponent: () =>
       import('./pages/inventory.component').then((m) => m.InventoryComponent),
   },
   {
-    path: 'goals',
-    loadComponent: () => import('./pages/goals.component').then((m) => m.GoalsComponent),
+    path: 'inventory/item/:itemId',
+    loadComponent: () =>
+      import('./pages/inventory-item.component').then((m) => m.InventoryItemComponent),
+  },
+  {
+    path: 'groceries',
+    loadComponent: () =>
+      import('./pages/groceries.component').then((m) => m.GroceriesComponent),
+  },
+  {
+    path: 'recipes',
+    loadComponent: () =>
+      import('./pages/recipes.component').then((m) => m.RecipesComponent),
   },
   {
     path: 'coach',

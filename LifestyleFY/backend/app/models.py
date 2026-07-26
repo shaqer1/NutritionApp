@@ -22,8 +22,13 @@ class FoodItem(BaseModel):
     per_serving: Macros = Field(default_factory=Macros)
     source: str = "manual"  # off | chomp | cache | manual
     brand: str | None = None
-    serving_size: str | None = None  # human label, e.g. "15g" or "1 cup (240ml)"
-    serving_qty_g: float | None = None  # parsed grams, for scaling
+    serving_size: str | None = None  # raw human label, e.g. "1 bar (40 g)"
+    serving_size_qty: float | None = None  # informational: leading qty before "(", e.g. 1 in "1 bar (40 g)" — NOT used in calcs
+    serving_size_unit: str | None = None  # informational: leading unit/word before "(", e.g. "bar"
+    serving_qty: float | None = None  # calc quantity per serving, any unit — drives grams/decrement math
+    serving_unit: str | None = None  # calc unit, e.g. "g", "ml"
+    serving_qty_g: float | None = None  # grams-only convenience; set only when serving_unit == "g"
+    macros_basis: str | None = None  # "serving" | "100g" | None — which basis per_serving actually used
     image_url: str | None = None
     nutrition_grade: str | None = None  # e.g. Nutri-Score a-e
     category: str | None = None  # id from services/categories.py
@@ -43,6 +48,7 @@ class InventoryItem(FoodItem):
 
 class LogRequest(BaseModel):
     meal: str = "snack"  # breakfast | lunch | dinner | snack
+    meal_instance: int = 1  # distinguishes separate sittings, e.g. "Lunch 2"
     item_name: str
     barcode: str | None = None
     source: str = "manual"
@@ -50,7 +56,23 @@ class LogRequest(BaseModel):
     macros: Macros
     from_inventory: bool = False
     inventory_item_id: str | None = None  # decrements this item's qty when set
+    grams: float | None = None  # actual grams consumed, computed client-side
+    log_date: date | None = None  # client's local calendar day; bucketing uses
+    # this instead of the UTC date of `ts` — otherwise entries logged in the
+    # evening in any UTC-negative timezone silently land in "tomorrow".
     ts: datetime | None = None  # defaults to now server-side
+
+
+class LogEntry(BaseModel):
+    """One itemized food_log row, as returned by GET /log."""
+    item_name: str
+    barcode: str | None = None
+    meal: str
+    meal_instance: int = 1
+    servings: float
+    macros: Macros  # totals for this entry (already scaled by servings)
+    grams: float | None = None
+    ts: datetime
 
 
 class Goals(BaseModel):
@@ -88,3 +110,21 @@ class CoachMessage(BaseModel):
     text: str
     type: str  # nudge | goal | recipe
     created_at: datetime
+
+
+class RecipeIngredient(BaseModel):
+    item_id: str | None = None  # pantry Ingredient reference, if matched
+    name: str
+    quantity: float
+    unit: str
+    macros: Macros = Field(default_factory=Macros)  # snapshot, for this quantity
+
+
+class Recipe(BaseModel):
+    recipe_id: str | None = None
+    name: str
+    servings: float = 1
+    instructions: str = ""
+    ingredients: list[RecipeIngredient] = Field(default_factory=list)
+    source: str = "manual"  # ai | manual
+    created_at: datetime | None = None

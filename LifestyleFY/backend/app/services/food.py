@@ -12,6 +12,8 @@ free first pass.
 """
 from __future__ import annotations
 
+import re
+
 import httpx
 
 from ..config import Settings
@@ -27,17 +29,24 @@ CHOMP_SEARCH = "https://chompthis.com/api/v2/food/branded/name.php"
 _UA = {"User-Agent": "personal-nutrition-app/1.0 (single user)"}
 
 
-def _macros_from_off(nutriments: dict) -> Macros:
-    """OFF reports per-100g; we store per-serving≈per-100g unless a serving is
-    given. Kept simple: use per-serving fields when present, else per-100g."""
+def _macros_from_off(nutriments: dict) -> tuple[Macros, str | None]:
+    """OFF reports per-100g; we prefer per-serving when present. Returns the
+    Macros plus which basis was actually used ("serving" | "100g" | None), so
+    callers can be honest about it instead of silently mislabeling 100g data
+    as per-serving (confirmed live: OFF sometimes has no _serving keys at all)."""
+    basis_seen: str | None = None
+
     def g(key: str) -> float:
-        for suffix in ("_serving", "_100g"):
+        nonlocal basis_seen
+        for suffix, basis in (("_serving", "serving"), ("_100g", "100g")):
             v = nutriments.get(key + suffix)
             if isinstance(v, (int, float)):
+                if basis_seen is None:
+                    basis_seen = basis
                 return float(v)
         return 0.0
 
-    return Macros(
+    macros = Macros(
         cal=g("energy-kcal"),
         protein=g("proteins"),
         carbs=g("carbohydrates"),
@@ -47,14 +56,75 @@ def _macros_from_off(nutriments: dict) -> Macros:
         sat_fat_g=g("saturated-fat"),
         sodium_mg=g("sodium") * 1000,  # OFF reports sodium in grams
     )
+    return macros, basis_seen
 
 
-def _parse_serving_qty(v) -> float | None:
-    """OFF's serving_quantity is a numeric-looking string, e.g. "15"."""
-    try:
-        return float(v) if v not in (None, "") else None
-    except (TypeError, ValueError):
+_SERVING_STR_RE = re.compile(r"([\d.]+)\s*([a-zA-Z]+)")
+
+
+def _parse_serving_str(s) -> tuple[float, str] | None:
+    """Parse a leading numeric+unit token, e.g. "15 g" -> (15.0, "g")."""
+    if not isinstance(s, str) or not s:
         return None
+    m = _SERVING_STR_RE.search(s)
+    if not m:
+        return None
+    try:
+        return float(m.group(1)), m.group(2).lower()
+    except ValueError:
+        return None
+
+
+def _split_serving_size(s) -> tuple[tuple[float, str] | None, tuple[float, str] | None]:
+    """Split a raw OFF serving_size string like "1 bar (40 g)" into
+    (info_pair, calc_pair):
+      - info_pair is parsed from the text BEFORE "(", e.g. (1.0, "bar") —
+        purely a human-facing label, never used in grams/decrement math.
+      - calc_pair is parsed from inside the parens, e.g. (40.0, "g") — this
+        drives grams tracking, since OFF puts the actual measurable quantity
+        there and the prefix is just a container-shape description (confirmed
+        live: "1 bar (40 g)", "2 tbsp (30 g)", etc.).
+    If there's no "(", the whole string is treated as the calc pair and
+    there's no separate informational label."""
+    if not isinstance(s, str) or not s:
+        return None, None
+    if "(" in s:
+        prefix, _, rest = s.partition("(")
+        inside = rest.split(")")[0]
+        return _parse_serving_str(prefix), _parse_serving_str(inside)
+    return None, _parse_serving_str(s)
+
+
+def _serving_info(p: dict) -> tuple[float | None, str | None, float | None, str | None]:
+    """Fallback chain for serving info. Returns (calc_qty, calc_unit,
+    info_qty, info_unit).
+
+    calc_* drives grams/decrement math, preferring explicit
+    serving_quantity + serving_quantity_unit (OFF's own parsed numeric
+    fields) over parsing serving_size text ourselves. info_* is the
+    human-facing "1 bar" style label, always parsed from serving_size text
+    (never from serving_quantity, which has no such prefix) and only ever
+    for display. OFF's data is community-edited and fields drift (confirmed
+    live: the same barcode had serving_size vs. serving_size_imported
+    populated at different points in the same session), so we try both."""
+    info_pair, calc_from_text = _split_serving_size(p.get("serving_size"))
+    if info_pair is None:
+        info_pair, calc_from_text2 = _split_serving_size(p.get("serving_size_imported"))
+        calc_from_text = calc_from_text or calc_from_text2
+
+    calc_pair = None
+    sq, su = p.get("serving_quantity"), p.get("serving_quantity_unit")
+    if sq not in (None, "") and su:
+        try:
+            calc_pair = (float(sq), str(su).lower())
+        except (TypeError, ValueError):
+            calc_pair = None
+    calc_pair = calc_pair or calc_from_text
+
+    return (
+        calc_pair[0] if calc_pair else None, calc_pair[1] if calc_pair else None,
+        info_pair[0] if info_pair else None, info_pair[1] if info_pair else None,
+    )
 
 
 class FoodResolver:
@@ -114,13 +184,20 @@ class FoodResolver:
         if p is None:
             return None
         name = p.get("product_name") or p.get("generic_name") or "Unknown"
+        macros, basis = _macros_from_off(p.get("nutriments", {}))
+        serving_qty, serving_unit, serving_size_qty, serving_size_unit = _serving_info(p)
         return FoodItem(
             name=name, barcode=barcode,
-            per_serving=_macros_from_off(p.get("nutriments", {})),
+            per_serving=macros,
+            macros_basis=basis,
             source="off",
             brand=p.get("brands") or None,
-            serving_size=p.get("serving_size") or None,
-            serving_qty_g=_parse_serving_qty(p.get("serving_quantity")),
+            serving_size=p.get("serving_size") or p.get("serving_size_imported") or None,
+            serving_size_qty=serving_size_qty,
+            serving_size_unit=serving_size_unit,
+            serving_qty=serving_qty,
+            serving_unit=serving_unit,
+            serving_qty_g=serving_qty if serving_unit == "g" else None,
             image_url=p.get("image_front_url") or p.get("image_url") or None,
             nutrition_grade=p.get("nutriscore_grade") or None,
             category=category_from_off(p.get("pnns_groups_1"), p.get("categories_tags")))
@@ -130,8 +207,8 @@ class FoodResolver:
             "search_terms": query, "search_simple": 1, "action": "process",
             "json": 1, "page_size": limit,
             "fields": "product_name,code,nutriments,brands,serving_size,"
-                      "serving_quantity,image_front_url,nutriscore_grade,"
-                      "pnns_groups_1,categories_tags",
+                      "serving_size_imported,serving_quantity,serving_quantity_unit,"
+                      "image_front_url,nutriscore_grade,pnns_groups_1,categories_tags",
         }
         try:
             async with httpx.AsyncClient(timeout=8, headers=_UA) as c:
@@ -143,13 +220,20 @@ class FoodResolver:
         for p in data.get("products", [])[:limit]:
             if not p.get("product_name"):
                 continue
+            macros, basis = _macros_from_off(p.get("nutriments", {}))
+            serving_qty, serving_unit, serving_size_qty, serving_size_unit = _serving_info(p)
             out.append(FoodItem(
                 name=p["product_name"], barcode=p.get("code"),
-                per_serving=_macros_from_off(p.get("nutriments", {})),
+                per_serving=macros,
+                macros_basis=basis,
                 source="off",
                 brand=p.get("brands") or None,
-                serving_size=p.get("serving_size") or None,
-                serving_qty_g=_parse_serving_qty(p.get("serving_quantity")),
+                serving_size=p.get("serving_size") or p.get("serving_size_imported") or None,
+                serving_size_qty=serving_size_qty,
+                serving_size_unit=serving_size_unit,
+                serving_qty=serving_qty,
+                serving_unit=serving_unit,
+                serving_qty_g=serving_qty if serving_unit == "g" else None,
                 image_url=p.get("image_front_url") or None,
                 nutrition_grade=p.get("nutriscore_grade") or None,
                 category=category_from_off(p.get("pnns_groups_1"), p.get("categories_tags"))))
@@ -202,6 +286,12 @@ class FoodResolver:
                     return v
             return None
 
+        serving_grams_raw = it.get("serving_size_g") or it.get("serving_weight_grams")
+        try:
+            serving_grams = float(serving_grams_raw) if serving_grams_raw not in (None, "") else None
+        except (TypeError, ValueError):
+            serving_grams = None
+
         return FoodItem(
             name=it.get("name", "Unknown"), barcode=barcode,
             per_serving=Macros(
@@ -217,6 +307,8 @@ class FoodResolver:
             source="chomp",
             brand=txt("brand", "brand_name", "manufacturer"),
             serving_size=txt("serving_size", "serving"),
-            serving_qty_g=_parse_serving_qty(it.get("serving_size_g") or it.get("serving_weight_grams")),
+            serving_qty=serving_grams,
+            serving_unit="g" if serving_grams is not None else None,
+            serving_qty_g=serving_grams,
             image_url=txt("image", "image_url", "img_url", "thumb"),
             nutrition_grade=None)

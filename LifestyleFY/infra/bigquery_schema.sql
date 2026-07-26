@@ -10,8 +10,11 @@
 CREATE TABLE IF NOT EXISTS nutrition.food_log (
   log_id        STRING    NOT NULL,   -- uuid
   uid           STRING    NOT NULL,   -- Firebase user id
-  ts            TIMESTAMP NOT NULL,   -- when it was consumed/logged
+  ts            TIMESTAMP NOT NULL,   -- when it was consumed/logged (UTC instant)
+  log_date      STRING,               -- client's local calendar day (YYYY-MM-DD);
+                                       -- use this for "today" filtering, not DATE(ts)
   meal          STRING,               -- breakfast | lunch | dinner | snack
+  meal_instance INT64,                -- distinguishes separate sittings, e.g. "Lunch 2"
   item_name     STRING,
   barcode       STRING,
   source        STRING,               -- off | chomp | manual | inventory
@@ -24,7 +27,8 @@ CREATE TABLE IF NOT EXISTS nutrition.food_log (
   fiber_g       FLOAT64,
   sat_fat_g     FLOAT64,
   sodium_mg     FLOAT64,
-  from_inventory BOOL
+  from_inventory BOOL,
+  grams         FLOAT64             -- actual grams consumed, when derivable
 )
 PARTITION BY DATE(ts)
 OPTIONS (description = 'Append-only meal log, one row per food item');
@@ -35,6 +39,9 @@ ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sugar_g FLOAT64;
 ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS fiber_g FLOAT64;
 ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sat_fat_g FLOAT64;
 ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS sodium_mg FLOAT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS meal_instance INT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS grams FLOAT64;
+ALTER TABLE nutrition.food_log ADD COLUMN IF NOT EXISTS log_date STRING;
 
 -- Every barcode scan attempt (for coverage analytics + dedupe).
 CREATE TABLE IF NOT EXISTS nutrition.scans (

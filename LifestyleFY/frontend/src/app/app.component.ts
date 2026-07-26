@@ -17,17 +17,14 @@ import { environment } from '../environments/environment';
         <a routerLink="/today" routerLinkActive="active">
           <span class="ico">📊</span>Today
         </a>
-        <a routerLink="/scan" routerLinkActive="active">
-          <span class="ico">📷</span>Scan
-        </a>
-        <a routerLink="/log" routerLinkActive="active">
-          <span class="ico">🍽️</span>Log
-        </a>
         <a routerLink="/inventory" routerLinkActive="active">
-          <span class="ico">🧺</span>Pantry
+          <span class="ico">🧺</span>Inventory
         </a>
-        <a routerLink="/goals" routerLinkActive="active">
-          <span class="ico">🎯</span>Goals
+        <a routerLink="/groceries" routerLinkActive="active">
+          <span class="ico">🛒</span>Groceries
+        </a>
+        <a routerLink="/recipes" routerLinkActive="active">
+          <span class="ico">🍳</span>Recipes
         </a>
         <a routerLink="/coach" routerLinkActive="active">
           <span class="ico">🤖</span>Coach

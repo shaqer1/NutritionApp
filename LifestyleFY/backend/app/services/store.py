@@ -11,7 +11,9 @@ import uuid
 from datetime import date, datetime, timezone
 
 from ..config import Settings
-from ..models import Goals, InventoryItem, LogRequest, Macros, Profile, TodaySummary
+from ..models import (
+    Goals, InventoryItem, LogEntry, LogRequest, Macros, Profile, Recipe, TodaySummary,
+)
 
 
 def _now() -> datetime:
@@ -30,6 +32,7 @@ class Store:
             self._profiles: dict[str, dict] = {}
             self._goals: dict[str, dict] = {}
             self._inventory: dict[str, dict[str, dict]] = {}
+            self._recipes: dict[str, dict[str, dict]] = {}
             self._today: dict[str, dict] = {}
             self._coach: dict[str, list[dict]] = {}
             self._barcode_cache: dict[str, dict] = {}
@@ -119,6 +122,35 @@ class Store:
             return
         self._user_doc(uid).collection("inventory").document(item_id).delete()
 
+    # ---------- Recipes ----------
+    def list_recipes(self, uid: str) -> list[Recipe]:
+        if self.stub:
+            return [Recipe(**v) for v in self._recipes.get(uid, {}).values()]
+        docs = self._user_doc(uid).collection("recipes").stream()
+        out = []
+        for d in docs:
+            r = d.to_dict()
+            r["recipe_id"] = d.id
+            out.append(Recipe(**r))
+        return out
+
+    def save_recipe(self, uid: str, recipe: Recipe) -> Recipe:
+        recipe.recipe_id = recipe.recipe_id or uuid.uuid4().hex
+        if recipe.created_at is None:
+            recipe.created_at = _now()
+        data = recipe.model_dump(mode="json")
+        if self.stub:
+            self._recipes.setdefault(uid, {})[recipe.recipe_id] = data
+            return recipe
+        self._user_doc(uid).collection("recipes").document(recipe.recipe_id).set(data)
+        return recipe
+
+    def delete_recipe(self, uid: str, recipe_id: str) -> None:
+        if self.stub:
+            self._recipes.get(uid, {}).pop(recipe_id, None)
+            return
+        self._user_doc(uid).collection("recipes").document(recipe_id).delete()
+
     def _decrement_inventory(self, uid: str, item_id: str, servings: float) -> None:
         """Best-effort: a missing/invalid item_id is a silent no-op, since meal
         logging must never fail because of a stale inventory reference."""
@@ -150,9 +182,12 @@ class Store:
     # ---------- Meal logging ----------
     def log_meal(self, uid: str, req: LogRequest) -> TodaySummary:
         ts = req.ts or _now()
+        log_date = req.log_date or ts.date()
         row = {
             "log_id": uuid.uuid4().hex, "uid": uid, "ts": ts.isoformat(),
-            "meal": req.meal, "item_name": req.item_name, "barcode": req.barcode,
+            "log_date": log_date.isoformat(),
+            "meal": req.meal, "meal_instance": req.meal_instance,
+            "item_name": req.item_name, "barcode": req.barcode,
             "source": req.source, "servings": req.servings,
             "calories": req.macros.cal * req.servings,
             "protein_g": req.macros.protein * req.servings,
@@ -163,6 +198,7 @@ class Store:
             "sat_fat_g": req.macros.sat_fat_g * req.servings,
             "sodium_mg": req.macros.sodium_mg * req.servings,
             "from_inventory": req.from_inventory,
+            "grams": req.grams,
         }
         self._bq_insert("food_log", [row])
         if self.stub:
@@ -201,6 +237,49 @@ class Store:
                 bigquery.ScalarQueryParameter("day", "DATE", day_iso),
             ]))
         return [dict(r) for r in job.result()]
+
+    def list_log(self, uid: str, day: date) -> list[LogEntry]:
+        """Itemized food_log rows for a given date (unlike recompute_today_summary,
+        which only returns the aggregate). Powers the Log view's meal groupings.
+
+        Filters by the `log_date` column (the client's local calendar day),
+        not DATE(ts) — `ts` is a UTC instant, so bucketing by its date would
+        silently disagree with the user's local "today" near a midnight-UTC
+        boundary (confirmed live: 7pm CDT is already the next day in UTC)."""
+        day_iso = day.isoformat()
+        if self.stub:
+            rows = [r for r in self._food_log
+                    if r["uid"] == uid and r.get("log_date", r["ts"][:10]) == day_iso]
+        else:
+            q = f"""
+                SELECT item_name, barcode, meal, meal_instance, servings,
+                       calories, protein_g, carbs_g, fat_g,
+                       sugar_g, fiber_g, sat_fat_g, sodium_mg, grams, ts
+                FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
+                WHERE uid=@uid AND log_date=@day
+                ORDER BY ts
+            """
+            from google.cloud import bigquery
+            job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
+                query_parameters=[
+                    bigquery.ScalarQueryParameter("uid", "STRING", uid),
+                    bigquery.ScalarQueryParameter("day", "STRING", day_iso),
+                ]))
+            rows = [dict(r) for r in job.result()]
+        return [
+            LogEntry(
+                item_name=r["item_name"], barcode=r.get("barcode"),
+                meal=r["meal"], meal_instance=r.get("meal_instance") or 1,
+                servings=r["servings"], grams=r.get("grams"), ts=r["ts"],
+                macros=Macros(
+                    cal=r["calories"] or 0, protein=r["protein_g"] or 0,
+                    carbs=r["carbs_g"] or 0, fat=r["fat_g"] or 0,
+                    sugar_g=r.get("sugar_g") or 0, fiber_g=r.get("fiber_g") or 0,
+                    sat_fat_g=r.get("sat_fat_g") or 0, sodium_mg=r.get("sodium_mg") or 0,
+                ),
+            )
+            for r in rows
+        ]
 
     def recompute_today_summary(self, uid: str, day: date | None = None,
                                 coach_tip: str | None = None) -> TodaySummary:

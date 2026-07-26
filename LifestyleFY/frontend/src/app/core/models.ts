@@ -17,8 +17,13 @@ export interface FoodItem {
   per_serving: Macros;
   source: string; // off | chomp | cache | manual
   brand?: string | null;
-  serving_size?: string | null; // human label, e.g. "15g" or "1 cup (240ml)"
-  serving_qty_g?: number | null; // parsed grams, for scaling
+  serving_size?: string | null; // raw human label, e.g. "1 bar (40 g)"
+  serving_size_qty?: number | null; // informational: leading qty before "(", e.g. 1 in "1 bar (40 g)" — NOT used in calcs
+  serving_size_unit?: string | null; // informational: leading unit/word before "(", e.g. "bar"
+  serving_qty?: number | null; // calc quantity per serving, any unit — drives grams/decrement math
+  serving_unit?: string | null; // calc unit, e.g. "g", "ml"
+  serving_qty_g?: number | null; // grams-only convenience; set only when serving_unit === "g"
+  macros_basis?: string | null; // "serving" | "100g" | null — which basis per_serving actually used
   image_url?: string | null;
   nutrition_grade?: string | null; // e.g. Nutri-Score a-e
   category?: string | null; // id from core/categories.ts
@@ -65,6 +70,7 @@ export interface TodaySummary {
 
 export interface LogRequest {
   meal: string;
+  meal_instance?: number; // distinguishes separate sittings, e.g. "Lunch 2"
   item_name: string;
   barcode?: string | null;
   source?: string;
@@ -72,6 +78,19 @@ export interface LogRequest {
   macros: Macros;
   from_inventory?: boolean;
   inventory_item_id?: string | null;
+  grams?: number | null; // actual grams consumed, computed client-side
+  log_date?: string | null; // client's local calendar day (YYYY-MM-DD)
+}
+
+export interface LogEntry {
+  item_name: string;
+  barcode?: string | null;
+  meal: string;
+  meal_instance: number;
+  servings: number;
+  macros: Macros; // totals for this entry (already scaled by servings)
+  grams?: number | null;
+  ts: string;
 }
 
 export interface CoachMessage {
@@ -79,4 +98,22 @@ export interface CoachMessage {
   type: string;
   created_at: string;
   read?: boolean;
+}
+
+export interface RecipeIngredient {
+  item_id?: string | null; // pantry Ingredient reference, if matched
+  name: string;
+  quantity: number;
+  unit: string;
+  macros: Macros; // snapshot, for this quantity
+}
+
+export interface Recipe {
+  recipe_id?: string | null;
+  name: string;
+  servings: number;
+  instructions: string;
+  ingredients: RecipeIngredient[];
+  source: string; // ai | manual
+  created_at?: string | null;
 }

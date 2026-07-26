@@ -3,7 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  CoachMessage, FoodItem, Goals, InventoryItem, LogRequest, Profile, TodaySummary,
+  CoachMessage, FoodItem, Goals, InventoryItem, LogEntry, LogRequest, Profile,
+  Recipe, TodaySummary,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -43,6 +44,10 @@ export class ApiService {
   today(): Observable<TodaySummary> {
     return this.http.get<TodaySummary>(`${this.base}/today`);
   }
+  getLog(date?: string): Observable<{ entries: LogEntry[] }> {
+    return this.http.get<{ entries: LogEntry[] }>(
+      `${this.base}/log`, { params: date ? { date } : {} });
+  }
 
   // --- profile / goals ---
   getProfile(): Observable<{ profile: Profile | null }> {
@@ -66,10 +71,21 @@ export class ApiService {
     return this.http.post<{ goals: Goals }>(`${this.base}/goals/next`, {});
   }
 
-  // --- AI ---
-  recipes(): Observable<{ recipes: string }> {
-    return this.http.post<{ recipes: string }>(`${this.base}/recipes`, {});
+  // --- Recipes ---
+  suggestRecipe(): Observable<{ recipe: Recipe }> {
+    return this.http.post<{ recipe: Recipe }>(`${this.base}/recipes/suggest`, {});
   }
+  saveRecipe(recipe: Recipe): Observable<{ recipe: Recipe }> {
+    return this.http.post<{ recipe: Recipe }>(`${this.base}/recipes`, recipe);
+  }
+  listRecipes(): Observable<{ recipes: Recipe[] }> {
+    return this.http.get<{ recipes: Recipe[] }>(`${this.base}/recipes`);
+  }
+  deleteRecipe(recipeId: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/recipes/${recipeId}`);
+  }
+
+  // --- AI ---
   grocery(days = 7): Observable<{ grocery_list: string }> {
     return this.http.post<{ grocery_list: string }>(`${this.base}/grocery`, { days });
   }

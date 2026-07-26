@@ -22,8 +22,14 @@ users/{uid}
 │                                     source:'off'|'chomp'|'manual',
 │                                     brand, serving_size, serving_qty_g,
 │                                     image_url, nutrition_grade, added_at }
-└── coach_messages/{msgId} (docs)  { text, type:'nudge'|'goal'|'recipe',
-                                      created_at, read }
+├── coach_messages/{msgId} (docs)  { text, type:'nudge'|'goal'|'recipe',
+│                                     created_at, read }
+└── recipes/{recipeId}     (docs)  { name, servings, instructions,
+                                      ingredients:[{item_id, name, quantity,
+                                        unit, macros:{...}}] — snapshotted,
+                                        not a live join, so past recipes don't
+                                        change if a pantry ingredient is edited
+                                        later, source:'ai'|'manual', created_at }
 
 barcode_cache/{barcode}    (doc)   { name, per_serving:{...}, source,
                                       brand, serving_size, serving_qty_g,

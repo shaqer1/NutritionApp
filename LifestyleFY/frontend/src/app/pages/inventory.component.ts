@@ -1,201 +1,700 @@
-import { Component, OnInit, inject } from '@angular/core';
+import {
+  Component, ElementRef, OnDestroy, OnInit, ViewChild, inject,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterLink } from '@angular/router';
+import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { ApiService } from '../core/api.service';
-import { InventoryItem } from '../core/models';
+import { FoodItem, InventoryItem, LogEntry } from '../core/models';
 import {
   APP_CATEGORIES, LOCATIONS, Location, CategoryMeta, defaultLocation,
 } from '../core/categories';
+import {
+  MEAL_TYPES, mealLabel as sharedMealLabel, existingInstances as sharedExistingInstances,
+  nextInstance as sharedNextInstance, todayStr,
+} from '../core/meal-picker';
 
 interface Shelf {
   meta: CategoryMeta;
   items: InventoryItem[];
 }
 
+interface MealGroup {
+  label: string;
+  meal: string;
+  instance: number;
+  items: LogEntry[];
+  totalCal: number;
+}
+
+interface PieSlice {
+  group: MealGroup;
+  key: string;
+  color: string;
+  path: string;
+}
+
+interface IngredientSlice {
+  item: LogEntry;
+  index: number;
+  path: string;
+}
+
+const MEAL_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
+const MEAL_COLORS: Record<string, string> = {
+  breakfast: 'var(--green)', lunch: 'var(--blue)', dinner: 'var(--accent)', snack: '#e0a44d',
+};
+const LOCATION_EMOJI: Record<Location, string> = {
+  pantry: '🧺', fridge: '🧊', freezer: '🥶',
+};
+
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <h1>Pantry</h1>
+    <h1>Inventory</h1>
 
-    <div class="seg">
-      @for (loc of locations; track loc.id) {
-        <button [class.active]="activeLocation === loc.id" (click)="activeLocation = loc.id">
-          {{ loc.label }}
-        </button>
+    <div class="card">
+      <div class="row spread" style="cursor:pointer" (click)="addOpen = !addOpen">
+        <h3>Add / Scan</h3>
+        <span class="muted">{{ addOpen ? '▲' : '▼' }}</span>
+      </div>
+      @if (addOpen) {
+        <div style="margin-top:10px">
+          <div class="seg">
+            <button [class.active]="addMode === 'camera'" (click)="addMode = 'camera'">Camera</button>
+            <button [class.active]="addMode === 'manual'" (click)="addMode = 'manual'">Manual</button>
+          </div>
+
+          @if (addMode === 'camera') {
+            <div style="margin-top:10px">
+              <video #video playsinline></video>
+              <div class="row" style="margin-top:10px">
+                @if (!scanning) {
+                  <button (click)="startCamera()">Start camera</button>
+                } @else {
+                  <button class="ghost" (click)="stopCamera()">Stop</button>
+                }
+              </div>
+              <p class="muted">{{ scanStatus }}</p>
+            </div>
+          } @else {
+            <div style="margin-top:10px">
+              <label>Barcode or product name</label>
+              <div class="row">
+                <input [(ngModel)]="manualQuery" placeholder="e.g. 3017620422003 or 'greek yogurt'" />
+                <button class="ghost" (click)="lookupManual()">Find</button>
+              </div>
+              <p class="muted">{{ scanStatus }}</p>
+            </div>
+          }
+
+          @if (showManualMacros) {
+            <div class="card" style="margin-top:10px">
+              <h3>No match — enter macros manually</h3>
+              <label>Name</label>
+              <input [(ngModel)]="manualMacros.name" placeholder="e.g. Homemade chili" />
+              <div class="row">
+                <div style="flex:1"><label>Calories</label>
+                  <input type="number" [(ngModel)]="manualMacros.cal" /></div>
+                <div style="flex:1"><label>Protein</label>
+                  <input type="number" [(ngModel)]="manualMacros.protein" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Carbs</label>
+                  <input type="number" [(ngModel)]="manualMacros.carbs" /></div>
+                <div style="flex:1"><label>Fat</label>
+                  <input type="number" [(ngModel)]="manualMacros.fat" /></div>
+              </div>
+              <label>Serving size <span class="muted">(informational, e.g. "1 bar")</span></label>
+              <div class="row">
+                <div style="flex:1"><input type="number" [(ngModel)]="manualMacros.servingSizeQty" placeholder="1" /></div>
+                <div style="flex:1"><input [(ngModel)]="manualMacros.servingSizeUnit" placeholder="bar" /></div>
+              </div>
+              <label>Quantity per serving <span class="muted">(used for grams tracking)</span></label>
+              <div class="row">
+                <div style="flex:1"><label>Amount</label>
+                  <input type="number" [(ngModel)]="manualMacros.servingQty" /></div>
+                <div style="flex:1"><label>Unit</label>
+                  <input [(ngModel)]="manualMacros.servingUnit" placeholder="g" /></div>
+              </div>
+              <div style="margin-top:10px">
+                <button class="green" [disabled]="!manualMacros.name" (click)="useManualMacros()">
+                  Use these macros
+                </button>
+              </div>
+            </div>
+          }
+
+          @if (results.length) {
+            <div style="margin-top:10px">
+              <h3>Search results</h3>
+              @for (r of results; track r.name) {
+                <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
+                  <div>
+                    <div>{{ r.name }}</div>
+                    <div class="muted">{{ r.per_serving.cal | number:'1.0-0' }} kcal ·
+                      {{ r.per_serving.protein | number:'1.0-0' }}g protein</div>
+                  </div>
+                  <button class="ghost" (click)="pick(r)">Pick</button>
+                </div>
+              }
+            </div>
+          }
+
+          @if (found) {
+            <div class="card green" style="margin-top:10px">
+              <h3>{{ found.name }}</h3>
+              <p class="muted">
+                {{ found.per_serving.cal | number:'1.0-0' }} kcal ·
+                {{ found.per_serving.protein | number:'1.0-0' }}p ·
+                {{ found.per_serving.carbs | number:'1.0-0' }}c ·
+                {{ found.per_serving.fat | number:'1.0-0' }}f
+                · via {{ found.source }}
+              </p>
+              @if (found.macros_basis === '100g') {
+                <p style="color:var(--accent);font-size:13px;margin:-4px 0 8px">
+                  ⚠ source only gave per-100g data — these numbers may not match the
+                  actual serving size below. Double-check before logging.
+                </p>
+              }
+
+              <label>Serving size <span class="muted">(informational, e.g. "1 bar")</span></label>
+              <div class="row">
+                <div style="flex:1"><input type="number" [(ngModel)]="found.serving_size_qty" placeholder="1" /></div>
+                <div style="flex:1"><input [(ngModel)]="found.serving_size_unit" placeholder="bar" /></div>
+              </div>
+              <label>Quantity per serving <span class="muted">(used for grams tracking)</span></label>
+              <div class="row">
+                <div style="flex:1"><label>Amount</label>
+                  <input type="number" [(ngModel)]="found.serving_qty" (ngModelChange)="onFoundServingChange()" /></div>
+                <div style="flex:1"><label>Unit</label>
+                  <input [(ngModel)]="found.serving_unit" placeholder="g" (ngModelChange)="onFoundServingChange()" /></div>
+              </div>
+
+              <label>Servings in container</label>
+              <div class="row">
+                <input type="number" [(ngModel)]="foundQty" min="1" style="max-width:90px" />
+                <button class="green" (click)="addFoundToPantry()">Add to pantry</button>
+                <button class="ghost" (click)="openMealPicker()">Log as eaten</button>
+              </div>
+              @if (found.serving_qty) {
+                <p class="muted" style="margin-top:6px">
+                  Total in container: ≈{{ foundQty * found.serving_qty | number:'1.0-1' }} {{ found.serving_unit }}
+                </p>
+              }
+
+              @if (mealPickerOpen) {
+                <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                  <p class="muted">Which meal?</p>
+                  @for (mt of mealTypes; track mt) {
+                    <div style="margin-bottom:8px">
+                      <div class="muted" style="text-transform:capitalize">{{ mt }}</div>
+                      <div class="row" style="flex-wrap:wrap;gap:8px">
+                        @for (inst of existingInstances(mt); track inst) {
+                          <button class="ghost" (click)="logFound(mt, inst)">{{ mealLabel(mt, inst) }}</button>
+                        }
+                        <button class="ghost" (click)="logFound(mt, nextInstance(mt))">
+                          + New {{ mt }}
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+        </div>
       }
     </div>
 
-    <div class="card">
-      <h3>Add item manually</h3>
-      <label>Name</label>
-      <input [(ngModel)]="draft.name" placeholder="e.g. Peanut butter" />
-      <div class="row">
-        <div style="flex:1"><label>Category</label>
-          <select [(ngModel)]="draft.category" (ngModelChange)="onDraftCategoryChange()">
-            @for (c of categories; track c.id) {
-              <option [value]="c.id">{{ c.emoji }} {{ c.label }}</option>
-            }
-          </select>
-        </div>
-        <div style="flex:1"><label>Location</label>
-          <select [(ngModel)]="draft.location" (ngModelChange)="locationTouched = true">
-            @for (l of locations; track l.id) {
-              <option [value]="l.id">{{ l.label }}</option>
-            }
-          </select>
-        </div>
-      </div>
-      <div class="row">
-        <div style="flex:1"><label>Qty</label>
-          <input type="number" [(ngModel)]="draft.qty" min="1" /></div>
-        <div style="flex:1"><label>Cal/serving</label>
-          <input type="number" [(ngModel)]="draft.per_serving.cal" /></div>
-        <div style="flex:1"><label>Protein</label>
-          <input type="number" [(ngModel)]="draft.per_serving.protein" /></div>
-      </div>
-      <label>Image URL (optional)</label>
-      <input [(ngModel)]="draft.image_url" placeholder="https://..." />
-      <div style="margin-top:12px">
-        <button class="green" [disabled]="!draft.name" (click)="add()">Add</button>
-      </div>
+    <div class="seg">
+      <button [class.active]="viewMode === 'log'" (click)="setViewMode('log')">Log</button>
+      <button [class.active]="viewMode === 'pantry'" (click)="setViewMode('pantry')">Pantry</button>
     </div>
 
-    @if (!shelves.length) {
-      <div class="card"><p class="muted">Nothing here yet — scan groceries or add above.</p></div>
-    }
-
-    @for (shelf of shelves; track shelf.meta.id) {
+    @if (viewMode === 'log') {
       <div class="card">
         <div class="row spread">
-          <h3>{{ shelf.meta.emoji }} {{ shelf.meta.label }}</h3>
-          <span class="muted">{{ shelf.items.length }} item{{ shelf.items.length === 1 ? '' : 's' }}</span>
+          <button class="ghost" (click)="changeDay(-1)">←</button>
+          <h3>{{ dateLabel() }}</h3>
+          <button class="ghost" (click)="changeDay(1)">→</button>
         </div>
-        @for (it of shelf.items; track it.item_id) {
-          <div style="padding:10px 0;border-bottom:1px solid var(--border)">
-            <div class="row spread" style="cursor:pointer" (click)="toggleEdit(it)">
-              <div class="row">
-                @if (it.image_url) {
-                  <img class="thumb" [src]="it.image_url" alt="" />
-                } @else {
-                  <div class="thumb">{{ shelf.meta.emoji }}</div>
-                }
-                <div>
-                  <div>{{ it.name }} <span class="muted">×{{ it.qty }}</span></div>
-                  <div class="muted">
-                    {{ it.brand ? it.brand + ' · ' : '' }}{{ it.per_serving.cal | number:'1.0-0' }} kcal ·
-                    {{ it.per_serving.protein | number:'1.0-0' }}g protein · {{ it.source }}
-                  </div>
-                </div>
+        @if (!isToday()) {
+          <div class="row" style="justify-content:center;margin-top:8px">
+            <button class="ghost" (click)="goToday()">Today</button>
+          </div>
+        }
+      </div>
+
+      @if (!mealGroups.length) {
+        <div class="card"><p class="muted">Nothing logged {{ isToday() ? 'today' : 'that day' }} yet.</p></div>
+      } @else {
+        <div class="card">
+          <svg viewBox="0 0 100 100" style="width:200px;height:200px;display:block;margin:0 auto">
+            @if (pieSlices.length === 1) {
+              <circle cx="50" cy="50" [attr.r]="r1" [attr.fill]="pieSlices[0].color" style="cursor:pointer"
+                [style.opacity]="isSelected(pieSlices[0].group) ? 1 : 0.85"
+                (click)="selectSlice(pieSlices[0].group)" />
+            } @else {
+              @for (s of pieSlices; track s.key) {
+                <path [attr.d]="s.path" [attr.fill]="s.color" style="cursor:pointer"
+                  [style.opacity]="isSelected(s.group) ? 1 : 0.85"
+                  (click)="selectSlice(s.group)" />
+              }
+            }
+            @if (selectedGroup) {
+              @for (s of ingredientSlices; track s.index) {
+                <path [attr.d]="s.path" [attr.fill]="mealColor(selectedGroup.meal)" style="cursor:pointer"
+                  [style.opacity]="selectedIngredientIndex === null || selectedIngredientIndex === s.index ? 1 : 0.45"
+                  stroke="var(--card)" stroke-width="1"
+                  (click)="selectIngredient(s.index)" />
+              }
+            }
+          </svg>
+          <div class="row" style="flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px">
+            @for (g of mealGroups; track g.label) {
+              <div class="row" style="gap:5px;cursor:pointer" (click)="selectSlice(g)">
+                <span style="width:10px;height:10px;border-radius:3px;display:inline-block"
+                  [style.background]="mealColor(g.meal)"></span>
+                <span class="muted">{{ g.label }} · {{ g.totalCal | number:'1.0-0' }} kcal</span>
               </div>
-              <span class="muted">{{ editingId === it.item_id ? '▲' : '▼' }}</span>
+            }
+          </div>
+        </div>
+
+        @if (selectedGroup) {
+          <div class="card">
+            <div class="row spread">
+              <h3>{{ selectedGroup.label }}</h3>
+              <span class="muted">{{ selectedGroup.totalCal | number:'1.0-0' }} kcal</span>
             </div>
-            @if (editingId === it.item_id && editDraft) {
-              <div style="margin-top:10px">
-                @if (it.initial_qty) {
-                  <div class="muted">{{ it.qty }} of {{ it.initial_qty }} servings left</div>
-                  <div class="bar"><span [style.width.%]="(it.qty / it.initial_qty) * 100"></span></div>
-                }
-                @if (it.serving_size || it.serving_qty_g) {
-                  <p class="muted" style="margin:8px 0 0">
-                    {{ it.serving_size || (it.serving_qty_g + 'g') }} per serving
-                    @if (it.serving_qty_g) {
-                      · ≈{{ it.qty * it.serving_qty_g | number:'1.0-0' }}g remaining
-                    }
-                  </p>
-                }
+            <p class="muted" style="margin:-4px 0 8px">Tap an ingredient for its macro breakdown.</p>
+            @for (item of selectedGroup.items; track item.ts + item.item_name; let idx = $index) {
+              <div class="row spread" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer"
+                [style.opacity]="selectedIngredientIndex === null || selectedIngredientIndex === idx ? 1 : 0.6"
+                (click)="selectIngredient(idx)">
+                <span>{{ item.item_name }} <span class="muted">×{{ item.servings }}</span>
+                  @if (item.grams) { <span class="muted">· {{ item.grams | number:'1.0-0' }}g</span> }
+                </span>
+                <span class="muted">{{ item.macros.cal | number:'1.0-0' }} kcal</span>
+              </div>
+            }
+            <div class="row" style="margin-top:10px;gap:16px">
+              <span class="muted">P {{ selectedGroupMacros.protein | number:'1.0-0' }}g</span>
+              <span class="muted">C {{ selectedGroupMacros.carbs | number:'1.0-0' }}g</span>
+              <span class="muted">F {{ selectedGroupMacros.fat | number:'1.0-0' }}g</span>
+            </div>
 
-                <div style="margin-top:10px">
-                  <div class="row spread"><span class="muted">Calories</span><span>{{ it.per_serving.cal | number:'1.0-0' }}</span></div>
-                  <div class="row spread"><span class="muted">Protein</span><span>{{ it.per_serving.protein | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Carbs</span><span>{{ it.per_serving.carbs | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Fat</span><span>{{ it.per_serving.fat | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Sugar</span><span>{{ it.per_serving.sugar_g | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Fiber</span><span>{{ it.per_serving.fiber_g | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Saturated fat</span><span>{{ it.per_serving.sat_fat_g | number:'1.0-1' }} g</span></div>
-                  <div class="row spread"><span class="muted">Sodium</span><span>{{ it.per_serving.sodium_mg | number:'1.0-0' }} mg</span></div>
-                </div>
-
-                @if (it.barcode && !detailCache.has(it.item_id!)) {
-                  <p class="muted" style="margin-top:8px">Loading full details…</p>
-                }
-                @if (detailCache.get(it.item_id!); as raw) {
-                  <div style="margin-top:10px">
-                    <div class="row" style="flex-wrap:wrap;gap:6px">
-                      @if (raw.nutriscore_grade) {
-                        <span class="muted">Nutri-Score {{ raw.nutriscore_grade.toUpperCase() }}</span>
-                      }
-                      @if (raw.nova_group) { <span class="muted">NOVA {{ raw.nova_group }}</span> }
-                      @if (raw.ecoscore_grade) {
-                        <span class="muted">Eco-Score {{ raw.ecoscore_grade.toUpperCase() }}</span>
-                      }
-                    </div>
-                    @if (raw.ingredients_text_en || raw.ingredients_text) {
-                      <p class="muted" style="margin-top:8px">
-                        {{ raw.ingredients_text_en || raw.ingredients_text }}
-                      </p>
-                    }
-                    @if (raw.allergens_tags?.length) {
-                      <p class="muted">Allergens: {{ formatTags(raw.allergens_tags) }}</p>
-                    }
-                    @if (raw.packagings?.length) {
-                      <p class="muted">Packaging: {{ formatPackaging(raw.packagings) }}</p>
-                    }
-                  </div>
-                }
-
-                <div class="row">
-                  <div style="flex:1"><label>Category</label>
-                    <select [(ngModel)]="editDraft.category">
-                      @for (c of categories; track c.id) {
-                        <option [value]="c.id">{{ c.emoji }} {{ c.label }}</option>
-                      }
-                    </select>
-                  </div>
-                  <div style="flex:1"><label>Location</label>
-                    <select [(ngModel)]="editDraft.location">
-                      @for (l of locations; track l.id) {
-                        <option [value]="l.id">{{ l.label }}</option>
-                      }
-                    </select>
-                  </div>
-                </div>
-                <div class="row">
-                  <div style="flex:1"><label>Qty</label>
-                    <input type="number" [(ngModel)]="editDraft.qty" min="0" /></div>
-                  <div style="flex:2"><label>Image URL</label>
-                    <input [(ngModel)]="editDraft.image_url" placeholder="https://..." /></div>
-                </div>
-                <div class="row" style="margin-top:10px">
-                  <button class="green" (click)="saveEdit(it)">Save</button>
-                  <button class="ghost" (click)="remove(it)">Remove</button>
+            @if (selectedIngredient; as ing) {
+              <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                <div class="row spread"><h3 style="margin:0">{{ ing.item_name }}</h3>
+                  <span class="muted">{{ ing.macros.cal | number:'1.0-0' }} kcal</span></div>
+                <div class="row" style="margin-top:6px;gap:16px">
+                  <span class="muted">P {{ ing.macros.protein | number:'1.0-0' }}g</span>
+                  <span class="muted">C {{ ing.macros.carbs | number:'1.0-0' }}g</span>
+                  <span class="muted">F {{ ing.macros.fat | number:'1.0-0' }}g</span>
+                  @if (ing.grams) { <span class="muted">{{ ing.grams | number:'1.0-0' }}g</span> }
                 </div>
               </div>
             }
           </div>
         }
+      }
+    } @else {
+      <div class="seg">
+        @for (loc of locations; track loc.id) {
+          <button [class.active]="activeLocation === loc.id" (click)="activeLocation = loc.id">
+            {{ locationEmoji(loc.id) }} {{ loc.label }}
+          </button>
+        }
       </div>
+
+      @if (!shelves.length) {
+        <div class="card"><p class="muted">Nothing here yet — scan groceries or add above.</p></div>
+      }
+      @for (shelf of shelves; track shelf.meta.id) {
+        <div class="card">
+          <h3>{{ shelf.meta.emoji }} {{ shelf.meta.label }}</h3>
+          <div class="grid-cards">
+            @for (it of shelf.items; track it.item_id) {
+              <div class="item-card">
+                <a [routerLink]="['/inventory/item', it.item_id]" style="text-decoration:none;color:inherit">
+                  @if (it.image_url) {
+                    <img class="thumb" [src]="it.image_url" alt="" style="width:100%;height:76px;font-size:30px" />
+                  } @else {
+                    <div class="thumb" style="width:100%;height:76px;font-size:30px">{{ shelf.meta.emoji }}</div>
+                  }
+                  <div class="muted" style="font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                    {{ it.name }}
+                  </div>
+                </a>
+                <div class="row spread" style="margin-top:6px">
+                  <button class="ghost" style="padding:4px 10px" (click)="adjustQty(it, -1)">－</button>
+                  <span>{{ it.qty }}</span>
+                  <button class="ghost" style="padding:4px 10px" (click)="adjustQty(it, 1)">＋</button>
+                </div>
+                <button class="ghost" style="width:100%;margin-top:6px;padding:4px" (click)="removeItem(it)">🗑</button>
+              </div>
+            }
+          </div>
+        </div>
+      }
     }
   `,
 })
-export class InventoryComponent implements OnInit {
+export class InventoryComponent implements OnInit, OnDestroy {
+  @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
   private api = inject(ApiService);
-  items: InventoryItem[] = [];
-  draft: InventoryItem = this.blank();
-  locationTouched = false;
-  editingId: string | null = null;
-  editDraft: Pick<InventoryItem, 'category' | 'location' | 'qty' | 'image_url'> | null = null;
-  detailCache = new Map<string, any>();
+  private reader = new BrowserMultiFormatReader();
+  private controls?: IScannerControls;
 
+  // ---------- Add / Scan section ----------
+  addOpen = false;
+  addMode: 'camera' | 'manual' = 'manual';
+  scanning = false;
+  scanStatus = 'Point the camera at a barcode, or type one below.';
+  manualQuery = '';
+  results: FoodItem[] = [];
+  showManualMacros = false;
+  manualMacros = {
+    name: '', cal: 0, protein: 0, carbs: 0, fat: 0,
+    servingSizeQty: null as number | null, servingSizeUnit: '',
+    servingQty: null as number | null, servingUnit: '',
+  };
+  found?: FoodItem;
+  foundQty = 1;
+  mealPickerOpen = false;
+  mealTypes = MEAL_TYPES;
+  private pickerEntries: LogEntry[] = [];
+
+  // ---------- Mode toggle ----------
+  viewMode: 'log' | 'pantry' = 'log';
+
+  // ---------- Log mode ----------
+  selectedDate = new Date();
+  logEntries: LogEntry[] = [];
+  selectedMealKey: string | null = null;
+  selectedIngredientIndex: number | null = null;
+  readonly r1 = 30;
+  readonly r2Inner = 34;
+  readonly r2Outer = 48;
+
+  // ---------- Pantry mode ----------
+  items: InventoryItem[] = [];
   categories = APP_CATEGORIES;
   locations = LOCATIONS;
   activeLocation: Location = 'pantry';
 
-  ngOnInit(): void { this.reload(); }
+  ngOnInit(): void {
+    this.reloadInventory();
+    this.reloadLog();
+  }
 
-  reload(): void {
+  ngOnDestroy(): void {
+    this.controls?.stop();
+  }
+
+  setViewMode(mode: 'log' | 'pantry'): void {
+    this.viewMode = mode;
+    if (mode === 'log') this.reloadLog();
+    else this.reloadInventory();
+  }
+
+  // ---------- Camera scanning ----------
+  async startCamera(): Promise<void> {
+    this.scanning = true;
+    this.scanStatus = 'Starting camera…';
+    try {
+      this.controls = await this.reader.decodeFromVideoDevice(
+        undefined, this.videoRef!.nativeElement, (result, _err, controls) => {
+          if (result) {
+            controls.stop();
+            this.scanning = false;
+            this.onBarcode(result.getText());
+          }
+        });
+    } catch {
+      this.scanning = false;
+      this.scanStatus = 'Camera unavailable — use manual entry. (Camera needs HTTPS or localhost.)';
+    }
+  }
+
+  stopCamera(): void {
+    this.controls?.stop();
+    this.scanning = false;
+    this.scanStatus = 'Stopped.';
+  }
+
+  private onBarcode(code: string): void {
+    this.scanStatus = `Looking up ${code}…`;
+    this.showManualMacros = false;
+    this.api.scan(code).subscribe({
+      next: (r) => { this.found = r.item; this.scanStatus = `Found via ${r.source}.`; },
+      error: () => {
+        this.scanStatus = `No match for ${code}. Enter macros below.`;
+        this.showManualMacros = true;
+        this.manualMacros = {
+          name: '', cal: 0, protein: 0, carbs: 0, fat: 0,
+          servingSizeQty: null, servingSizeUnit: '',
+          servingQty: null, servingUnit: '',
+        };
+      },
+    });
+  }
+
+  lookupManual(): void {
+    const v = this.manualQuery.trim();
+    if (!v) return;
+    this.showManualMacros = false;
+    if (/^\d{6,}$/.test(v)) { this.onBarcode(v); return; }
+    this.api.search(v).subscribe({
+      next: (r) => {
+        this.results = r.results;
+        this.scanStatus = r.results.length ? '' : 'No results — enter macros below.';
+        this.showManualMacros = !r.results.length;
+        if (this.showManualMacros) this.manualMacros.name = v;
+      },
+      error: () => (this.scanStatus = 'Search failed.'),
+    });
+  }
+
+  pick(item: FoodItem): void { this.found = item; this.results = []; }
+
+  useManualMacros(): void {
+    const unit = this.manualMacros.servingUnit.toLowerCase() || null;
+    const { servingSizeQty, servingSizeUnit } = this.manualMacros;
+    this.found = {
+      name: this.manualMacros.name, source: 'manual',
+      per_serving: {
+        cal: this.manualMacros.cal, protein: this.manualMacros.protein,
+        carbs: this.manualMacros.carbs, fat: this.manualMacros.fat,
+        sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+      },
+      serving_size: servingSizeQty && servingSizeUnit ? `${servingSizeQty} ${servingSizeUnit}` : null,
+      serving_size_qty: servingSizeQty,
+      serving_size_unit: servingSizeUnit || null,
+      serving_qty: this.manualMacros.servingQty,
+      serving_unit: unit,
+      serving_qty_g: unit === 'g' ? this.manualMacros.servingQty : null,
+    };
+    this.showManualMacros = false;
+    this.results = [];
+  }
+
+  onFoundServingChange(): void {
+    if (!this.found) return;
+    const unit = this.found.serving_unit?.toLowerCase() || null;
+    this.found.serving_unit = unit;
+    this.found.serving_qty_g = unit === 'g' ? (this.found.serving_qty ?? null) : null;
+  }
+
+  addFoundToPantry(): void {
+    if (!this.found) return;
+    const item: InventoryItem = {
+      ...this.found, qty: this.foundQty, unit: 'unit', item_id: null,
+      location: defaultLocation(this.found.category),
+    };
+    this.api.addInventory(item).subscribe(() => {
+      this.scanStatus = `Added ${this.found!.name} to pantry.`;
+      this.found = undefined;
+      this.reloadInventory();
+    });
+  }
+
+  // ---------- Meal-instance picker ----------
+  openMealPicker(): void {
+    this.mealPickerOpen = true;
+    this.api.getLog(todayStr()).subscribe((r) => (this.pickerEntries = r.entries));
+  }
+
+  existingInstances(mealType: string): number[] {
+    return sharedExistingInstances(this.pickerEntries, mealType);
+  }
+
+  nextInstance(mealType: string): number {
+    return sharedNextInstance(this.pickerEntries, mealType);
+  }
+
+  mealLabel(mealType: string, instance: number): string {
+    return sharedMealLabel(mealType, instance);
+  }
+
+  logFound(mealType: string, instance: number): void {
+    if (!this.found) return;
+    const grams = this.found.serving_qty_g != null
+      ? this.foundQty * this.found.serving_qty_g : null;
+    this.api.log({
+      meal: mealType, meal_instance: instance, item_name: this.found.name,
+      barcode: this.found.barcode ?? null, source: this.found.source,
+      servings: this.foundQty, macros: this.found.per_serving, grams,
+      log_date: todayStr(),
+    }).subscribe(() => {
+      this.mealPickerOpen = false;
+      this.found = undefined;
+      this.scanStatus = `Logged ${this.mealLabel(mealType, instance)}.`;
+      if (this.viewMode === 'log') this.reloadLog();
+    });
+  }
+
+  // ---------- Log mode: date navigation + grouping + chart ----------
+  private dateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  reloadLog(): void {
+    this.selectedMealKey = null;
+    this.selectedIngredientIndex = null;
+    this.api.getLog(this.dateStr(this.selectedDate)).subscribe((r) => (this.logEntries = r.entries));
+  }
+
+  changeDay(delta: number): void {
+    const d = new Date(this.selectedDate);
+    d.setDate(d.getDate() + delta);
+    this.selectedDate = d;
+    this.reloadLog();
+  }
+
+  goToday(): void {
+    this.selectedDate = new Date();
+    this.reloadLog();
+  }
+
+  isToday(): boolean {
+    return this.selectedDate.toDateString() === new Date().toDateString();
+  }
+
+  dateLabel(): string {
+    return this.isToday() ? 'Today'
+      : this.selectedDate.toLocaleDateString(undefined, {
+          weekday: 'short', month: 'short', day: 'numeric',
+        });
+  }
+
+  get mealGroups(): MealGroup[] {
+    const groups = new Map<string, LogEntry[]>();
+    for (const e of this.logEntries) {
+      const key = `${e.meal}__${e.meal_instance}`;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key)!.push(e);
+    }
+    return [...groups.entries()]
+      .map(([key, items]) => {
+        const [meal, instanceStr] = key.split('__');
+        const instance = Number(instanceStr);
+        return {
+          label: this.mealLabel(meal, instance), meal, instance, items,
+          totalCal: items.reduce((sum, i) => sum + i.macros.cal, 0),
+        };
+      })
+      .sort((a, b) => (MEAL_ORDER[a.meal] ?? 99) - (MEAL_ORDER[b.meal] ?? 99) || a.instance - b.instance);
+  }
+
+  mealColor(meal: string): string {
+    return MEAL_COLORS[meal] || '#9a9ab0';
+  }
+
+  get pieSlices(): PieSlice[] {
+    const total = this.mealGroups.reduce((sum, g) => sum + g.totalCal, 0);
+    if (!total) return [];
+    let angle = 0;
+    return this.mealGroups.map((g) => {
+      const startAngle = angle;
+      const endAngle = angle + (g.totalCal / total) * 360;
+      angle = endAngle;
+      return {
+        group: g, key: `${g.meal}__${g.instance}`, color: this.mealColor(g.meal),
+        path: this.describeArc(50, 50, this.r1, startAngle, endAngle),
+      };
+    });
+  }
+
+  get ingredientSlices(): IngredientSlice[] {
+    const items = this.selectedGroup?.items ?? [];
+    const total = items.reduce((sum, i) => sum + i.macros.cal, 0);
+    if (!total) return [];
+    let angle = 0;
+    return items.map((item, index) => {
+      const startAngle = angle;
+      const endAngle = angle + (item.macros.cal / total) * 360;
+      angle = endAngle;
+      return {
+        item, index,
+        path: this.describeAnnulusSector(50, 50, this.r2Inner, this.r2Outer, startAngle, endAngle),
+      };
+    });
+  }
+
+  private describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+    const start = this.polarToCartesian(cx, cy, r, startAngle);
+    const end = this.polarToCartesian(cx, cy, r, endAngle);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    return `M ${cx},${cy} L ${start.x},${start.y} A ${r},${r} 0 ${largeArc},1 ${end.x},${end.y} Z`;
+  }
+
+  private describeAnnulusSector(
+    cx: number, cy: number, rInner: number, rOuter: number, startAngle: number, endAngle: number,
+  ): string {
+    const outerStart = this.polarToCartesian(cx, cy, rOuter, startAngle);
+    const outerEnd = this.polarToCartesian(cx, cy, rOuter, endAngle);
+    const innerStart = this.polarToCartesian(cx, cy, rInner, startAngle);
+    const innerEnd = this.polarToCartesian(cx, cy, rInner, endAngle);
+    const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    return [
+      `M ${outerStart.x},${outerStart.y}`,
+      `A ${rOuter},${rOuter} 0 ${largeArc},1 ${outerEnd.x},${outerEnd.y}`,
+      `L ${innerEnd.x},${innerEnd.y}`,
+      `A ${rInner},${rInner} 0 ${largeArc},0 ${innerStart.x},${innerStart.y}`,
+      'Z',
+    ].join(' ');
+  }
+
+  private polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+    const rad = ((angleDeg - 90) * Math.PI) / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
+  selectSlice(g: MealGroup): void {
+    const key = `${g.meal}__${g.instance}`;
+    this.selectedMealKey = this.selectedMealKey === key ? null : key;
+    this.selectedIngredientIndex = null;
+  }
+
+  selectIngredient(index: number): void {
+    this.selectedIngredientIndex = this.selectedIngredientIndex === index ? null : index;
+  }
+
+  get selectedIngredient(): LogEntry | undefined {
+    if (this.selectedIngredientIndex === null) return undefined;
+    return this.selectedGroup?.items[this.selectedIngredientIndex];
+  }
+
+  isSelected(g: MealGroup): boolean {
+    return this.selectedMealKey === null || this.selectedMealKey === `${g.meal}__${g.instance}`;
+  }
+
+  get selectedGroup(): MealGroup | undefined {
+    return this.mealGroups.find((g) => `${g.meal}__${g.instance}` === this.selectedMealKey);
+  }
+
+  get selectedGroupMacros() {
+    const items = this.selectedGroup?.items ?? [];
+    return {
+      protein: items.reduce((s, i) => s + i.macros.protein, 0),
+      carbs: items.reduce((s, i) => s + i.macros.carbs, 0),
+      fat: items.reduce((s, i) => s + i.macros.fat, 0),
+    };
+  }
+
+  // ---------- Pantry mode: location grid -> shelves ----------
+  reloadInventory(): void {
     this.api.listInventory().subscribe((r) => (this.items = r.items));
+  }
+
+  locationEmoji(loc: Location): string {
+    return LOCATION_EMOJI[loc] ?? '📦';
   }
 
   get shelves(): Shelf[] {
@@ -212,74 +711,14 @@ export class InventoryComponent implements OnInit {
       .map((c) => ({ meta: c, items: groups.get(c.id)! }));
   }
 
-  onDraftCategoryChange(): void {
-    if (!this.locationTouched) this.draft.location = defaultLocation(this.draft.category);
-  }
-
-  add(): void {
-    this.api.addInventory(this.draft).subscribe(() => {
-      this.draft = this.blank();
-      this.locationTouched = false;
-      this.reload();
-    });
-  }
-
-  toggleEdit(it: InventoryItem): void {
-    if (this.editingId === it.item_id) {
-      this.editingId = null;
-      this.editDraft = null;
-      return;
-    }
-    this.editingId = it.item_id ?? null;
-    this.editDraft = {
-      category: it.category, location: it.location,
-      qty: it.qty, image_url: it.image_url,
-    };
-    if (it.barcode && it.item_id && !this.detailCache.has(it.item_id)) {
-      this.api.getRawProduct(it.barcode).subscribe({
-        next: (r) => this.detailCache.set(it.item_id!, r.product),
-        error: () => this.detailCache.set(it.item_id!, null),
-      });
-    }
-  }
-
-  formatTags(tags: string[]): string {
-    return (tags || []).map((t) => this.cleanTag(t)).join(', ');
-  }
-
-  formatPackaging(packagings: any[]): string {
-    return (packagings || [])
-      .map((p) => this.cleanTag(p.material))
-      .filter(Boolean)
-      .join(', ');
-  }
-
-  private cleanTag(tag?: string): string {
-    return (tag || '').replace(/^[a-z]{2}:/, '').replace(/-/g, ' ');
-  }
-
-  saveEdit(it: InventoryItem): void {
-    if (!this.editDraft) return;
-    this.api.addInventory({ ...it, ...this.editDraft }).subscribe(() => {
-      this.editingId = null;
-      this.editDraft = null;
-      this.reload();
-    });
-  }
-
-  remove(it: InventoryItem): void {
+  adjustQty(it: InventoryItem, delta: number): void {
     if (!it.item_id) return;
-    this.api.deleteInventory(it.item_id).subscribe(() => this.reload());
+    const qty = Math.max(0, it.qty + delta);
+    this.api.addInventory({ ...it, qty }).subscribe(() => this.reloadInventory());
   }
 
-  private blank(): InventoryItem {
-    return {
-      name: '', qty: 1, unit: 'unit', source: 'manual', item_id: null,
-      barcode: null, category: 'other', location: 'pantry', image_url: null,
-      per_serving: {
-        cal: 0, protein: 0, carbs: 0, fat: 0,
-        sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
-      },
-    };
+  removeItem(it: InventoryItem): void {
+    if (!it.item_id) return;
+    this.api.deleteInventory(it.item_id).subscribe(() => this.reloadInventory());
   }
 }
