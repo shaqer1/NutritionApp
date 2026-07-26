@@ -31,6 +31,15 @@ import { currentMealType, currentTimeLabel, todayStr } from '../core/meal-picker
         <option value="active">Active</option>
         <option value="very_active">Very active</option>
       </select>
+      <label>Sex <span class="muted">(used for calorie/macro math)</span></label>
+      <select [(ngModel)]="profile.sex">
+        <option value="male">Male</option>
+        <option value="female">Female</option>
+      </select>
+      <label>Dietary prefs <span class="muted">(comma-separated)</span></label>
+      <input [(ngModel)]="dietaryPrefsText" placeholder="e.g. high-protein, low-carb" />
+      <label>Allergies <span class="muted">(comma-separated — the AI will avoid these)</span></label>
+      <input [(ngModel)]="allergiesText" placeholder="e.g. peanuts, shellfish" />
       <div style="margin-top:12px" class="row">
         <button (click)="saveProfile()">Save profile</button>
         <button class="green" (click)="suggest()">Suggest bulking goals →</button>
@@ -99,6 +108,13 @@ export class CoachComponent implements OnInit {
   };
   goals?: Goals;
 
+  // Plain text fields, only synced with profile.dietary_prefs/allergies on
+  // load and just before save — NOT a live getter/setter, since re-deriving
+  // the array (and rejoining) on every keystroke would eat the trailing
+  // ", " the user just typed and make it impossible to enter a second item.
+  dietaryPrefsText = '';
+  allergiesText = '';
+
   status = '';
   output = '';
   message = '';
@@ -107,9 +123,18 @@ export class CoachComponent implements OnInit {
   previewNudge = () => this.api.coachPreview(currentMealType(), currentTimeLabel(), todayStr());
 
   ngOnInit(): void {
-    this.api.getProfile().subscribe((r) => { if (r.profile) this.profile = r.profile; });
+    this.api.getProfile().subscribe((r) => {
+      if (r.profile) this.profile = r.profile;
+      this.dietaryPrefsText = this.profile.dietary_prefs.join(', ');
+      this.allergiesText = this.profile.allergies.join(', ');
+    });
     this.api.getGoals().subscribe((r) => { if (r.goals) this.goals = r.goals; });
     this.loadMessages();
+  }
+
+  private syncProfileFromText(): void {
+    this.profile.dietary_prefs = this.dietaryPrefsText.split(',').map((s) => s.trim()).filter(Boolean);
+    this.profile.allergies = this.allergiesText.split(',').map((s) => s.trim()).filter(Boolean);
   }
 
   loadMessages(): void {
@@ -117,10 +142,12 @@ export class CoachComponent implements OnInit {
   }
 
   saveProfile(): void {
+    this.syncProfileFromText();
     this.api.setProfile(this.profile).subscribe(() => (this.profileStatus = 'Profile saved.'));
   }
 
   suggest(): void {
+    this.syncProfileFromText();
     this.api.setProfile(this.profile).subscribe(() =>
       this.api.suggestGoals('bulk').subscribe((r) => {
         this.goals = r.goals;

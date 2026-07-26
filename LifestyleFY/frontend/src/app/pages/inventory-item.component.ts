@@ -10,7 +10,8 @@ import {
   nextInstance as sharedNextInstance, todayStr,
 } from '../core/meal-picker';
 
-type EditDraft = Pick<InventoryItem, 'category' | 'location' | 'qty' | 'initial_qty' | 'image_url'>;
+type EditDraft = Pick<InventoryItem,
+  'category' | 'location' | 'qty' | 'initial_qty' | 'image_url' | 'ingredients_text'>;
 
 @Component({
   selector: 'app-inventory-item',
@@ -142,6 +143,11 @@ type EditDraft = Pick<InventoryItem, 'category' | 'location' | 'qty' | 'initial_
         </div>
         <label>Image URL</label>
         <input [(ngModel)]="editDraft.image_url" placeholder="https://..." />
+        <label>Ingredients</label>
+        <textarea [(ngModel)]="editDraft.ingredients_text" rows="3"
+          placeholder="e.g. Chicken, rice, onion, garlic, salt"
+          style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
+                 border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
         <div class="row" style="margin-top:10px">
           <button class="green" (click)="save()">Save</button>
           <button class="ghost" (click)="removeItem()">Remove</button>
@@ -190,6 +196,7 @@ export class InventoryItemComponent implements OnInit {
         category: this.item.category ?? null, location: this.item.location,
         qty: this.item.qty, initial_qty: this.item.initial_qty ?? null,
         image_url: this.item.image_url ?? null,
+        ingredients_text: this.item.ingredients_text ?? null,
       };
       if (this.item.barcode && !this.rawLoaded) {
         this.api.getRawProduct(this.item.barcode).subscribe({

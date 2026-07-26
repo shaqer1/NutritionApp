@@ -12,8 +12,8 @@ from datetime import date, datetime, timedelta, timezone
 
 from ..config import Settings
 from ..models import (
-    AiPrompts, Goals, InventoryItem, LogEntry, LogRequest, Macros, Profile, Recipe,
-    TodaySummary,
+    AiPrompts, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, Profile,
+    Recipe, TodaySummary,
 )
 
 
@@ -35,6 +35,7 @@ class Store:
             self._goals: dict[str, dict] = {}
             self._inventory: dict[str, dict[str, dict]] = {}
             self._recipes: dict[str, dict[str, dict]] = {}
+            self._grocery_lists: dict[str, dict[str, dict]] = {}
             self._today: dict[str, dict] = {}
             self._coach: dict[str, list[dict]] = {}
             self._barcode_cache: dict[str, dict] = {}
@@ -168,6 +169,35 @@ class Store:
             self._recipes.get(uid, {}).pop(recipe_id, None)
             return
         self._user_doc(uid).collection("recipes").document(recipe_id).delete()
+
+    # ---------- Grocery lists ----------
+    def list_grocery_lists(self, uid: str) -> list[GroceryList]:
+        if self.stub:
+            return [GroceryList(**v) for v in self._grocery_lists.get(uid, {}).values()]
+        docs = self._user_doc(uid).collection("grocery_lists").stream()
+        out = []
+        for d in docs:
+            gl = d.to_dict()
+            gl["grocery_list_id"] = d.id
+            out.append(GroceryList(**gl))
+        return out
+
+    def save_grocery_list(self, uid: str, gl: GroceryList) -> GroceryList:
+        gl.grocery_list_id = gl.grocery_list_id or uuid.uuid4().hex
+        if gl.created_at is None:
+            gl.created_at = _now()
+        data = gl.model_dump(mode="json")
+        if self.stub:
+            self._grocery_lists.setdefault(uid, {})[gl.grocery_list_id] = data
+            return gl
+        self._user_doc(uid).collection("grocery_lists").document(gl.grocery_list_id).set(data)
+        return gl
+
+    def delete_grocery_list(self, uid: str, grocery_list_id: str) -> None:
+        if self.stub:
+            self._grocery_lists.get(uid, {}).pop(grocery_list_id, None)
+            return
+        self._user_doc(uid).collection("grocery_lists").document(grocery_list_id).delete()
 
     def _decrement_inventory(self, uid: str, item_id: str, servings: float) -> None:
         """Best-effort: a missing/invalid item_id is a silent no-op, since meal

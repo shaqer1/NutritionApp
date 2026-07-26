@@ -19,8 +19,12 @@ import json
 
 from ..config import Settings
 from ..models import (
-    Goals, InventoryItem, LogEntry, Macros, Profile, Recipe, RecipeIngredient, TodaySummary,
+    Goals, GroceryItem, GroceryList, GrocerySwap, InventoryItem, LogEntry, Macros, Profile,
+    Recipe, RecipeIngredient, TodaySummary,
 )
+from .categories import APP_CATEGORIES
+
+_CATEGORY_IDS = ", ".join(c["id"] for c in APP_CATEGORIES)
 
 ACTIVITY = {
     "sedentary": 1.2, "light": 1.375, "moderate": 1.55,
@@ -233,12 +237,19 @@ class Coach:
                              prefs: list[str], days: int,
                              weekly_history: list[dict]) -> tuple[str, str]:
         generic = (
-            f"Plan a {days}-day muscle-gain grocery list. Return only the items to "
-            "BUY (not what's on hand), grouped by store section, with quantities. "
-            "Prioritize cheap, high-protein, calorie-dense staples. Also explicitly "
-            "suggest 2-3 ingredient or meal substitutions that would make it easier "
-            "to hit the macro goals, based on the weekly pattern below (e.g. "
-            "consistently short on one macro)."
+            f"Plan a {days}-day muscle-gain grocery list. Include only the items to "
+            "BUY (not what's on hand), with quantities. Prioritize cheap, "
+            "high-protein, calorie-dense staples. Also explicitly suggest 2-3 "
+            "ingredient or meal substitutions that would make it easier to hit the "
+            "macro goals, based on the weekly pattern below (e.g. consistently "
+            "short on one macro).\n"
+            "Respond with ONLY valid JSON (no markdown fences, no commentary) "
+            "matching exactly this shape:\n"
+            '{"name": "string", "days": number, '
+            '"items": [{"name": "string", "quantity": "string", "section": "string", '
+            '"checked": false}], '
+            '"swaps": [{"title": "string", "explanation": "string"}]}\n'
+            f"Each item's \"section\" must be one of exactly these ids: {_CATEGORY_IDS}."
         )
         on_hand = ", ".join(i.name for i in inventory) or "nothing"
         history_lines = "; ".join(
@@ -256,6 +267,34 @@ class Coach:
 
     def grocery(self, inventory: list[InventoryItem], goals: Goals, prefs: list[str],
                 days: int, weekly_history: list[dict], custom_note: str = "",
-                message: str = "") -> str:
+                message: str = "") -> GroceryList:
+        """A structured (not free-text) grocery list draft, so it can be saved,
+        edited, and archived like a Recipe rather than living only as prose."""
+        if self.s.use_stubs or not self.s.gemini_api_key:
+            return GroceryList(
+                name=f"Stubbed {days}-day list (no Gemini key)",
+                days=days,
+                items=[
+                    GroceryItem(name="Chicken breast", quantity="4 lbs", section="meat"),
+                    GroceryItem(name="Rolled oats", quantity="1 tub (42 oz)", section="grains"),
+                ],
+                swaps=[
+                    GrocerySwap(title="Set GEMINI_API_KEY for real suggestions",
+                               explanation="This is a stub grocery list."),
+                ],
+                source="ai",
+            )
+
         generic, context = self.grocery_prompt_parts(inventory, goals, prefs, days, weekly_history)
-        return self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)
+        text = self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.lower().startswith("json"):
+                cleaned = cleaned[4:]
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AI returned malformed grocery list JSON: {e}") from e
+        data["source"] = "ai"
+        return GroceryList(**data)

@@ -40,6 +40,10 @@ import {
 
     <app-ai-prompt-panel category="recipe" [fetchPreview]="previewRecipe" />
 
+    <div class="row" style="margin-top:10px">
+      <button class="ghost" (click)="newRecipe()">+ New recipe (manual)</button>
+    </div>
+
     @if (draft) {
       <div class="card">
         <h3>{{ draft.recipe_id ? 'Edit recipe' : 'New recipe (unsaved)' }}</h3>
@@ -47,6 +51,8 @@ import {
         <input [(ngModel)]="draft.name" placeholder="e.g. Chicken & rice bowl" />
         <label>Servings</label>
         <input type="number" [(ngModel)]="draft.servings" min="1" style="max-width:90px" />
+        <label>Image URL</label>
+        <input [(ngModel)]="draft.image_url" placeholder="https://..." />
         <label>Instructions</label>
         <textarea [(ngModel)]="draft.instructions" rows="4"
           style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
@@ -61,7 +67,23 @@ import {
             <button class="ghost" (click)="removeIngredient($index)">✕</button>
           </div>
         }
-        <button class="ghost" (click)="addIngredient()">+ Add ingredient</button>
+
+        <p class="muted" style="margin-bottom:4px">Add an ingredient from your pantry
+          <span class="muted">(quantity = servings of that item)</span></p>
+        <div class="row" style="margin-bottom:8px">
+          <select [(ngModel)]="pickerItemId" style="flex:2">
+            <option [ngValue]="null">Pick a pantry item…</option>
+            @for (p of pantryItems; track p.item_id) {
+              <option [ngValue]="p.item_id">{{ p.name }} ({{ p.qty }} {{ p.unit }} left)</option>
+            }
+          </select>
+          <input type="number" [(ngModel)]="pickerQty" min="0.25" step="0.25"
+            placeholder="Servings" style="flex:1;max-width:90px" />
+          <button class="ghost" [disabled]="!pickerItemId" (click)="addIngredientFromPantry()">+ Add</button>
+        </div>
+        @if (!pantryItems.length) {
+          <p class="muted">Your pantry is empty — add ingredients in Inventory first.</p>
+        }
 
         <div class="row" style="margin-top:12px">
           <button class="green" [disabled]="!draft.name" (click)="save()">Save recipe</button>
@@ -73,26 +95,43 @@ import {
     @if (recipes.length) {
       <div class="card">
         <h3>Saved recipes</h3>
-        @for (r of recipes; track r.recipe_id) {
+        <div class="seg" style="margin-bottom:10px">
+          <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
+          <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
+        </div>
+        @if (!filteredRecipes.length) {
+          <p class="muted">{{ showArchived ? 'No archived recipes.' : 'No active recipes yet.' }}</p>
+        }
+        @for (r of filteredRecipes; track r.recipe_id) {
           <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
-            <div>
-              <div>{{ r.name }}</div>
-              <div class="muted">
-                {{ r.servings }} serving{{ r.servings === 1 ? '' : 's' }} ·
-                {{ r.ingredients.length }} ingredient{{ r.ingredients.length === 1 ? '' : 's' }}
+            <div class="row">
+              @if (r.image_url) {
+                <img [src]="r.image_url" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover" />
+              }
+              <div>
+                <div>{{ r.name }}</div>
+                <div class="muted">
+                  {{ r.servings }} serving{{ r.servings === 1 ? '' : 's' }} ·
+                  {{ r.ingredients.length }} ingredient{{ r.ingredients.length === 1 ? '' : 's' }}
+                </div>
               </div>
             </div>
             <div class="row">
-              <button class="ghost" (click)="openLogPanel(r)">Log</button>
-              <button class="ghost" (click)="edit(r)">Edit</button>
-              <button class="ghost" (click)="remove(r)">✕</button>
+              @if (!showArchived) {
+                <button class="ghost" (click)="openLogPanel(r)">Log</button>
+                <button class="ghost" (click)="edit(r)">Edit</button>
+                <button class="ghost" (click)="archive(r)">Archive</button>
+              } @else {
+                <button class="ghost" (click)="restore(r)">Restore</button>
+                <button class="ghost" (click)="removePermanently(r)">Delete permanently</button>
+              }
             </div>
           </div>
 
-          @if (logStatusRecipeId === r.recipe_id && logStatus) {
+          @if (!showArchived && logStatusRecipeId === r.recipe_id && logStatus) {
             <p class="muted" style="margin:-4px 0 8px">{{ logStatus }}</p>
           }
-          @if (logPanelRecipeId === r.recipe_id) {
+          @if (!showArchived && logPanelRecipeId === r.recipe_id) {
             <div style="margin:-4px 0 10px;padding:10px;border:1px solid var(--border);border-radius:10px">
               <label>Servings eaten</label>
               <input type="number" [(ngModel)]="logServingsEaten" min="0.25" step="0.25" style="max-width:90px" />
@@ -133,10 +172,19 @@ export class RecipesComponent implements OnInit {
   logStatus = '';
   logStatusRecipeId: string | null = null;
   private pickerEntries: LogEntry[] = [];
-  private pantryItems: InventoryItem[] = [];
+  pantryItems: InventoryItem[] = [];
+
+  showArchived = false;
+  pickerItemId: string | null = null;
+  pickerQty = 1;
 
   ngOnInit(): void {
     this.reload();
+    this.api.listInventory().subscribe((res) => (this.pantryItems = res.items));
+  }
+
+  get filteredRecipes(): Recipe[] {
+    return this.recipes.filter((r) => (r.is_active ?? true) === !this.showArchived);
   }
 
   reload(): void {
@@ -151,15 +199,29 @@ export class RecipesComponent implements OnInit {
     });
   }
 
-  addIngredient(): void {
-    if (!this.draft) return;
+  newRecipe(): void {
+    this.draft = {
+      name: '', servings: 1, instructions: '', ingredients: [],
+      source: 'manual', image_url: null,
+    };
+  }
+
+  addIngredientFromPantry(): void {
+    if (!this.draft || !this.pickerItemId) return;
+    const item = this.pantryItems.find((p) => p.item_id === this.pickerItemId);
+    if (!item) return;
+    const qty = this.pickerQty || 1;
     this.draft.ingredients.push({
-      name: '', quantity: 1, unit: 'unit',
+      item_id: item.item_id, name: item.name, quantity: qty, unit: item.unit,
       macros: {
-        cal: 0, protein: 0, carbs: 0, fat: 0,
-        sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+        cal: item.per_serving.cal * qty, protein: item.per_serving.protein * qty,
+        carbs: item.per_serving.carbs * qty, fat: item.per_serving.fat * qty,
+        sugar_g: item.per_serving.sugar_g * qty, fiber_g: item.per_serving.fiber_g * qty,
+        sat_fat_g: item.per_serving.sat_fat_g * qty, sodium_mg: item.per_serving.sodium_mg * qty,
       },
     });
+    this.pickerItemId = null;
+    this.pickerQty = 1;
   }
 
   removeIngredient(i: number): void {
@@ -179,7 +241,15 @@ export class RecipesComponent implements OnInit {
     this.draft = { ...r, ingredients: r.ingredients.map((i) => ({ ...i })) };
   }
 
-  remove(r: Recipe): void {
+  archive(r: Recipe): void {
+    this.api.saveRecipe({ ...r, is_active: false }).subscribe(() => this.reload());
+  }
+
+  restore(r: Recipe): void {
+    this.api.saveRecipe({ ...r, is_active: true }).subscribe(() => this.reload());
+  }
+
+  removePermanently(r: Recipe): void {
     if (!r.recipe_id) return;
     this.api.deleteRecipe(r.recipe_id).subscribe(() => this.reload());
   }

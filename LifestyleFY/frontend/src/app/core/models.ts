@@ -27,6 +27,7 @@ export interface FoodItem {
   image_url?: string | null;
   nutrition_grade?: string | null; // e.g. Nutri-Score a-e
   category?: string | null; // id from core/categories.ts
+  ingredients_text?: string | null; // free-text ingredient list
 }
 
 export interface InventoryItem extends FoodItem {
@@ -127,5 +128,30 @@ export interface Recipe {
   instructions: string;
   ingredients: RecipeIngredient[];
   source: string; // ai | manual
+  image_url?: string | null;
+  is_active?: boolean;
+  created_at?: string | null;
+}
+
+export interface GroceryItem {
+  name: string;
+  quantity: string; // free text, e.g. "2 bunches"
+  section: string; // id from core/categories.ts
+  checked?: boolean;
+}
+
+export interface GrocerySwap {
+  title: string;
+  explanation: string;
+}
+
+export interface GroceryList {
+  grocery_list_id?: string | null;
+  name: string;
+  days: number;
+  items: GroceryItem[];
+  swaps: GrocerySwap[];
+  source: string; // ai | manual
+  is_active?: boolean;
   created_at?: string | null;
 }

@@ -32,6 +32,7 @@ class FoodItem(BaseModel):
     image_url: str | None = None
     nutrition_grade: str | None = None  # e.g. Nutri-Score a-e
     category: str | None = None  # id from services/categories.py
+    ingredients_text: str | None = None  # free-text ingredient list
 
 
 class ScanRequest(BaseModel):
@@ -135,4 +136,29 @@ class Recipe(BaseModel):
     instructions: str = ""
     ingredients: list[RecipeIngredient] = Field(default_factory=list)
     source: str = "manual"  # ai | manual
+    image_url: str | None = None
+    is_active: bool = True
+    created_at: datetime | None = None
+
+
+class GroceryItem(BaseModel):
+    name: str
+    quantity: str = ""  # free text, e.g. "2 bunches"
+    section: str = "other"  # id from services/categories.py
+    checked: bool = False
+
+
+class GrocerySwap(BaseModel):
+    title: str
+    explanation: str
+
+
+class GroceryList(BaseModel):
+    grocery_list_id: str | None = None
+    name: str = ""
+    days: int = 7
+    items: list[GroceryItem] = Field(default_factory=list)
+    swaps: list[GrocerySwap] = Field(default_factory=list)
+    source: str = "manual"  # ai | manual
+    is_active: bool = True
     created_at: datetime | None = None

@@ -7,7 +7,8 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from ..auth import current_uid
 from ..deps import coach_dep, resolver_dep, store_dep
 from ..models import (
-    AiPrompts, Goals, InventoryItem, LogRequest, Profile, Recipe, ScanRequest, TodaySummary,
+    AiPrompts, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe, ScanRequest,
+    TodaySummary,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.food import FoodResolver
@@ -207,10 +208,31 @@ def grocery(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
         raise HTTPException(400, "Set goals first")
     prompts = store.get_ai_prompts(uid)
     history = store.weekly_macro_history(uid, day or datetime.now(timezone.utc).date())
-    text = coach.grocery(store.list_inventory(uid), goals,
-                         profile.dietary_prefs if profile else [], days, history,
-                         custom_note=prompts.grocery, message=message)
-    return {"grocery_list": text}
+    try:
+        grocery_list = coach.grocery(store.list_inventory(uid), goals,
+                             profile.dietary_prefs if profile else [], days, history,
+                             custom_note=prompts.grocery, message=message)
+    except ValueError as e:
+        raise HTTPException(502, f"Grocery list generation failed: {e}") from e
+    return {"grocery_list": grocery_list}
+
+
+@router.post("/grocery-lists")
+def save_grocery_list(gl: GroceryList, uid: str = Depends(current_uid),
+                      store: Store = Depends(store_dep)):
+    return {"grocery_list": store.save_grocery_list(uid, gl)}
+
+
+@router.get("/grocery-lists")
+def list_grocery_lists(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return {"grocery_lists": store.list_grocery_lists(uid)}
+
+
+@router.delete("/grocery-lists/{grocery_list_id}")
+def delete_grocery_list(grocery_list_id: str, uid: str = Depends(current_uid),
+                        store: Store = Depends(store_dep)):
+    store.delete_grocery_list(uid, grocery_list_id)
+    return {"ok": True}
 
 
 @router.post("/grocery/preview")

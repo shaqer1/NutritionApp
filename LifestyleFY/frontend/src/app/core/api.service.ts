@@ -3,8 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  AiPromptPreview, AiPrompts, CoachMessage, FoodItem, Goals, InventoryItem, LogEntry,
-  LogRequest, Profile, Recipe, TodaySummary,
+  AiPromptPreview, AiPrompts, CoachMessage, FoodItem, Goals, GroceryList, InventoryItem,
+  LogEntry, LogRequest, Profile, Recipe, TodaySummary,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -92,11 +92,22 @@ export class ApiService {
   }
 
   // --- AI ---
-  grocery(days = 7, day?: string, message = ''): Observable<{ grocery_list: string }> {
-    return this.http.post<{ grocery_list: string }>(`${this.base}/grocery`, { days, day, message });
+  grocery(days = 7, day?: string, message = ''): Observable<{ grocery_list: GroceryList }> {
+    return this.http.post<{ grocery_list: GroceryList }>(`${this.base}/grocery`, { days, day, message });
   }
   groceryPreview(days = 7, day?: string): Observable<AiPromptPreview> {
     return this.http.post<AiPromptPreview>(`${this.base}/grocery/preview`, { days, day });
+  }
+
+  // --- Grocery lists (saved/persisted) ---
+  saveGroceryList(gl: GroceryList): Observable<{ grocery_list: GroceryList }> {
+    return this.http.post<{ grocery_list: GroceryList }>(`${this.base}/grocery-lists`, gl);
+  }
+  listGroceryLists(): Observable<{ grocery_lists: GroceryList[] }> {
+    return this.http.get<{ grocery_lists: GroceryList[] }>(`${this.base}/grocery-lists`);
+  }
+  deleteGroceryList(id: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/grocery-lists/${id}`);
   }
   runCoach(meal: string, timeLabel: string, day?: string, message = ''):
     Observable<{ nudge: string | null; on_track: boolean }> {

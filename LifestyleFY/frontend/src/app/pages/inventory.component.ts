@@ -72,7 +72,8 @@ const LOCATION_EMOJI: Record<Location, string> = {
         <div style="margin-top:10px">
           <div class="seg">
             <button [class.active]="addMode === 'camera'" (click)="addMode = 'camera'">Camera</button>
-            <button [class.active]="addMode === 'manual'" (click)="addMode = 'manual'">Manual</button>
+            <button [class.active]="addMode === 'search'" (click)="addMode = 'search'">Search</button>
+            <button [class.active]="addMode === 'manual'" (click)="addMode = 'manual'">Manual entry</button>
           </div>
 
           @if (addMode === 'camera') {
@@ -87,12 +88,88 @@ const LOCATION_EMOJI: Record<Location, string> = {
               </div>
               <p class="muted">{{ scanStatus }}</p>
             </div>
-          } @else {
+          } @else if (addMode === 'search') {
             <div style="margin-top:10px">
               <label>Barcode or product name</label>
               <div class="row">
                 <input [(ngModel)]="manualQuery" placeholder="e.g. 3017620422003 or 'greek yogurt'" />
                 <button class="ghost" (click)="lookupManual()">Find</button>
+              </div>
+              <p class="muted">{{ scanStatus }}</p>
+            </div>
+          } @else {
+            <div style="margin-top:10px">
+              <label>Name</label>
+              <input [(ngModel)]="manualEntry.name" placeholder="e.g. Homemade chili" />
+              <div class="row">
+                <div style="flex:1"><label>Category</label>
+                  <select [(ngModel)]="manualEntry.category">
+                    @for (c of categories; track c.id) {
+                      <option [value]="c.id">{{ c.emoji }} {{ c.label }}</option>
+                    }
+                  </select>
+                </div>
+                <div style="flex:1"><label>Location</label>
+                  <select [(ngModel)]="manualEntry.location">
+                    @for (l of locations; track l.id) {
+                      <option [value]="l.id">{{ l.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Servings in container</label>
+                  <input type="number" [(ngModel)]="manualEntry.qty" min="0" /></div>
+                <div style="flex:1"><label>Unit</label>
+                  <input [(ngModel)]="manualEntry.unit" placeholder="unit" /></div>
+              </div>
+              <label>Serving size <span class="muted">(informational, e.g. "1 bar")</span></label>
+              <div class="row">
+                <div style="flex:1"><input type="number" [(ngModel)]="manualEntry.servingSizeQty" placeholder="1" /></div>
+                <div style="flex:1"><input [(ngModel)]="manualEntry.servingSizeUnit" placeholder="bar" /></div>
+              </div>
+              <label>Quantity per serving <span class="muted">(used for grams tracking)</span></label>
+              <div class="row">
+                <div style="flex:1"><label>Amount</label>
+                  <input type="number" [(ngModel)]="manualEntry.servingQty" /></div>
+                <div style="flex:1"><label>Unit</label>
+                  <input [(ngModel)]="manualEntry.servingUnit" placeholder="g" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Calories</label>
+                  <input type="number" [(ngModel)]="manualEntry.cal" /></div>
+                <div style="flex:1"><label>Protein</label>
+                  <input type="number" [(ngModel)]="manualEntry.protein" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Carbs</label>
+                  <input type="number" [(ngModel)]="manualEntry.carbs" /></div>
+                <div style="flex:1"><label>Fat</label>
+                  <input type="number" [(ngModel)]="manualEntry.fat" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Sugar (g)</label>
+                  <input type="number" [(ngModel)]="manualEntry.sugar_g" /></div>
+                <div style="flex:1"><label>Fiber (g)</label>
+                  <input type="number" [(ngModel)]="manualEntry.fiber_g" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Saturated fat (g)</label>
+                  <input type="number" [(ngModel)]="manualEntry.sat_fat_g" /></div>
+                <div style="flex:1"><label>Sodium (mg)</label>
+                  <input type="number" [(ngModel)]="manualEntry.sodium_mg" /></div>
+              </div>
+              <label>Image URL</label>
+              <input [(ngModel)]="manualEntry.image_url" placeholder="https://..." />
+              <label>Ingredients</label>
+              <textarea [(ngModel)]="manualEntry.ingredients_text" rows="3"
+                placeholder="e.g. Chicken, rice, onion, garlic, salt"
+                style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
+                       border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
+              <div style="margin-top:10px">
+                <button class="green" [disabled]="!manualEntry.name" (click)="submitManualEntry()">
+                  Add to pantry
+                </button>
               </div>
               <p class="muted">{{ scanStatus }}</p>
             </div>
@@ -335,12 +412,17 @@ const LOCATION_EMOJI: Record<Location, string> = {
       }
     } @else {
       <div class="seg">
-        @for (loc of locations; track loc.id) {
+        @for (loc of pantryTabs; track loc.id) {
           <button [class.active]="activeLocation === loc.id" (click)="activeLocation = loc.id">
             {{ locationEmoji(loc.id) }} {{ loc.label }}
           </button>
         }
       </div>
+
+      <label class="row" style="align-items:center;gap:6px;margin-top:8px">
+        <input type="checkbox" [(ngModel)]="hideOutOfStock" style="width:auto" />
+        <span class="muted">Hide out of stock</span>
+      </label>
 
       @if (!shelves.length) {
         <div class="card"><p class="muted">Nothing here yet — scan groceries or add above.</p></div>
@@ -383,7 +465,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // ---------- Add / Scan section ----------
   addOpen = false;
-  addMode: 'camera' | 'manual' = 'manual';
+  addMode: 'camera' | 'search' | 'manual' = 'search';
   scanning = false;
   scanStatus = 'Point the camera at a barcode, or type one below.';
   manualQuery = '';
@@ -394,6 +476,48 @@ export class InventoryComponent implements OnInit, OnDestroy {
     servingSizeQty: null as number | null, servingSizeUnit: '',
     servingQty: null as number | null, servingUnit: '',
   };
+
+  // ---------- Manual entry (3rd Add/Scan tab): full ingredient form ----------
+  manualEntry = this.blankManualEntry();
+
+  private blankManualEntry() {
+    return {
+      name: '', category: 'other', location: 'pantry' as Location,
+      qty: 1, unit: 'unit',
+      servingSizeQty: null as number | null, servingSizeUnit: '',
+      servingQty: null as number | null, servingUnit: '',
+      cal: 0, protein: 0, carbs: 0, fat: 0,
+      sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+      image_url: '', ingredients_text: '',
+    };
+  }
+
+  submitManualEntry(): void {
+    const m = this.manualEntry;
+    const unit = m.servingUnit.toLowerCase() || null;
+    const item: InventoryItem = {
+      name: m.name, source: 'manual',
+      per_serving: {
+        cal: m.cal, protein: m.protein, carbs: m.carbs, fat: m.fat,
+        sugar_g: m.sugar_g, fiber_g: m.fiber_g, sat_fat_g: m.sat_fat_g, sodium_mg: m.sodium_mg,
+      },
+      serving_size: m.servingSizeQty && m.servingSizeUnit ? `${m.servingSizeQty} ${m.servingSizeUnit}` : null,
+      serving_size_qty: m.servingSizeQty,
+      serving_size_unit: m.servingSizeUnit || null,
+      serving_qty: m.servingQty,
+      serving_unit: unit,
+      serving_qty_g: unit === 'g' ? m.servingQty : null,
+      image_url: m.image_url || null,
+      ingredients_text: m.ingredients_text || null,
+      category: m.category,
+      item_id: null, qty: m.qty, unit: m.unit, location: m.location,
+    };
+    this.api.addInventory(item).subscribe(() => {
+      this.scanStatus = `Added ${m.name} to pantry.`;
+      this.manualEntry = this.blankManualEntry();
+      this.reloadInventory();
+    });
+  }
   found?: FoodItem;
   foundQty = 1;
   mealPickerOpen = false;
@@ -416,7 +540,11 @@ export class InventoryComponent implements OnInit, OnDestroy {
   items: InventoryItem[] = [];
   categories = APP_CATEGORIES;
   locations = LOCATIONS;
-  activeLocation: Location = 'pantry';
+  pantryTabs: { id: Location | 'all'; label: string }[] = [
+    { id: 'all', label: 'All' }, ...LOCATIONS,
+  ];
+  activeLocation: Location | 'all' = 'pantry';
+  hideOutOfStock = false;
 
   ngOnInit(): void {
     this.reloadInventory();
@@ -767,13 +895,18 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.api.listInventory().subscribe((r) => (this.items = r.items));
   }
 
-  locationEmoji(loc: Location): string {
+  locationEmoji(loc: Location | 'all'): string {
+    if (loc === 'all') return '🗂️';
     return LOCATION_EMOJI[loc] ?? '📦';
   }
 
   get shelves(): Shelf[] {
-    const inLocation = this.items.filter(
-      (it) => (it.location || 'pantry') === this.activeLocation);
+    let inLocation = this.activeLocation === 'all'
+      ? this.items
+      : this.items.filter((it) => (it.location || 'pantry') === this.activeLocation);
+    if (this.hideOutOfStock) {
+      inLocation = inLocation.filter((it) => it.qty > 0);
+    }
     const groups = new Map<string, InventoryItem[]>();
     for (const it of inLocation) {
       const key = it.category || 'other';
