@@ -361,9 +361,9 @@ const LOCATION_EMOJI: Record<Location, string> = {
                     {{ it.name }}
                   </div>
                 </a>
-                <div class="row spread" style="margin-top:5px;gap:2px">
+                <div class="row spread" style="margin-top:5px;gap:2px;flex-wrap:nowrap">
                   <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, -1)">－</button>
-                  <span>{{ it.qty }}</span>
+                  <span style="font-size:13px;white-space:nowrap">{{ it.qty }}</span>
                   <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, 1)">＋</button>
                 </div>
                 <button class="ghost" style="width:100%;margin-top:5px;padding:3px" (click)="removeItem(it)">🗑</button>

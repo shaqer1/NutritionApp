@@ -79,11 +79,12 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px;
 .seg button { flex: 1; background: transparent; color: var(--muted); padding: 8px 10px; font-size: 14px; }
 .seg button.active { background: var(--accent); color: white; }
 
-/* pantry item card grid: fixed 4-across minimum on mobile so cards stay a
-   predictable width instead of the auto-fill count shifting per device width
-   (which made the wider 3-column cards' thumbnails look oddly cropped) */
+/* pantry item card grid: column width is driven by the qty-stepper row's
+   content (needs room for "− 4.5 +"-style decimals without wrapping), not a
+   fixed count — this lands on 3-4 columns depending on phone width rather
+   than forcing 4 and letting the stepper row overflow/wrap. */
 .grid-cards {
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr));
   gap: 8px; margin-top: 8px;
 }
 .item-card {
