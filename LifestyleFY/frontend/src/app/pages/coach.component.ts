@@ -2,12 +2,14 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
 import { CoachMessage, Goals, Profile } from '../core/models';
+import { currentMealType, currentTimeLabel, todayStr } from '../core/meal-picker';
 
 @Component({
   selector: 'app-coach',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AiPromptPanelComponent],
   template: `
     <h1>Coach</h1>
 
@@ -56,9 +58,17 @@ import { CoachMessage, Goals, Profile } from '../core/models';
 
     <div class="card blue">
       <h3>Ask the coach</h3>
-      <button (click)="check()">Am I on track?</button>
+      <label>Ask something specific <span class="muted">(sent with this request only)</span></label>
+      <textarea [(ngModel)]="message" rows="2" placeholder="e.g. I feel like tacos, what should I eat?"
+        style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
+               border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
+      <div style="margin-top:8px">
+        <button (click)="check()">Am I on track?</button>
+      </div>
       <p class="muted">{{ status }}</p>
     </div>
+
+    <app-ai-prompt-panel category="nudge" [fetchPreview]="previewNudge" />
 
     @if (output) {
       <div class="card">
@@ -91,7 +101,10 @@ export class CoachComponent implements OnInit {
 
   status = '';
   output = '';
+  message = '';
   messages: CoachMessage[] = [];
+
+  previewNudge = () => this.api.coachPreview(currentMealType(), currentTimeLabel(), todayStr());
 
   ngOnInit(): void {
     this.api.getProfile().subscribe((r) => { if (r.profile) this.profile = r.profile; });
@@ -124,9 +137,10 @@ export class CoachComponent implements OnInit {
 
   check(): void {
     this.status = 'Checking…';
-    this.api.runCoach('dinner', 'now').subscribe((r) => {
+    this.api.runCoach(currentMealType(), currentTimeLabel(), todayStr(), this.message).subscribe((r) => {
       this.status = r.on_track ? "You're on track — keep it up! 💪" : '';
       this.output = r.nudge ?? '';
+      this.message = '';
       this.loadMessages();
     });
   }

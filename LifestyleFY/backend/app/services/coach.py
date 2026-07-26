@@ -18,7 +18,9 @@ from __future__ import annotations
 import json
 
 from ..config import Settings
-from ..models import Goals, InventoryItem, Profile, Recipe, RecipeIngredient, TodaySummary
+from ..models import (
+    Goals, InventoryItem, LogEntry, Macros, Profile, Recipe, RecipeIngredient, TodaySummary,
+)
 
 ACTIVITY = {
     "sedentary": 1.2, "light": 1.375, "moderate": 1.55,
@@ -81,32 +83,117 @@ class Coach:
         resp = self._gemini().models.generate_content(model=model, contents=prompt)
         return (resp.text or "").strip()
 
+    @staticmethod
+    def _assemble_prompt(generic: str, context: str, custom_note: str, message: str = "") -> str:
+        parts = [generic, context]
+        if custom_note.strip():
+            parts.append(f"User's standing note: {custom_note.strip()}")
+        if message.strip():
+            parts.append(f"User's one-time request for this message: {message.strip()}")
+        return "\n\n".join(parts)
+
     # ---------- Meal-time nudge ----------
-    def nudge(self, summary: TodaySummary, inventory: list[InventoryItem],
-              meal: str, time_label: str) -> str | None:
+    def nudge_prompt_parts(self, summary: TodaySummary, inventory: list[InventoryItem],
+                           log_entries: list[LogEntry], meal: str,
+                           time_label: str) -> tuple[str, str]:
         g = summary.goals
-        if not g:
-            return None
-        # Only nudge if behind on calories or protein for the time of day.
-        behind = (summary.remaining.protein > g.protein_g * 0.35
-                  or summary.remaining.cal > g.calories * 0.45)
-        if not behind:
-            return None
-        on_hand = ", ".join(i.name for i in inventory[:20]) or "nothing logged"
-        prompt = (
-            f"It's {time_label}. Bulking target is {g.calories} kcal / "
-            f"{g.protein_g}g protein. So far today: {round(summary.consumed.cal)} kcal, "
-            f"{round(summary.consumed.protein)}g protein. Remaining: "
-            f"{round(summary.remaining.cal)} kcal, {round(summary.remaining.protein)}g "
-            f"protein. On hand: {on_hand}. Suggest ONE realistic, quick, "
-            f"energy-boosting {meal} that closes most of the protein/calorie gap. "
-            f"Two sentences, encouraging, no preamble."
+        generic = (
+            "You are a nutrition coach for a muscle-gain app. Suggest ONE realistic, "
+            "quick meal or snack the user can eat right now that closes as much of "
+            "their remaining macro gap as possible using what's on hand — OR, if the "
+            "pantry genuinely can't cover the gap, say so and suggest a grocery run "
+            "instead. Two to three sentences, encouraging, no preamble, no markdown."
         )
-        return self._generate(prompt)
+        eaten = "; ".join(
+            f"{e.meal} #{e.meal_instance}: {e.item_name} ({round(e.macros.cal)} kcal)"
+            for e in log_entries
+        ) or "nothing yet"
+        on_hand = ", ".join(i.name for i in inventory[:20]) or "nothing logged"
+        goal_line = (
+            f"Daily target: {g.calories} kcal / {g.protein_g}g protein / "
+            f"{g.carbs_g}g carbs / {g.fat_g}g fat."
+            if g else "No macro goals set yet."
+        )
+        context = (
+            f"It's {time_label} ({meal} time).\n{goal_line}\n"
+            f"Consumed so far: {round(summary.consumed.cal)} kcal / "
+            f"{round(summary.consumed.protein)}g P / {round(summary.consumed.carbs)}g C / "
+            f"{round(summary.consumed.fat)}g F.\n"
+            f"Remaining: {round(summary.remaining.cal)} kcal / "
+            f"{round(summary.remaining.protein)}g P / {round(summary.remaining.carbs)}g C / "
+            f"{round(summary.remaining.fat)}g F.\n"
+            f"Meals/items already eaten today: {eaten}.\n"
+            f"Pantry on hand: {on_hand}."
+        )
+        return generic, context
+
+    def nudge(self, summary: TodaySummary, inventory: list[InventoryItem],
+              log_entries: list[LogEntry], meal: str, time_label: str,
+              custom_note: str = "", message: str = "") -> str | None:
+        g = summary.goals
+        # A direct one-time question ("how do I make tacos?") always gets an
+        # answer — the "only nudge if behind" gate exists to avoid unprompted
+        # nagging, not to block a question the user actually asked.
+        if not message.strip():
+            if not g:
+                return None
+            behind = (summary.remaining.protein > g.protein_g * 0.35
+                      or summary.remaining.cal > g.calories * 0.45)
+            if not behind:
+                return None
+        generic, context = self.nudge_prompt_parts(summary, inventory, log_entries, meal, time_label)
+        return self._generate(self._assemble_prompt(generic, context, custom_note, message))
 
     # ---------- Recipes ----------
+    def recipe_prompt_parts(self, inventory: list[InventoryItem], prefs: list[str],
+                            allergies: list[str], meal_period: str,
+                            remaining: Macros) -> tuple[str, str]:
+        generic = (
+            "You are a recipe assistant for a muscle-gain nutrition app. Using ONLY "
+            "(or as much as possible) the ingredients listed below from the user's "
+            "own pantry, suggest ONE high-protein, calorie-dense recipe sized to fit "
+            "the remaining macro budget given below for the specified meal period.\n"
+            "Respond with ONLY valid JSON (no markdown fences, no commentary) "
+            "matching exactly this shape:\n"
+            '{"name": "string", "servings": number, "instructions": "string", '
+            '"ingredients": [{"item_id": "string or null", "name": "string", '
+            '"quantity": number, "unit": "string", "macros": {"cal": number, '
+            '"protein": number, "carbs": number, "fat": number, "sugar_g": number, '
+            '"fiber_g": number, "sat_fat_g": number, "sodium_mg": number}}]}\n'
+            "The macros object per ingredient should reflect that ingredient's "
+            "quantity in this recipe (not per-serving-of-the-original-product)."
+        )
+        # {Pantry_items} is a display placeholder, not sent to Gemini as-is —
+        # suggest_recipe() substitutes the real pantry JSON in right before
+        # generating. The preview route shows the placeholder untouched, so
+        # the (potentially long) raw JSON dump never needs to be shown to the
+        # user, even though it's exactly what gets sent for real.
+        context = (
+            f"Meal period: {meal_period}.\n"
+            f"Remaining macro budget for today: {round(remaining.cal)} kcal / "
+            f"{round(remaining.protein)}g protein / {round(remaining.carbs)}g carbs / "
+            f"{round(remaining.fat)}g fat.\n"
+            f"Dietary prefs: {', '.join(prefs) or 'none'}. "
+            f"Allergies: {', '.join(allergies) or 'none'} (must avoid).\n\n"
+            "Pantry ingredients (JSON): {Pantry_items}"
+        )
+        return generic, context
+
+    @staticmethod
+    def _pantry_json(inventory: list[InventoryItem]) -> str:
+        on_hand = [
+            {
+                "item_id": i.item_id, "name": i.name, "unit": i.unit,
+                "serving_qty": i.serving_qty, "serving_unit": i.serving_unit,
+                "macros_per_serving": i.per_serving.model_dump(),
+            }
+            for i in inventory
+        ]
+        return json.dumps(on_hand)
+
     def suggest_recipe(self, inventory: list[InventoryItem], prefs: list[str],
-                       allergies: list[str]) -> Recipe:
+                       allergies: list[str], meal_period: str, remaining: Macros,
+                       custom_note: str = "", message: str = "") -> Recipe:
         """A structured (not free-text) recipe draft, built preferentially from
         real pantry ingredients so it's directly editable/saveable and its
         ingredient lines can later be logged against actual inventory."""
@@ -126,32 +213,9 @@ class Coach:
                 source="ai",
             )
 
-        on_hand = [
-            {
-                "item_id": i.item_id, "name": i.name, "unit": i.unit,
-                "serving_qty": i.serving_qty, "serving_unit": i.serving_unit,
-                "macros_per_serving": i.per_serving.model_dump(),
-            }
-            for i in inventory
-        ]
-        prompt = (
-            "You are a recipe assistant for a muscle-gain nutrition app. Using "
-            "ONLY (or as much as possible) the ingredients listed below from the "
-            "user's own pantry, suggest ONE high-protein, calorie-dense recipe. "
-            f"Dietary prefs: {', '.join(prefs) or 'none'}. "
-            f"Allergies: {', '.join(allergies) or 'none'} (must avoid).\n\n"
-            f"Pantry ingredients (JSON): {json.dumps(on_hand)}\n\n"
-            "Respond with ONLY valid JSON (no markdown fences, no commentary) "
-            "matching exactly this shape:\n"
-            '{"name": "string", "servings": number, "instructions": "string", '
-            '"ingredients": [{"item_id": "string or null", "name": "string", '
-            '"quantity": number, "unit": "string", "macros": {"cal": number, '
-            '"protein": number, "carbs": number, "fat": number, "sugar_g": number, '
-            '"fiber_g": number, "sat_fat_g": number, "sodium_mg": number}}]}\n'
-            "The macros object per ingredient should reflect that ingredient's "
-            "quantity in this recipe (not per-serving-of-the-original-product)."
-        )
-        text = self._generate(prompt, smart=True)
+        generic, context = self.recipe_prompt_parts(inventory, prefs, allergies, meal_period, remaining)
+        context = context.replace("{Pantry_items}", self._pantry_json(inventory))
+        text = self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)
         cleaned = text.strip()
         if cleaned.startswith("```"):
             cleaned = cleaned.strip("`")
@@ -165,15 +229,33 @@ class Coach:
         return Recipe(**data)
 
     # ---------- Grocery list ----------
-    def grocery(self, inventory: list[InventoryItem], goals: Goals,
-                prefs: list[str], days: int = 7) -> str:
-        on_hand = ", ".join(i.name for i in inventory) or "nothing"
-        prompt = (
-            f"Plan a {days}-day muscle-gain grocery list for a bulking target of "
-            f"{goals.calories} kcal / {goals.protein_g}g protein per day. "
-            f"Already have: {on_hand}. Prefs: {', '.join(prefs) or 'none'}. "
-            f"Return only the items to BUY (not what's on hand), grouped by store "
-            f"section, with quantities. Prioritize cheap, high-protein, "
-            f"calorie-dense staples."
+    def grocery_prompt_parts(self, inventory: list[InventoryItem], goals: Goals,
+                             prefs: list[str], days: int,
+                             weekly_history: list[dict]) -> tuple[str, str]:
+        generic = (
+            f"Plan a {days}-day muscle-gain grocery list. Return only the items to "
+            "BUY (not what's on hand), grouped by store section, with quantities. "
+            "Prioritize cheap, high-protein, calorie-dense staples. Also explicitly "
+            "suggest 2-3 ingredient or meal substitutions that would make it easier "
+            "to hit the macro goals, based on the weekly pattern below (e.g. "
+            "consistently short on one macro)."
         )
-        return self._generate(prompt, smart=True)
+        on_hand = ", ".join(i.name for i in inventory) or "nothing"
+        history_lines = "; ".join(
+            f"{h['date']}: {round(h['consumed'].cal)} kcal / {round(h['consumed'].protein)}g P "
+            f"(target {goals.calories} kcal / {goals.protein_g}g P)"
+            for h in weekly_history
+        ) or "no history yet"
+        context = (
+            f"Daily target: {goals.calories} kcal / {goals.protein_g}g protein / "
+            f"{goals.carbs_g}g carbs / {goals.fat_g}g fat.\n"
+            f"Already have: {on_hand}.\nPrefs: {', '.join(prefs) or 'none'}.\n"
+            f"Last 7 days consumed-vs-target: {history_lines}."
+        )
+        return generic, context
+
+    def grocery(self, inventory: list[InventoryItem], goals: Goals, prefs: list[str],
+                days: int, weekly_history: list[dict], custom_note: str = "",
+                message: str = "") -> str:
+        generic, context = self.grocery_prompt_parts(inventory, goals, prefs, days, weekly_history)
+        return self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)

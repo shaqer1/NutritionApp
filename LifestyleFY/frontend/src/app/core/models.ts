@@ -68,6 +68,18 @@ export interface TodaySummary {
   coach_tip?: string | null;
 }
 
+export interface AiPrompts {
+  nudge: string;
+  recipe: string;
+  grocery: string;
+}
+
+export interface AiPromptPreview {
+  generic: string;
+  context: string;
+  custom_note: string;
+}
+
 export interface LogRequest {
   meal: string;
   meal_instance?: number; // distinguishes separate sittings, e.g. "Lunch 2"

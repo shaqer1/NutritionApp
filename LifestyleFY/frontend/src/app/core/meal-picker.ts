@@ -26,3 +26,18 @@ export function todayStr(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
+
+/** Best-guess meal period from the client's local wall clock, used to default
+ * the nudge/recipe AI context instead of a hardcoded meal name. */
+export function currentMealType(): string {
+  const h = new Date().getHours();
+  if (h >= 5 && h < 11) return 'breakfast';
+  if (h >= 11 && h < 15) return 'lunch';
+  if (h >= 15 && h < 21) return 'dinner';
+  return 'snack';
+}
+
+/** Human-readable local time, e.g. "2:30 PM" — shown to the AI as context. */
+export function currentTimeLabel(): string {
+  return new Date().toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}

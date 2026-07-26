@@ -3,25 +3,42 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
 import { InventoryItem, LogEntry, Macros, Recipe } from '../core/models';
 import {
   MEAL_TYPES, mealLabel as sharedMealLabel, existingInstances as sharedExistingInstances,
-  nextInstance as sharedNextInstance, todayStr,
+  nextInstance as sharedNextInstance, todayStr, currentMealType,
 } from '../core/meal-picker';
 
 @Component({
   selector: 'app-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AiPromptPanelComponent],
   template: `
     <h1>Recipes</h1>
 
     <div class="card blue">
       <h3>Generate a recipe</h3>
-      <p class="muted">Suggests something using what's actually in your pantry.</p>
-      <button (click)="generate()">Generate</button>
+      <p class="muted">Suggests something using what's actually in your pantry, sized
+        to fit what's left in your macro budget for the meal below.</p>
+      <label>Which meal is this for?</label>
+      <select [(ngModel)]="mealPeriod" style="max-width:160px">
+        @for (mt of mealTypes; track mt) {
+          <option [value]="mt">{{ mt }}</option>
+        }
+      </select>
+      <label style="margin-top:10px;display:block">Ask something specific
+        <span class="muted">(sent with this request only)</span></label>
+      <textarea [(ngModel)]="message" rows="2" placeholder="e.g. I feel like tacos, how do I make them?"
+        style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
+               border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
+      <div style="margin-top:10px">
+        <button (click)="generate()">Generate</button>
+      </div>
       <p class="muted">{{ status }}</p>
     </div>
+
+    <app-ai-prompt-panel category="recipe" [fetchPreview]="previewRecipe" />
 
     @if (draft) {
       <div class="card">
@@ -107,6 +124,10 @@ export class RecipesComponent implements OnInit {
   recipes: Recipe[] = [];
 
   mealTypes = MEAL_TYPES;
+  mealPeriod = currentMealType();
+  message = '';
+  previewRecipe = () => this.api.suggestRecipePreview(this.mealPeriod);
+
   logPanelRecipeId: string | null = null;
   logServingsEaten = 1;
   logStatus = '';
@@ -124,8 +145,8 @@ export class RecipesComponent implements OnInit {
 
   generate(): void {
     this.status = 'Thinking up a recipe using your pantry…';
-    this.api.suggestRecipe().subscribe({
-      next: (r) => { this.draft = r.recipe; this.status = ''; },
+    this.api.suggestRecipe(this.mealPeriod, this.message).subscribe({
+      next: (r) => { this.draft = r.recipe; this.status = ''; this.message = ''; },
       error: () => (this.status = 'Could not generate a recipe.'),
     });
   }

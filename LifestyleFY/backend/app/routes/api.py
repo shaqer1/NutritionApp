@@ -7,7 +7,7 @@ from fastapi import APIRouter, Body, Depends, HTTPException
 from ..auth import current_uid
 from ..deps import coach_dep, resolver_dep, store_dep
 from ..models import (
-    Goals, InventoryItem, LogRequest, Profile, Recipe, ScanRequest, TodaySummary,
+    AiPrompts, Goals, InventoryItem, LogRequest, Profile, Recipe, ScanRequest, TodaySummary,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.food import FoodResolver
@@ -77,8 +77,12 @@ def log_meal(req: LogRequest, uid: str = Depends(current_uid),
 
 
 @router.get("/today", response_model=TodaySummary)
-def today(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
-    return store.get_today_summary(uid)
+def today(date: date_type | None = None, uid: str = Depends(current_uid),
+         store: Store = Depends(store_dep)):
+    # date should be the client's local calendar day (see list_log's docstring
+    # for why) — defaulting to UTC here is only a fallback for callers that
+    # omit it.
+    return store.get_today_summary(uid, date or datetime.now(timezone.utc).date())
 
 
 @router.get("/log")
@@ -140,16 +144,35 @@ def advance_goal(uid: str = Depends(current_uid), store: Store = Depends(store_d
 # ---------- Recipes: AI-suggested draft, then explicit save/list/delete ----------
 @router.post("/recipes/suggest")
 def suggest_recipe(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
-                   coach: Coach = Depends(coach_dep)):
+                   coach: Coach = Depends(coach_dep),
+                   meal_period: str = Body("lunch", embed=True),
+                   message: str = Body("", embed=True)):
     profile = store.get_profile(uid)
+    summary = store.get_today_summary(uid)
+    prompts = store.get_ai_prompts(uid)
     try:
         recipe = coach.suggest_recipe(
             store.list_inventory(uid),
             profile.dietary_prefs if profile else [],
-            profile.allergies if profile else [])
+            profile.allergies if profile else [],
+            meal_period, summary.remaining, custom_note=prompts.recipe, message=message)
     except ValueError as e:
         raise HTTPException(502, f"Recipe generation failed: {e}") from e
     return {"recipe": recipe}
+
+
+@router.post("/recipes/suggest/preview")
+def suggest_recipe_preview(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                           coach: Coach = Depends(coach_dep),
+                           meal_period: str = Body("lunch", embed=True)):
+    profile = store.get_profile(uid)
+    summary = store.get_today_summary(uid)
+    generic, context = coach.recipe_prompt_parts(
+        store.list_inventory(uid),
+        profile.dietary_prefs if profile else [],
+        profile.allergies if profile else [],
+        meal_period, summary.remaining)
+    return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).recipe}
 
 
 @router.post("/recipes")
@@ -175,33 +198,85 @@ def delete_recipe(recipe_id: str, uid: str = Depends(current_uid),
 
 @router.post("/grocery")
 def grocery(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
-            coach: Coach = Depends(coach_dep), days: int = Body(7, embed=True)):
+            coach: Coach = Depends(coach_dep), days: int = Body(7, embed=True),
+            day: date_type | None = Body(None, embed=True),
+            message: str = Body("", embed=True)):
     goals = store.get_goals(uid)
     profile = store.get_profile(uid)
     if not goals:
         raise HTTPException(400, "Set goals first")
+    prompts = store.get_ai_prompts(uid)
+    history = store.weekly_macro_history(uid, day or datetime.now(timezone.utc).date())
     text = coach.grocery(store.list_inventory(uid), goals,
-                         profile.dietary_prefs if profile else [], days)
+                         profile.dietary_prefs if profile else [], days, history,
+                         custom_note=prompts.grocery, message=message)
     return {"grocery_list": text}
+
+
+@router.post("/grocery/preview")
+def grocery_preview(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                    coach: Coach = Depends(coach_dep), days: int = Body(7, embed=True),
+                    day: date_type | None = Body(None, embed=True)):
+    goals = store.get_goals(uid)
+    profile = store.get_profile(uid)
+    if not goals:
+        raise HTTPException(400, "Set goals first")
+    history = store.weekly_macro_history(uid, day or datetime.now(timezone.utc).date())
+    generic, context = coach.grocery_prompt_parts(
+        store.list_inventory(uid), goals, profile.dietary_prefs if profile else [], days, history)
+    return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).grocery}
 
 
 @router.post("/coach")
 def run_coach(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
               coach: Coach = Depends(coach_dep),
               meal: str = Body("dinner", embed=True),
-              time_label: str = Body("evening", embed=True)):
-    """Meal-time checkpoint. Called by Cloud Scheduler or the app."""
-    summary = store.get_today_summary(uid)
-    tip = coach.nudge(summary, store.list_inventory(uid), meal, time_label)
+              time_label: str = Body("evening", embed=True),
+              day: date_type | None = Body(None, embed=True),
+              message: str = Body("", embed=True)):
+    """Meal-time checkpoint, triggered by the "Am I on track?" button."""
+    day = day or datetime.now(timezone.utc).date()
+    summary = store.get_today_summary(uid, day)
+    log_entries = store.list_log(uid, day)
+    prompts = store.get_ai_prompts(uid)
+    tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label,
+                      custom_note=prompts.nudge, message=message)
     if tip:
         store.add_coach_message(uid, tip, "nudge")
         store.sync_summary_to_sheet(uid)
     return {"nudge": tip, "on_track": tip is None}
 
 
+@router.post("/coach/preview")
+def coach_preview(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                  coach: Coach = Depends(coach_dep),
+                  meal: str = Body("dinner", embed=True),
+                  time_label: str = Body("evening", embed=True),
+                  day: date_type | None = Body(None, embed=True)):
+    day = day or datetime.now(timezone.utc).date()
+    summary = store.get_today_summary(uid, day)
+    log_entries = store.list_log(uid, day)
+    generic, context = coach.nudge_prompt_parts(summary, store.list_inventory(uid),
+                                                log_entries, meal, time_label)
+    return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).nudge}
+
+
 @router.get("/coach/messages")
 def coach_messages(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return {"messages": store.list_coach_messages(uid)}
+
+
+# ---------- AI prompts: per-category standing note ----------
+@router.get("/ai-prompts")
+def get_ai_prompts(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return {"prompts": store.get_ai_prompts(uid)}
+
+
+@router.put("/ai-prompts")
+def set_ai_prompts(prompts: AiPrompts, uid: str = Depends(current_uid),
+                   store: Store = Depends(store_dep)):
+    store.set_ai_prompts(uid, prompts)
+    return {"ok": True}
 
 
 # ---------- Summary sync (read by workout app if using HTTP variant) ----------

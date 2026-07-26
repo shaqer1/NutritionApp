@@ -96,6 +96,14 @@ class Profile(BaseModel):
     allergies: list[str] = Field(default_factory=list)
 
 
+class AiPrompts(BaseModel):
+    """Per-category standing note the user can edit, appended to that
+    category's AI prompt on every future generate call."""
+    nudge: str = ""
+    recipe: str = ""
+    grocery: str = ""
+
+
 class TodaySummary(BaseModel):
     date: date
     consumed: Macros

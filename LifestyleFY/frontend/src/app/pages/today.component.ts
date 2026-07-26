@@ -2,13 +2,19 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { ApiService } from '../core/api.service';
 import { TodaySummary } from '../core/models';
+import { todayStr } from '../core/meal-picker';
 
 @Component({
   selector: 'app-today',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <h1>Today</h1>
+    <div class="row spread">
+      <h1 style="margin:0">Today</h1>
+      <button class="ghost" (click)="load()" [disabled]="loading">
+        {{ loading ? 'Refreshing…' : '↻ Refresh' }}
+      </button>
+    </div>
     @if (summary) {
       <div class="card">
         <div class="row spread">
@@ -74,11 +80,18 @@ export class TodayComponent implements OnInit {
   private api = inject(ApiService);
   summary?: TodaySummary;
   error = false;
+  loading = false;
 
   ngOnInit(): void {
-    this.api.today().subscribe({
-      next: (s) => (this.summary = s),
-      error: () => (this.error = true),
+    this.load();
+  }
+
+  load(): void {
+    this.loading = true;
+    this.error = false;
+    this.api.today(todayStr()).subscribe({
+      next: (s) => { this.summary = s; this.loading = false; },
+      error: () => { this.error = true; this.loading = false; },
     });
   }
 

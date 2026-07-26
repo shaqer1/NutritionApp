@@ -8,11 +8,12 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from ..config import Settings
 from ..models import (
-    Goals, InventoryItem, LogEntry, LogRequest, Macros, Profile, Recipe, TodaySummary,
+    AiPrompts, Goals, InventoryItem, LogEntry, LogRequest, Macros, Profile, Recipe,
+    TodaySummary,
 )
 
 
@@ -30,6 +31,7 @@ class Store:
         if self.stub:
             # In-memory mirrors of Firestore docs + BigQuery rows.
             self._profiles: dict[str, dict] = {}
+            self._ai_prompts: dict[str, dict] = {}
             self._goals: dict[str, dict] = {}
             self._inventory: dict[str, dict[str, dict]] = {}
             self._recipes: dict[str, dict[str, dict]] = {}
@@ -63,6 +65,22 @@ class Store:
             self._profiles[uid] = data
             return
         self._user_doc(uid).collection("meta").document("profile").set(data)
+
+    # ---------- AI prompts (per-category standing note) ----------
+    def get_ai_prompts(self, uid: str) -> AiPrompts:
+        if self.stub:
+            data = self._ai_prompts.get(uid)
+            return AiPrompts(**data) if data else AiPrompts()
+        snap = self._user_doc(uid).collection("meta").document("ai_prompts").get()
+        return AiPrompts(**snap.to_dict()) if snap.exists else AiPrompts()
+
+    def set_ai_prompts(self, uid: str, prompts: AiPrompts) -> None:
+        data = prompts.model_dump()
+        data["updated_at"] = _now().isoformat()
+        if self.stub:
+            self._ai_prompts[uid] = data
+            return
+        self._user_doc(uid).collection("meta").document("ai_prompts").set(data)
 
     # ---------- Goals ----------
     def get_goals(self, uid: str) -> Goals | None:
@@ -205,7 +223,7 @@ class Store:
             self._food_log.append(row)
         if req.inventory_item_id:
             self._decrement_inventory(uid, req.inventory_item_id, req.servings)
-        return self.recompute_today_summary(uid, day=ts.date())
+        return self.recompute_today_summary(uid, day=log_date)
 
     def record_scan(self, uid: str, barcode: str, matched_source: str,
                     product_name: str | None, success: bool) -> None:
@@ -220,21 +238,27 @@ class Store:
 
     # ---------- Today summary ----------
     def _today_rows(self, uid: str, day: date) -> list[dict]:
+        """Filters by the `log_date` column (client's local calendar day), not
+        DATE(ts) — see list_log's docstring for why: `ts` is a UTC instant, so
+        bucketing by its date silently disagrees with the user's local "today"
+        near a midnight-UTC boundary. This previously used DATE(ts) and was
+        the source of a real bug (the Today tab dropping same-local-day
+        entries logged before ~7pm CDT, once UTC had already rolled over)."""
         day_iso = day.isoformat()
         if self.stub:
             return [r for r in self._food_log
-                    if r["uid"] == uid and r["ts"][:10] == day_iso]
+                    if r["uid"] == uid and r.get("log_date", r["ts"][:10]) == day_iso]
         q = f"""
             SELECT calories, protein_g, carbs_g, fat_g,
                    sugar_g, fiber_g, sat_fat_g, sodium_mg
             FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
-            WHERE uid=@uid AND DATE(ts)=@day
+            WHERE uid=@uid AND log_date=@day
         """
         from google.cloud import bigquery
         job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("uid", "STRING", uid),
-                bigquery.ScalarQueryParameter("day", "DATE", day_iso),
+                bigquery.ScalarQueryParameter("day", "STRING", day_iso),
             ]))
         return [dict(r) for r in job.result()]
 
@@ -331,8 +355,29 @@ class Store:
                                ("date", "consumed", "remaining", "meals_logged",
                                 "pct_to_goal", "goals", "coach_tip")})
 
-    def get_today_summary(self, uid: str) -> TodaySummary:
-        return self.recompute_today_summary(uid)
+    def get_today_summary(self, uid: str, day: date | None = None) -> TodaySummary:
+        return self.recompute_today_summary(uid, day=day)
+
+    def weekly_macro_history(self, uid: str, end_day: date, days: int = 7) -> list[dict]:
+        """Oldest-first daily consumed totals for the AI grocery prompt. Reuses
+        `_today_rows` (already bucketed by the client-local `log_date` column)
+        once per day — no new BigQuery query shape, no migration. Known
+        tradeoff: up to `days` sequential queries per call; acceptable for a
+        single-user app."""
+        out = []
+        for i in range(days - 1, -1, -1):
+            day = end_day - timedelta(days=i)
+            rows = self._today_rows(uid, day)
+            out.append({
+                "date": day.isoformat(),
+                "consumed": Macros(
+                    cal=sum(r["calories"] or 0 for r in rows),
+                    protein=sum(r["protein_g"] or 0 for r in rows),
+                    carbs=sum(r["carbs_g"] or 0 for r in rows),
+                    fat=sum(r["fat_g"] or 0 for r in rows),
+                ),
+            })
+        return out
 
     # ---------- Coach messages ----------
     def add_coach_message(self, uid: str, text: str, mtype: str) -> None:

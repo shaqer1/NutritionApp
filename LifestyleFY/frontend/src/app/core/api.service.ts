@@ -3,8 +3,8 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  CoachMessage, FoodItem, Goals, InventoryItem, LogEntry, LogRequest, Profile,
-  Recipe, TodaySummary,
+  AiPromptPreview, AiPrompts, CoachMessage, FoodItem, Goals, InventoryItem, LogEntry,
+  LogRequest, Profile, Recipe, TodaySummary,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -41,8 +41,9 @@ export class ApiService {
   log(req: LogRequest): Observable<TodaySummary> {
     return this.http.post<TodaySummary>(`${this.base}/log`, req);
   }
-  today(): Observable<TodaySummary> {
-    return this.http.get<TodaySummary>(`${this.base}/today`);
+  today(date?: string): Observable<TodaySummary> {
+    return this.http.get<TodaySummary>(
+      `${this.base}/today`, { params: date ? { date } : {} });
   }
   getLog(date?: string): Observable<{ entries: LogEntry[] }> {
     return this.http.get<{ entries: LogEntry[] }>(
@@ -72,8 +73,13 @@ export class ApiService {
   }
 
   // --- Recipes ---
-  suggestRecipe(): Observable<{ recipe: Recipe }> {
-    return this.http.post<{ recipe: Recipe }>(`${this.base}/recipes/suggest`, {});
+  suggestRecipe(mealPeriod: string, message = ''): Observable<{ recipe: Recipe }> {
+    return this.http.post<{ recipe: Recipe }>(
+      `${this.base}/recipes/suggest`, { meal_period: mealPeriod, message });
+  }
+  suggestRecipePreview(mealPeriod: string): Observable<AiPromptPreview> {
+    return this.http.post<AiPromptPreview>(
+      `${this.base}/recipes/suggest/preview`, { meal_period: mealPeriod });
   }
   saveRecipe(recipe: Recipe): Observable<{ recipe: Recipe }> {
     return this.http.post<{ recipe: Recipe }>(`${this.base}/recipes`, recipe);
@@ -86,15 +92,30 @@ export class ApiService {
   }
 
   // --- AI ---
-  grocery(days = 7): Observable<{ grocery_list: string }> {
-    return this.http.post<{ grocery_list: string }>(`${this.base}/grocery`, { days });
+  grocery(days = 7, day?: string, message = ''): Observable<{ grocery_list: string }> {
+    return this.http.post<{ grocery_list: string }>(`${this.base}/grocery`, { days, day, message });
   }
-  runCoach(meal = 'dinner', timeLabel = 'evening'):
+  groceryPreview(days = 7, day?: string): Observable<AiPromptPreview> {
+    return this.http.post<AiPromptPreview>(`${this.base}/grocery/preview`, { days, day });
+  }
+  runCoach(meal: string, timeLabel: string, day?: string, message = ''):
     Observable<{ nudge: string | null; on_track: boolean }> {
     return this.http.post<{ nudge: string | null; on_track: boolean }>(
-      `${this.base}/coach`, { meal, time_label: timeLabel });
+      `${this.base}/coach`, { meal, time_label: timeLabel, day, message });
+  }
+  coachPreview(meal: string, timeLabel: string, day?: string): Observable<AiPromptPreview> {
+    return this.http.post<AiPromptPreview>(
+      `${this.base}/coach/preview`, { meal, time_label: timeLabel, day });
   }
   coachMessages(): Observable<{ messages: CoachMessage[] }> {
     return this.http.get<{ messages: CoachMessage[] }>(`${this.base}/coach/messages`);
+  }
+
+  // --- AI prompts: per-category standing note ---
+  getAiPrompts(): Observable<{ prompts: AiPrompts }> {
+    return this.http.get<{ prompts: AiPrompts }>(`${this.base}/ai-prompts`);
+  }
+  setAiPrompts(prompts: AiPrompts): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${this.base}/ai-prompts`, prompts);
   }
 }

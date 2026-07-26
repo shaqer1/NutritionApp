@@ -24,6 +24,10 @@ users/{uid}
 │                                     image_url, nutrition_grade, added_at }
 ├── coach_messages/{msgId} (docs)  { text, type:'nudge'|'goal'|'recipe',
 │                                     created_at, read }
+├── ai_prompts             (doc)   { nudge, recipe, grocery, updated_at } —
+│                                     per-category standing note the user can edit,
+│                                     appended to that category's AI prompt on every
+│                                     future generate call
 └── recipes/{recipeId}     (docs)  { name, servings, instructions,
                                       ingredients:[{item_id, name, quantity,
                                         unit, macros:{...}}] — snapshotted,

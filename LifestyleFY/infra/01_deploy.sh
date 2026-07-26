@@ -25,7 +25,13 @@ TARGET="${1:-all}"
 
 migrate_bigquery () {
   echo "==> BigQuery: applying food_log schema migration (additive, safe to re-run)"
-  bq query --project_id="$PROJECT_ID" --use_legacy_sql=false <<SQL
+  # BigQuery counts even a no-op ALTER TABLE ... IF NOT EXISTS against its
+  # "table update operations" rate limit, so re-running this same idempotent
+  # migration on every deploy can transiently fail once the columns already
+  # exist (confirmed live, repeatedly). That failure must not abort the whole
+  # deploy under `set -e` — wrapping in `if ! ...; then` makes this one step
+  # non-fatal, since an already-applied migration failing again is harmless.
+  if ! bq query --project_id="$PROJECT_ID" --use_legacy_sql=false <<SQL
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS sugar_g FLOAT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS fiber_g FLOAT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS sat_fat_g FLOAT64;
@@ -34,6 +40,12 @@ ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS meal_instance INT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS grams FLOAT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS log_date STRING;
 SQL
+  then
+    echo "WARNING: BigQuery migration step failed — usually a transient rate limit" >&2
+    echo "on redundant ALTER TABLE calls when the columns already exist. Continuing" >&2
+    echo "with deploy. If you just added a NEW column, verify it landed with:" >&2
+    echo "  bq show --format=prettyjson ${DATASET}.food_log" >&2
+  fi
 }
 
 deploy_backend () {

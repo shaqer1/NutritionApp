@@ -28,8 +28,11 @@ interface MealGroup {
   totalCal: number;
 }
 
-interface PieSlice {
+type MacroKey = 'protein' | 'carbs' | 'fat';
+
+interface MacroSlice {
   group: MealGroup;
+  macro: MacroKey | 'none';
   key: string;
   color: string;
   path: string;
@@ -44,6 +47,10 @@ interface IngredientSlice {
 const MEAL_ORDER: Record<string, number> = { breakfast: 0, lunch: 1, dinner: 2, snack: 3 };
 const MEAL_COLORS: Record<string, string> = {
   breakfast: 'var(--green)', lunch: 'var(--blue)', dinner: 'var(--accent)', snack: '#e0a44d',
+};
+const MACRO_ORDER: MacroKey[] = ['protein', 'carbs', 'fat'];
+const MACRO_COLORS: Record<MacroKey, string> = {
+  protein: '#9b6bcb', carbs: '#f0c94b', fat: '#39c0ba',
 };
 const LOCATION_EMOJI: Record<Location, string> = {
   pantry: '🧺', fridge: '🧊', freezer: '🥶',
@@ -234,16 +241,10 @@ const LOCATION_EMOJI: Record<Location, string> = {
       } @else {
         <div class="card">
           <svg viewBox="0 0 100 100" style="width:200px;height:200px;display:block;margin:0 auto">
-            @if (pieSlices.length === 1) {
-              <circle cx="50" cy="50" [attr.r]="r1" [attr.fill]="pieSlices[0].color" style="cursor:pointer"
-                [style.opacity]="isSelected(pieSlices[0].group) ? 1 : 0.85"
-                (click)="selectSlice(pieSlices[0].group)" />
-            } @else {
-              @for (s of pieSlices; track s.key) {
-                <path [attr.d]="s.path" [attr.fill]="s.color" style="cursor:pointer"
-                  [style.opacity]="isSelected(s.group) ? 1 : 0.85"
-                  (click)="selectSlice(s.group)" />
-              }
+            @for (s of macroSlices; track s.key) {
+              <path [attr.d]="s.path" [attr.fill]="s.color" style="cursor:pointer"
+                [style.opacity]="isSelected(s.group) ? 1 : 0.85"
+                (click)="selectSlice(s.group)" />
             }
             @if (selectedGroup) {
               @for (s of ingredientSlices; track s.index) {
@@ -254,53 +255,82 @@ const LOCATION_EMOJI: Record<Location, string> = {
               }
             }
           </svg>
-          <div class="row" style="flex-wrap:wrap;gap:10px;justify-content:center;margin-top:12px">
+          <div class="row" style="flex-wrap:wrap;gap:14px;justify-content:center;margin-top:12px">
             @for (g of mealGroups; track g.label) {
-              <div class="row" style="gap:5px;cursor:pointer" (click)="selectSlice(g)">
-                <span style="width:10px;height:10px;border-radius:3px;display:inline-block"
-                  [style.background]="mealColor(g.meal)"></span>
-                <span class="muted">{{ g.label }} · {{ g.totalCal | number:'1.0-0' }} kcal</span>
+              <div style="cursor:pointer;text-align:center" (click)="selectSlice(g)">
+                <div class="row" style="gap:5px;justify-content:center">
+                  <span style="width:10px;height:10px;border-radius:3px;display:inline-block"
+                    [style.background]="mealColor(g.meal)"></span>
+                  <span class="muted">{{ g.label }} · {{ g.totalCal | number:'1.0-0' }} kcal</span>
+                </div>
+                <div class="row" style="gap:3px;justify-content:center;margin-top:3px">
+                  @for (m of macroOrder; track m) {
+                    <span style="width:8px;height:8px;border-radius:2px;display:inline-block"
+                      [style.background]="macroColor(m)"></span>
+                  }
+                  <span class="muted" style="font-size:11px">
+                    P{{ groupMacros(g).protein | number:'1.0-0' }} ·
+                    C{{ groupMacros(g).carbs | number:'1.0-0' }} ·
+                    F{{ groupMacros(g).fat | number:'1.0-0' }}
+                  </span>
+                </div>
               </div>
             }
           </div>
         </div>
 
-        @if (selectedGroup) {
-          <div class="card">
-            <div class="row spread">
-              <h3>{{ selectedGroup.label }}</h3>
-              <span class="muted">{{ selectedGroup.totalCal | number:'1.0-0' }} kcal</span>
-            </div>
-            <p class="muted" style="margin:-4px 0 8px">Tap an ingredient for its macro breakdown.</p>
-            @for (item of selectedGroup.items; track item.ts + item.item_name; let idx = $index) {
-              <div class="row spread" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer"
-                [style.opacity]="selectedIngredientIndex === null || selectedIngredientIndex === idx ? 1 : 0.6"
-                (click)="selectIngredient(idx)">
-                <span>{{ item.item_name }} <span class="muted">×{{ item.servings }}</span>
-                  @if (item.grams) { <span class="muted">· {{ item.grams | number:'1.0-0' }}g</span> }
-                </span>
-                <span class="muted">{{ item.macros.cal | number:'1.0-0' }} kcal</span>
+        @for (g of mealGroups; track g.label) {
+          @if (isSelected(g)) {
+            <div class="card">
+              <div class="row spread">
+                <h3>{{ g.label }}</h3>
+                <span class="muted">{{ g.totalCal | number:'1.0-0' }} kcal</span>
               </div>
-            }
-            <div class="row" style="margin-top:10px;gap:16px">
-              <span class="muted">P {{ selectedGroupMacros.protein | number:'1.0-0' }}g</span>
-              <span class="muted">C {{ selectedGroupMacros.carbs | number:'1.0-0' }}g</span>
-              <span class="muted">F {{ selectedGroupMacros.fat | number:'1.0-0' }}g</span>
-            </div>
-
-            @if (selectedIngredient; as ing) {
-              <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-                <div class="row spread"><h3 style="margin:0">{{ ing.item_name }}</h3>
-                  <span class="muted">{{ ing.macros.cal | number:'1.0-0' }} kcal</span></div>
-                <div class="row" style="margin-top:6px;gap:16px">
-                  <span class="muted">P {{ ing.macros.protein | number:'1.0-0' }}g</span>
-                  <span class="muted">C {{ ing.macros.carbs | number:'1.0-0' }}g</span>
-                  <span class="muted">F {{ ing.macros.fat | number:'1.0-0' }}g</span>
-                  @if (ing.grams) { <span class="muted">{{ ing.grams | number:'1.0-0' }}g</span> }
+              @if (isActiveMeal(g)) {
+                <p class="muted" style="margin:-4px 0 8px">Tap an ingredient for its macro breakdown.</p>
+                @for (item of g.items; track item.ts + item.item_name; let idx = $index) {
+                  <div class="row spread" style="padding:6px 0;border-bottom:1px solid var(--border);cursor:pointer"
+                    [style.opacity]="selectedIngredientIndex === null || selectedIngredientIndex === idx ? 1 : 0.6"
+                    (click)="selectIngredient(idx)">
+                    <span>{{ item.item_name }} <span class="muted">×{{ item.servings }}</span>
+                      @if (item.grams) { <span class="muted">· {{ item.grams | number:'1.0-0' }}g</span> }
+                    </span>
+                    <span class="muted">{{ item.macros.cal | number:'1.0-0' }} kcal</span>
+                  </div>
+                }
+                <div class="row" style="margin-top:10px;gap:16px">
+                  <span class="muted">P {{ groupMacros(g).protein | number:'1.0-0' }}g</span>
+                  <span class="muted">C {{ groupMacros(g).carbs | number:'1.0-0' }}g</span>
+                  <span class="muted">F {{ groupMacros(g).fat | number:'1.0-0' }}g</span>
                 </div>
-              </div>
-            }
-          </div>
+
+                @if (selectedIngredient; as ing) {
+                  <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                    <div class="row spread"><h3 style="margin:0">{{ ing.item_name }}</h3>
+                      <span class="muted">{{ ing.macros.cal | number:'1.0-0' }} kcal</span></div>
+                    <div class="row" style="margin-top:6px;gap:16px">
+                      <span class="muted">P {{ ing.macros.protein | number:'1.0-0' }}g</span>
+                      <span class="muted">C {{ ing.macros.carbs | number:'1.0-0' }}g</span>
+                      <span class="muted">F {{ ing.macros.fat | number:'1.0-0' }}g</span>
+                      @if (ing.grams) { <span class="muted">{{ ing.grams | number:'1.0-0' }}g</span> }
+                    </div>
+                  </div>
+                }
+              } @else {
+                @for (item of g.items; track item.ts + item.item_name) {
+                  <div class="row spread" style="padding:6px 0;border-bottom:1px solid var(--border)">
+                    <span>{{ item.item_name }} <span class="muted">×{{ item.servings }}</span></span>
+                    <span class="muted">{{ item.macros.cal | number:'1.0-0' }} kcal</span>
+                  </div>
+                }
+                <div class="row" style="margin-top:10px;gap:16px">
+                  <span class="muted">P {{ groupMacros(g).protein | number:'1.0-0' }}g</span>
+                  <span class="muted">C {{ groupMacros(g).carbs | number:'1.0-0' }}g</span>
+                  <span class="muted">F {{ groupMacros(g).fat | number:'1.0-0' }}g</span>
+                </div>
+              }
+            </div>
+          }
         }
       }
     } @else {
@@ -323,20 +353,20 @@ const LOCATION_EMOJI: Record<Location, string> = {
               <div class="item-card">
                 <a [routerLink]="['/inventory/item', it.item_id]" style="text-decoration:none;color:inherit">
                   @if (it.image_url) {
-                    <img class="thumb" [src]="it.image_url" alt="" style="width:100%;height:76px;font-size:30px" />
+                    <img class="thumb" [src]="it.image_url" alt="" style="width:100%;height:60px;font-size:22px" />
                   } @else {
-                    <div class="thumb" style="width:100%;height:76px;font-size:30px">{{ shelf.meta.emoji }}</div>
+                    <div class="thumb" style="width:100%;height:60px;font-size:22px">{{ shelf.meta.emoji }}</div>
                   }
-                  <div class="muted" style="font-size:12px;margin-top:6px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                  <div class="muted" style="font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
                     {{ it.name }}
                   </div>
                 </a>
-                <div class="row spread" style="margin-top:6px">
-                  <button class="ghost" style="padding:4px 10px" (click)="adjustQty(it, -1)">－</button>
+                <div class="row spread" style="margin-top:5px;gap:2px">
+                  <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, -1)">－</button>
                   <span>{{ it.qty }}</span>
-                  <button class="ghost" style="padding:4px 10px" (click)="adjustQty(it, 1)">＋</button>
+                  <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, 1)">＋</button>
                 </div>
-                <button class="ghost" style="width:100%;margin-top:6px;padding:4px" (click)="removeItem(it)">🗑</button>
+                <button class="ghost" style="width:100%;margin-top:5px;padding:3px" (click)="removeItem(it)">🗑</button>
               </div>
             }
           </div>
@@ -371,7 +401,7 @@ export class InventoryComponent implements OnInit, OnDestroy {
   private pickerEntries: LogEntry[] = [];
 
   // ---------- Mode toggle ----------
-  viewMode: 'log' | 'pantry' = 'log';
+  viewMode: 'log' | 'pantry' = 'pantry';
 
   // ---------- Log mode ----------
   selectedDate = new Date();
@@ -596,19 +626,59 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return MEAL_COLORS[meal] || '#9a9ab0';
   }
 
-  get pieSlices(): PieSlice[] {
+  get macroSlices(): MacroSlice[] {
     const total = this.mealGroups.reduce((sum, g) => sum + g.totalCal, 0);
     if (!total) return [];
     let angle = 0;
-    return this.mealGroups.map((g) => {
-      const startAngle = angle;
-      const endAngle = angle + (g.totalCal / total) * 360;
-      angle = endAngle;
-      return {
-        group: g, key: `${g.meal}__${g.instance}`, color: this.mealColor(g.meal),
-        path: this.describeArc(50, 50, this.r1, startAngle, endAngle),
+    const slices: MacroSlice[] = [];
+    for (const g of this.mealGroups) {
+      const mealStart = angle;
+      const mealSweep = (g.totalCal / total) * 360;
+      angle = mealStart + mealSweep;
+
+      const macroCal: Record<MacroKey, number> = {
+        protein: g.items.reduce((s, i) => s + i.macros.protein * 4, 0),
+        carbs: g.items.reduce((s, i) => s + i.macros.carbs * 4, 0),
+        fat: g.items.reduce((s, i) => s + i.macros.fat * 9, 0),
       };
-    });
+      const macroTotal = macroCal.protein + macroCal.carbs + macroCal.fat;
+
+      if (!macroTotal) {
+        slices.push({
+          group: g, macro: 'none', color: '#5a5a6e',
+          key: `${g.meal}__${g.instance}__none`,
+          path: this.describeArc(50, 50, this.r1, mealStart, angle),
+        });
+        continue;
+      }
+      let subAngle = mealStart;
+      for (const m of MACRO_ORDER) {
+        const share = macroCal[m] / macroTotal;
+        if (!share) continue;
+        const subStart = subAngle;
+        subAngle += share * mealSweep;
+        slices.push({
+          group: g, macro: m, color: MACRO_COLORS[m],
+          key: `${g.meal}__${g.instance}__${m}`,
+          path: this.describeArc(50, 50, this.r1, subStart, subAngle),
+        });
+      }
+    }
+    return slices;
+  }
+
+  macroColor(m: MacroKey): string {
+    return MACRO_COLORS[m];
+  }
+
+  readonly macroOrder = MACRO_ORDER;
+
+  groupMacros(g: MealGroup) {
+    return {
+      protein: g.items.reduce((s, i) => s + i.macros.protein, 0),
+      carbs: g.items.reduce((s, i) => s + i.macros.carbs, 0),
+      fat: g.items.reduce((s, i) => s + i.macros.fat, 0),
+    };
   }
 
   get ingredientSlices(): IngredientSlice[] {
@@ -627,21 +697,30 @@ export class InventoryComponent implements OnInit, OnDestroy {
     });
   }
 
+  // A 360° sweep makes polarToCartesian return the same point at both ends,
+  // which collapses the SVG arc command to nothing — clamp just under a full
+  // circle so a single-slice meal/ingredient still renders visibly.
+  private clampSweep(startAngle: number, endAngle: number): number {
+    return endAngle - startAngle >= 359.99 ? startAngle + 359.99 : endAngle;
+  }
+
   private describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
-    const start = this.polarToCartesian(cx, cy, r, startAngle);
-    const end = this.polarToCartesian(cx, cy, r, endAngle);
     const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    const clampedEnd = this.clampSweep(startAngle, endAngle);
+    const start = this.polarToCartesian(cx, cy, r, startAngle);
+    const end = this.polarToCartesian(cx, cy, r, clampedEnd);
     return `M ${cx},${cy} L ${start.x},${start.y} A ${r},${r} 0 ${largeArc},1 ${end.x},${end.y} Z`;
   }
 
   private describeAnnulusSector(
     cx: number, cy: number, rInner: number, rOuter: number, startAngle: number, endAngle: number,
   ): string {
-    const outerStart = this.polarToCartesian(cx, cy, rOuter, startAngle);
-    const outerEnd = this.polarToCartesian(cx, cy, rOuter, endAngle);
-    const innerStart = this.polarToCartesian(cx, cy, rInner, startAngle);
-    const innerEnd = this.polarToCartesian(cx, cy, rInner, endAngle);
     const largeArc = endAngle - startAngle > 180 ? 1 : 0;
+    const clampedEnd = this.clampSweep(startAngle, endAngle);
+    const outerStart = this.polarToCartesian(cx, cy, rOuter, startAngle);
+    const outerEnd = this.polarToCartesian(cx, cy, rOuter, clampedEnd);
+    const innerStart = this.polarToCartesian(cx, cy, rInner, startAngle);
+    const innerEnd = this.polarToCartesian(cx, cy, rInner, clampedEnd);
     return [
       `M ${outerStart.x},${outerStart.y}`,
       `A ${rOuter},${rOuter} 0 ${largeArc},1 ${outerEnd.x},${outerEnd.y}`,
@@ -675,17 +754,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return this.selectedMealKey === null || this.selectedMealKey === `${g.meal}__${g.instance}`;
   }
 
-  get selectedGroup(): MealGroup | undefined {
-    return this.mealGroups.find((g) => `${g.meal}__${g.instance}` === this.selectedMealKey);
+  isActiveMeal(g: MealGroup): boolean {
+    return this.selectedMealKey === `${g.meal}__${g.instance}`;
   }
 
-  get selectedGroupMacros() {
-    const items = this.selectedGroup?.items ?? [];
-    return {
-      protein: items.reduce((s, i) => s + i.macros.protein, 0),
-      carbs: items.reduce((s, i) => s + i.macros.carbs, 0),
-      fat: items.reduce((s, i) => s + i.macros.fat, 0),
-    };
+  get selectedGroup(): MealGroup | undefined {
+    return this.mealGroups.find((g) => `${g.meal}__${g.instance}` === this.selectedMealKey);
   }
 
   // ---------- Pantry mode: location grid -> shelves ----------
