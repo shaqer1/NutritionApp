@@ -88,8 +88,11 @@ import { todayStr } from '../core/meal-picker';
           <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
           <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
         </div>
+        <input [(ngModel)]="searchQuery" placeholder="Search grocery lists or items…" style="margin-bottom:10px" />
         @if (!filteredLists.length) {
-          <p class="muted">{{ showArchived ? 'No archived grocery lists.' : 'No active grocery lists yet.' }}</p>
+          <p class="muted">
+            {{ searchQuery ? 'No grocery lists match your search.' : (showArchived ? 'No archived grocery lists.' : 'No active grocery lists yet.') }}
+          </p>
         }
         @for (gl of filteredLists; track gl.grocery_list_id) {
           <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border);cursor:pointer"
@@ -143,6 +146,7 @@ export class GroceriesComponent implements OnInit {
   expandedId: string | null = null;
   sections = APP_CATEGORIES;
   newItemSection = APP_CATEGORIES[0].id;
+  searchQuery = '';
 
   previewGrocery = () => this.api.groceryPreview(this.days, todayStr());
 
@@ -155,7 +159,12 @@ export class GroceriesComponent implements OnInit {
   }
 
   get filteredLists(): GroceryList[] {
-    return this.groceryLists.filter((g) => (g.is_active ?? true) === !this.showArchived);
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.groceryLists
+      .filter((g) => (g.is_active ?? true) === !this.showArchived)
+      .filter((g) => !q
+        || (g.name ?? '').toLowerCase().includes(q)
+        || g.items.some((i) => i.name.toLowerCase().includes(q)));
   }
 
   generate(): void {

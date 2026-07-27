@@ -105,8 +105,11 @@ import {
           <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
           <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
         </div>
+        <input [(ngModel)]="searchQuery" placeholder="Search recipes…" style="margin-bottom:10px" />
         @if (!filteredRecipes.length) {
-          <p class="muted">{{ showArchived ? 'No archived recipes.' : 'No active recipes yet.' }}</p>
+          <p class="muted">
+            {{ searchQuery ? 'No recipes match your search.' : (showArchived ? 'No archived recipes.' : 'No active recipes yet.') }}
+          </p>
         }
         @for (r of filteredRecipes; track r.recipe_id) {
           <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
@@ -184,6 +187,7 @@ export class RecipesComponent implements OnInit {
   showArchived = false;
   pickerItemId: string | null = null;
   pickerQty = 1;
+  searchQuery = '';
 
   ngOnInit(): void {
     this.reload();
@@ -191,7 +195,10 @@ export class RecipesComponent implements OnInit {
   }
 
   get filteredRecipes(): Recipe[] {
-    return this.recipes.filter((r) => (r.is_active ?? true) === !this.showArchived);
+    const q = this.searchQuery.trim().toLowerCase();
+    return this.recipes
+      .filter((r) => (r.is_active ?? true) === !this.showArchived)
+      .filter((r) => !q || r.name.toLowerCase().includes(q));
   }
 
   reload(): void {
