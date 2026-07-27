@@ -20,6 +20,7 @@ export const APP_CATEGORIES: CategoryMeta[] = [
   { id: 'beverages', label: 'Beverages', emoji: '🥤', defaultLocation: 'pantry' },
   { id: 'condiments', label: 'Condiments & Sauces', emoji: '🧂', defaultLocation: 'pantry' },
   { id: 'canned', label: 'Canned & Jarred', emoji: '🥫', defaultLocation: 'pantry' },
+  { id: 'prepared', label: 'Takeout & Prepared Meals', emoji: '🍱', defaultLocation: 'fridge' },
   { id: 'other', label: 'Other', emoji: '🧺', defaultLocation: 'pantry' },
 ];
 

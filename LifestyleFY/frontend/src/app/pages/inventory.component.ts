@@ -391,6 +391,11 @@ const LOCATION_EMOJI: Record<Location, string> = {
                       <span class="muted">F {{ ing.macros.fat | number:'1.0-0' }}g</span>
                       @if (ing.grams) { <span class="muted">{{ ing.grams | number:'1.0-0' }}g</span> }
                     </div>
+                    @if (ing.log_id) {
+                      <div class="row" style="margin-top:8px">
+                        <button class="ghost" (click)="deleteLogEntry(ing)">Delete this entry</button>
+                      </div>
+                    }
                   </div>
                 }
               } @else {
@@ -652,8 +657,12 @@ export class InventoryComponent implements OnInit, OnDestroy {
   addFoundToPantry(): void {
     if (!this.found) return;
     const item: InventoryItem = {
-      ...this.found, qty: this.foundQty, unit: 'unit', item_id: null,
-      location: defaultLocation(this.found.category),
+      // Use the product's own serving-size label ("bar", "cup", "can" — the
+      // editable field above) as this item's unit, instead of the generic
+      // "unit" placeholder — that's what recipe ingredients/AI prompts show,
+      // so a real label here makes those far more readable.
+      ...this.found, qty: this.foundQty, unit: this.found.serving_size_unit || 'unit',
+      item_id: null, location: defaultLocation(this.found.category),
     };
     this.api.addInventory(item).subscribe(() => {
       this.scanStatus = `Added ${this.found!.name} to pantry.`;
@@ -708,6 +717,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.api.getLog(this.dateStr(this.selectedDate)).subscribe((r) => (this.logEntries = r.entries));
   }
 
+  /** Removes this log row's data only — never adjusts any linked inventory
+   * item's qty back up. */
+  deleteLogEntry(entry: LogEntry): void {
+    if (!entry.log_id) return;
+    this.api.deleteLog(entry.log_id, this.dateStr(this.selectedDate)).subscribe(() => this.reloadLog());
+  }
+
   changeDay(delta: number): void {
     const d = new Date(this.selectedDate);
     d.setDate(d.getDate() + delta);
@@ -755,11 +771,15 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   get macroSlices(): MacroSlice[] {
-    const total = this.mealGroups.reduce((sum, g) => sum + g.totalCal, 0);
+    // Smallest meal first, largest last — going around the pie in increasing
+    // chunk size. Ties (including a totalCal of 0) keep mealGroups' existing
+    // order (same one the legend/table below uses), since Array#sort is stable.
+    const groups = [...this.mealGroups].sort((a, b) => a.totalCal - b.totalCal);
+    const total = groups.reduce((sum, g) => sum + g.totalCal, 0);
     if (!total) return [];
     let angle = 0;
     const slices: MacroSlice[] = [];
-    for (const g of this.mealGroups) {
+    for (const g of groups) {
       const mealStart = angle;
       const mealSweep = (g.totalCal / total) * 360;
       angle = mealStart + mealSweep;

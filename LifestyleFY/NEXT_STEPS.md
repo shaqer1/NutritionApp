@@ -41,6 +41,21 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
   same way recipes do; the Coach profile card exposes Sex, Dietary prefs, and
   Allergies (fields already existed in `Profile`, just had no UI before); Today now
   shows an itemized table of everything logged that day.
+- **"Cooked recipe" checkbox** (latest): saving a manual recipe with "I just
+  cooked this" checked decrements the linked pantry ingredients by the servings
+  picked and adds the finished meal as a new fridge `InventoryItem` — per-serving
+  macros/grams summed from the ingredients used, servings-per-container from the
+  recipe's servings field, filed under the new "Takeout & Prepared Meals" pantry
+  category (`categories.ts` / `categories.py`).
+- **Edit/delete a logged entry** (latest): `LogEntry` now carries its `log_id`;
+  `PUT /log/{log_id}` and `DELETE /log/{log_id}` (`store.update_log_entry` /
+  `delete_log_entry`) correct or remove that food_log row directly — full inline
+  edit form on the Today tab, quick delete from the Inventory tab's Log view.
+  Deliberately data-only: neither touches a linked inventory item's qty. Note
+  for the real (non-stub) deployment: these run as BigQuery UPDATE/DELETE DML,
+  which BigQuery rejects for rows still in the streaming buffer (recently
+  inserted, ~up to 90 min) — editing/deleting something logged moments ago can
+  fail until the buffer flushes. Not an issue in `USE_STUBS=true` local dev.
 
 ## Not started / to do
 

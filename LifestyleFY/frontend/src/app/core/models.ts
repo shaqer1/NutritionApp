@@ -96,6 +96,7 @@ export interface LogRequest {
 }
 
 export interface LogEntry {
+  log_id?: string | null; // addresses this row for updateLog/deleteLog
   item_name: string;
   barcode?: string | null;
   meal: string;

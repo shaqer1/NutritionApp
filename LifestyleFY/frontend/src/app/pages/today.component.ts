@@ -1,13 +1,14 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { LogEntry, TodaySummary } from '../core/models';
-import { mealLabel as sharedMealLabel, todayStr } from '../core/meal-picker';
+import { LogEntry, LogRequest, TodaySummary } from '../core/models';
+import { MEAL_TYPES, mealLabel as sharedMealLabel, todayStr } from '../core/meal-picker';
 
 @Component({
   selector: 'app-today',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, FormsModule],
   template: `
     <div class="row spread">
       <h1 style="margin:0">Today</h1>
@@ -82,16 +83,75 @@ import { mealLabel as sharedMealLabel, todayStr } from '../core/meal-picker';
                 <th style="padding:4px 6px">Item</th>
                 <th style="padding:4px 6px">Servings</th>
                 <th style="padding:4px 0;text-align:right">Calories</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
-              @for (e of logEntries; track e.ts + e.item_name) {
-                <tr style="border-top:1px solid var(--border)">
-                  <td style="padding:6px 6px 6px 0">{{ mealLabel(e.meal, e.meal_instance) }}</td>
-                  <td style="padding:6px">{{ e.item_name }}</td>
-                  <td style="padding:6px">{{ e.servings }}</td>
-                  <td style="padding:6px 0;text-align:right">{{ e.macros.cal | number:'1.0-0' }}</td>
-                </tr>
+              @for (e of logEntries; track e.log_id ?? (e.ts + e.item_name)) {
+                @if (editingLogId && editingLogId === e.log_id) {
+                  <tr style="border-top:1px solid var(--border)">
+                    <td colspan="5" style="padding:8px 0">
+                      <div style="padding:10px;border:1px solid var(--border);border-radius:10px">
+                        <label>Name</label>
+                        <input [(ngModel)]="editDraft.item_name" />
+                        <div class="row">
+                          <div style="flex:1"><label>Meal</label>
+                            <select [(ngModel)]="editDraft.meal">
+                              @for (mt of mealTypes; track mt) { <option [value]="mt">{{ mt }}</option> }
+                            </select></div>
+                          <div style="flex:1"><label>Instance</label>
+                            <input type="number" [(ngModel)]="editDraft.meal_instance" min="1" /></div>
+                          <div style="flex:1"><label>Servings</label>
+                            <input type="number" [(ngModel)]="editDraft.servings" min="0.25" step="0.25" /></div>
+                        </div>
+                        <p class="muted" style="margin:8px 0 4px">Totals for this entry (not per-serving)</p>
+                        <div class="row">
+                          <div style="flex:1"><label>Calories</label>
+                            <input type="number" [(ngModel)]="editDraft.cal" /></div>
+                          <div style="flex:1"><label>Protein</label>
+                            <input type="number" [(ngModel)]="editDraft.protein" /></div>
+                        </div>
+                        <div class="row">
+                          <div style="flex:1"><label>Carbs</label>
+                            <input type="number" [(ngModel)]="editDraft.carbs" /></div>
+                          <div style="flex:1"><label>Fat</label>
+                            <input type="number" [(ngModel)]="editDraft.fat" /></div>
+                        </div>
+                        <div class="row">
+                          <div style="flex:1"><label>Sugar (g)</label>
+                            <input type="number" [(ngModel)]="editDraft.sugar_g" /></div>
+                          <div style="flex:1"><label>Fiber (g)</label>
+                            <input type="number" [(ngModel)]="editDraft.fiber_g" /></div>
+                        </div>
+                        <div class="row">
+                          <div style="flex:1"><label>Saturated fat (g)</label>
+                            <input type="number" [(ngModel)]="editDraft.sat_fat_g" /></div>
+                          <div style="flex:1"><label>Sodium (mg)</label>
+                            <input type="number" [(ngModel)]="editDraft.sodium_mg" /></div>
+                        </div>
+                        <label>Grams <span class="muted">(optional)</span></label>
+                        <input type="number" [(ngModel)]="editDraft.grams" style="max-width:120px" />
+                        <div class="row" style="margin-top:10px">
+                          <button class="green" (click)="saveEdit()">Save</button>
+                          <button class="ghost" (click)="cancelEdit()">Cancel</button>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                } @else {
+                  <tr style="border-top:1px solid var(--border)">
+                    <td style="padding:6px 6px 6px 0">{{ mealLabel(e.meal, e.meal_instance) }}</td>
+                    <td style="padding:6px">{{ e.item_name }}</td>
+                    <td style="padding:6px">{{ e.servings }}</td>
+                    <td style="padding:6px 0;text-align:right">{{ e.macros.cal | number:'1.0-0' }}</td>
+                    <td style="padding:6px 0 6px 6px;text-align:right;white-space:nowrap">
+                      @if (e.log_id) {
+                        <button class="ghost" style="padding:2px 8px" (click)="startEdit(e)">✎</button>
+                        <button class="ghost" style="padding:2px 8px" (click)="deleteEntry(e)">🗑</button>
+                      }
+                    </td>
+                  </tr>
+                }
               }
             </tbody>
           </table>
@@ -110,6 +170,19 @@ export class TodayComponent implements OnInit {
   logEntries: LogEntry[] = [];
   error = false;
   loading = false;
+  mealTypes = MEAL_TYPES;
+
+  editingLogId: string | null = null;
+  editDraft = this.blankEditDraft();
+
+  private blankEditDraft() {
+    return {
+      meal: 'snack', meal_instance: 1, item_name: '', servings: 1,
+      grams: null as number | null,
+      cal: 0, protein: 0, carbs: 0, fat: 0,
+      sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+    };
+  }
 
   ngOnInit(): void {
     this.load();
@@ -132,5 +205,49 @@ export class TodayComponent implements OnInit {
   pct(v: number, goal: number): number {
     if (!goal) return 0;
     return Math.min((v / goal) * 100, 100);
+  }
+
+  startEdit(e: LogEntry): void {
+    if (!e.log_id) return;
+    this.editingLogId = e.log_id;
+    this.editDraft = {
+      meal: e.meal, meal_instance: e.meal_instance, item_name: e.item_name,
+      servings: e.servings, grams: e.grams ?? null,
+      cal: e.macros.cal, protein: e.macros.protein, carbs: e.macros.carbs, fat: e.macros.fat,
+      sugar_g: e.macros.sugar_g, fiber_g: e.macros.fiber_g,
+      sat_fat_g: e.macros.sat_fat_g, sodium_mg: e.macros.sodium_mg,
+    };
+  }
+
+  cancelEdit(): void {
+    this.editingLogId = null;
+  }
+
+  /** Edits the log row's own data only — never adjusts any linked inventory
+   * item's qty, so this can't be used to "give back" pantry stock. */
+  saveEdit(): void {
+    if (!this.editingLogId) return;
+    const d = this.editDraft;
+    const servings = d.servings || 1;
+    const req: LogRequest = {
+      meal: d.meal, meal_instance: d.meal_instance, item_name: d.item_name,
+      servings, grams: d.grams,
+      macros: {
+        cal: d.cal / servings, protein: d.protein / servings,
+        carbs: d.carbs / servings, fat: d.fat / servings,
+        sugar_g: d.sugar_g / servings, fiber_g: d.fiber_g / servings,
+        sat_fat_g: d.sat_fat_g / servings, sodium_mg: d.sodium_mg / servings,
+      },
+      log_date: todayStr(),
+    };
+    this.api.updateLog(this.editingLogId, req).subscribe(() => {
+      this.editingLogId = null;
+      this.load();
+    });
+  }
+
+  deleteEntry(e: LogEntry): void {
+    if (!e.log_id) return;
+    this.api.deleteLog(e.log_id, todayStr()).subscribe(() => this.load());
   }
 }

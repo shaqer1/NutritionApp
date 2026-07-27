@@ -14,6 +14,7 @@ APP_CATEGORIES = [
     {"id": "beverages", "label": "Beverages", "emoji": "🥤"},
     {"id": "condiments", "label": "Condiments & Sauces", "emoji": "🧂"},
     {"id": "canned", "label": "Canned & Jarred", "emoji": "🥫"},
+    {"id": "prepared", "label": "Takeout & Prepared Meals", "emoji": "🍱"},
     {"id": "other", "label": "Other", "emoji": "🧺"},
 ]
 
@@ -28,6 +29,7 @@ _DEFAULT_LOCATION = {
     "beverages": "pantry",
     "condiments": "pantry",
     "canned": "pantry",
+    "prepared": "fridge",
     "other": "pantry",
 }
 

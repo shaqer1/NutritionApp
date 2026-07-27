@@ -14,7 +14,9 @@ receive Gemini-powered coaching nudges when you're behind pace for the day.
   free-text ingredients list — no barcode/AI match required.
 - **Log** — record meals with macros, either from a scan, your pantry, or manual entry.
 - **Today** — consumed-vs-goal macro bars for the day, plus an itemized table of
-  everything logged that day.
+  everything logged that day, with inline edit/delete per entry (and a quick
+  delete from the Inventory tab's Log view too) — corrects the log's own data
+  only, it never re-adjusts a linked pantry item's quantity.
 - **Goals** — set targets manually, or ask Gemini to suggest a bulk/cut/maintain
   macro split from your profile.
 - **Pantry** — track what's in stock, grouped by Pantry/Fridge/Freezer or all
@@ -23,7 +25,12 @@ receive Gemini-powered coaching nudges when you're behind pace for the day.
   build one manually from scratch; every ingredient added to a recipe is picked
   from your pantry (never free text), so it always links back to real inventory.
   Recipes can carry an image URL and are saved with an Active/Archived lifecycle
-  (archive to hide, restore, or delete permanently).
+  (archive to hide, restore, or delete permanently). Check "I just cooked this"
+  when saving a manual recipe and it uses up the linked pantry ingredients by the
+  servings picked, then adds the finished meal itself as a new fridge item
+  (category "Takeout & Prepared Meals") — per-serving macros and grams are
+  computed by summing the ingredients used, one serving per container, servings
+  per container = however many the recipe makes.
 - **Groceries** — Gemini returns a structured, editable list (items grouped by
   store section, plus a numbered list of swap/substitution suggestions based on
   your recent macro history) instead of a one-off block of text. Save it, edit it

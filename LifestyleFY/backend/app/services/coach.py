@@ -165,7 +165,17 @@ class Coach:
             '"protein": number, "carbs": number, "fat": number, "sugar_g": number, '
             '"fiber_g": number, "sat_fat_g": number, "sodium_mg": number}}]}\n'
             "The macros object per ingredient should reflect that ingredient's "
-            "quantity in this recipe (not per-serving-of-the-original-product)."
+            "quantity in this recipe (not per-serving-of-the-original-product).\n"
+            "IMPORTANT: whenever an ingredient is matched to a real pantry item "
+            "(item_id set, not null), \"quantity\" MUST be a count of servings of "
+            "THAT pantry item, in the same \"unit\" it already uses in the pantry "
+            "list below (e.g. pantry entry {\"unit\": \"container\", ...} and the "
+            "recipe uses half of it -> quantity: 0.5, unit: \"container\") — never "
+            "grams or any other unit, even though macros/serving_qty are shown in "
+            "grams for nutritional reference below. This quantity is subtracted "
+            "directly from that item's remaining stock when the recipe is logged "
+            "or cooked. Ingredients with no pantry match (item_id: null) are free "
+            "text for quantity/unit and are not used for inventory math."
         )
         # {Pantry_items} is a display placeholder, not sent to Gemini as-is —
         # suggest_recipe() substitutes the real pantry JSON in right before

@@ -1,10 +1,10 @@
 import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { forkJoin } from 'rxjs';
+import { Observable, forkJoin } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
-import { InventoryItem, LogEntry, Macros, Recipe } from '../core/models';
+import { InventoryItem, LogEntry, Macros, Recipe, RecipeIngredient } from '../core/models';
 import {
   MEAL_TYPES, mealLabel as sharedMealLabel, existingInstances as sharedExistingInstances,
   nextInstance as sharedNextInstance, todayStr, currentMealType,
@@ -85,6 +85,12 @@ import {
           <p class="muted">Your pantry is empty — add ingredients in Inventory first.</p>
         }
 
+        <label class="row" style="align-items:center;gap:6px;margin-top:10px">
+          <input type="checkbox" [(ngModel)]="isCookedRecipe" style="width:auto" />
+          <span class="muted">I just cooked this — use up the pantry ingredients above and
+            add the result as a fridge item</span>
+        </label>
+
         <div class="row" style="margin-top:12px">
           <button class="green" [disabled]="!draft.name" (click)="save()">Save recipe</button>
           <button class="ghost" (click)="draft = undefined">Discard</button>
@@ -160,6 +166,7 @@ export class RecipesComponent implements OnInit {
   private api = inject(ApiService);
   status = '';
   draft?: Recipe;
+  isCookedRecipe = false;
   recipes: Recipe[] = [];
 
   mealTypes = MEAL_TYPES;
@@ -204,6 +211,7 @@ export class RecipesComponent implements OnInit {
       name: '', servings: 1, instructions: '', ingredients: [],
       source: 'manual', image_url: null,
     };
+    this.isCookedRecipe = false;
   }
 
   addIngredientFromPantry(): void {
@@ -230,15 +238,69 @@ export class RecipesComponent implements OnInit {
 
   save(): void {
     if (!this.draft) return;
+    const cookNow = this.isCookedRecipe;
+    const name = this.draft.name;
+    const servings = this.draft.servings || 1;
+    const ingredients = this.draft.ingredients.map((i) => ({ ...i }));
     this.api.saveRecipe(this.draft).subscribe(() => {
       this.draft = undefined;
-      this.status = 'Recipe saved.';
+      this.isCookedRecipe = false;
+      this.status = cookNow ? 'Recipe saved. Updating pantry…' : 'Recipe saved.';
       this.reload();
+      if (cookNow) this.cookRecipe(name, servings, ingredients);
+    });
+  }
+
+  /** Marks a recipe as cooked: uses up the linked pantry ingredients (by the
+   * servings picked for each) and adds the result as a new fridge item, with
+   * per-serving macros/grams computed by summing the ingredients used. */
+  private cookRecipe(name: string, servings: number, ingredients: RecipeIngredient[]): void {
+    const usedQty = new Map<string, number>();
+    for (const ing of ingredients) {
+      if (!ing.item_id) continue;
+      usedQty.set(ing.item_id, (usedQty.get(ing.item_id) ?? 0) + ing.quantity);
+    }
+    const decrementCalls: Observable<{ item: InventoryItem }>[] = [];
+    for (const [itemId, qty] of usedQty) {
+      const pantryItem = this.pantryItems.find((p) => p.item_id === itemId);
+      if (!pantryItem) continue;
+      decrementCalls.push(this.api.addInventory({ ...pantryItem, qty: Math.max(0, pantryItem.qty - qty) }));
+    }
+
+    const totalGrams = ingredients.reduce((sum, ing) => {
+      const pantryItem = ing.item_id ? this.pantryItems.find((p) => p.item_id === ing.item_id) : undefined;
+      return sum + (pantryItem?.serving_qty_g != null ? pantryItem.serving_qty_g * ing.quantity : 0);
+    }, 0);
+    const totalMacros: Macros = ingredients.reduce((sum, ing) => ({
+      cal: sum.cal + ing.macros.cal, protein: sum.protein + ing.macros.protein,
+      carbs: sum.carbs + ing.macros.carbs, fat: sum.fat + ing.macros.fat,
+      sugar_g: sum.sugar_g + ing.macros.sugar_g, fiber_g: sum.fiber_g + ing.macros.fiber_g,
+      sat_fat_g: sum.sat_fat_g + ing.macros.sat_fat_g, sodium_mg: sum.sodium_mg + ing.macros.sodium_mg,
+    }), { cal: 0, protein: 0, carbs: 0, fat: 0, sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0 });
+
+    const cookedItem: InventoryItem = {
+      name, source: 'manual', category: 'prepared', location: 'fridge',
+      item_id: null, qty: servings, unit: 'serving', initial_qty: servings,
+      per_serving: totalMacros,
+      serving_size: '1 serving', serving_size_qty: 1, serving_size_unit: 'serving',
+      serving_qty: totalGrams || null, serving_unit: totalGrams ? 'g' : null,
+      serving_qty_g: totalGrams || null,
+      ingredients_text: ingredients.map((i) => i.name).join(', ') || null,
+      image_url: null,
+    };
+
+    forkJoin([...decrementCalls, this.api.addInventory(cookedItem)]).subscribe({
+      next: () => {
+        this.status = `Recipe saved. Added "${name}" to the fridge and updated pantry.`;
+        this.api.listInventory().subscribe((res) => (this.pantryItems = res.items));
+      },
+      error: () => (this.status = 'Recipe saved, but updating the pantry failed.'),
     });
   }
 
   edit(r: Recipe): void {
     this.draft = { ...r, ingredients: r.ingredients.map((i) => ({ ...i })) };
+    this.isCookedRecipe = false;
   }
 
   archive(r: Recipe): void {

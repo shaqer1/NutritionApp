@@ -49,6 +49,13 @@ export class ApiService {
     return this.http.get<{ entries: LogEntry[] }>(
       `${this.base}/log`, { params: date ? { date } : {} });
   }
+  updateLog(logId: string, req: LogRequest): Observable<TodaySummary> {
+    return this.http.put<TodaySummary>(`${this.base}/log/${logId}`, req);
+  }
+  deleteLog(logId: string, day?: string): Observable<TodaySummary> {
+    return this.http.delete<TodaySummary>(
+      `${this.base}/log/${logId}`, { params: day ? { day } : {} });
+  }
 
   // --- profile / goals ---
   getProfile(): Observable<{ profile: Profile | null }> {

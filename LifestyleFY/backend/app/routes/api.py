@@ -94,6 +94,27 @@ def get_log(date: date_type | None = None, uid: str = Depends(current_uid),
     return {"entries": store.list_log(uid, date or datetime.now(timezone.utc).date())}
 
 
+@router.put("/log/{log_id}", response_model=TodaySummary)
+def edit_log_entry(log_id: str, req: LogRequest, uid: str = Depends(current_uid),
+                   store: Store = Depends(store_dep)):
+    """Corrects a previously logged entry's own data (name/meal/servings/macros).
+    Never touches any linked inventory item — editing a log mistake doesn't
+    re-adjust pantry stock."""
+    log_date = req.log_date or datetime.now(timezone.utc).date()
+    summary = store.update_log_entry(uid, log_id, log_date, req)
+    store.sync_summary_to_sheet(uid)
+    return summary
+
+
+@router.delete("/log/{log_id}", response_model=TodaySummary)
+def delete_log_entry(log_id: str, day: date_type | None = None,
+                     uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    log_date = day or datetime.now(timezone.utc).date()
+    summary = store.delete_log_entry(uid, log_id, log_date)
+    store.sync_summary_to_sheet(uid)
+    return summary
+
+
 # ---------- Profile & goals ----------
 @router.get("/profile")
 def get_profile(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):

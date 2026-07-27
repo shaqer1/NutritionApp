@@ -279,7 +279,7 @@ class Store:
             return [r for r in self._food_log
                     if r["uid"] == uid and r.get("log_date", r["ts"][:10]) == day_iso]
         q = f"""
-            SELECT calories, protein_g, carbs_g, fat_g,
+            SELECT meal, meal_instance, calories, protein_g, carbs_g, fat_g,
                    sugar_g, fiber_g, sat_fat_g, sodium_mg
             FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
             WHERE uid=@uid AND log_date=@day
@@ -306,7 +306,7 @@ class Store:
                     if r["uid"] == uid and r.get("log_date", r["ts"][:10]) == day_iso]
         else:
             q = f"""
-                SELECT item_name, barcode, meal, meal_instance, servings,
+                SELECT log_id, item_name, barcode, meal, meal_instance, servings,
                        calories, protein_g, carbs_g, fat_g,
                        sugar_g, fiber_g, sat_fat_g, sodium_mg, grams, ts
                 FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
@@ -322,6 +322,7 @@ class Store:
             rows = [dict(r) for r in job.result()]
         return [
             LogEntry(
+                log_id=r.get("log_id"),
                 item_name=r["item_name"], barcode=r.get("barcode"),
                 meal=r["meal"], meal_instance=r.get("meal_instance") or 1,
                 servings=r["servings"], grams=r.get("grams"), ts=r["ts"],
@@ -335,10 +336,75 @@ class Store:
             for r in rows
         ]
 
+    def update_log_entry(self, uid: str, log_id: str, log_date: date, req: LogRequest) -> TodaySummary:
+        """Edits a food_log row in place (name/meal/servings/macros/grams) — the
+        row's `log_id` and `ts` are preserved. Deliberately doesn't touch any
+        linked inventory item's qty: this only corrects the log's own data."""
+        fields = {
+            "meal": req.meal, "meal_instance": req.meal_instance,
+            "item_name": req.item_name, "barcode": req.barcode, "source": req.source,
+            "servings": req.servings,
+            "calories": req.macros.cal * req.servings,
+            "protein_g": req.macros.protein * req.servings,
+            "carbs_g": req.macros.carbs * req.servings,
+            "fat_g": req.macros.fat * req.servings,
+            "sugar_g": req.macros.sugar_g * req.servings,
+            "fiber_g": req.macros.fiber_g * req.servings,
+            "sat_fat_g": req.macros.sat_fat_g * req.servings,
+            "sodium_mg": req.macros.sodium_mg * req.servings,
+            "grams": req.grams,
+        }
+        if self.stub:
+            for row in self._food_log:
+                if row["uid"] == uid and row["log_id"] == log_id:
+                    row.update(fields)
+                    break
+        else:
+            from google.cloud import bigquery
+            q = f"""
+                UPDATE `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
+                SET meal=@meal, meal_instance=@meal_instance, item_name=@item_name,
+                    barcode=@barcode, source=@source, servings=@servings,
+                    calories=@calories, protein_g=@protein_g, carbs_g=@carbs_g,
+                    fat_g=@fat_g, sugar_g=@sugar_g, fiber_g=@fiber_g,
+                    sat_fat_g=@sat_fat_g, sodium_mg=@sodium_mg, grams=@grams
+                WHERE uid=@uid AND log_id=@log_id
+            """
+            params = [bigquery.ScalarQueryParameter("uid", "STRING", uid),
+                      bigquery.ScalarQueryParameter("log_id", "STRING", log_id)]
+            type_map = {"meal_instance": "INT64", "meal": "STRING", "item_name": "STRING",
+                        "barcode": "STRING", "source": "STRING"}
+            for key, val in fields.items():
+                bq_type = type_map.get(key, "FLOAT64")
+                params.append(bigquery.ScalarQueryParameter(key, bq_type, val))
+            self._bq.query(q, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
+        return self.recompute_today_summary(uid, day=log_date)
+
+    def delete_log_entry(self, uid: str, log_id: str, log_date: date) -> TodaySummary:
+        """Removes a food_log row outright. Same as update_log_entry, this never
+        touches inventory — deleting a mistaken log entry doesn't restock it."""
+        if self.stub:
+            self._food_log = [r for r in self._food_log
+                               if not (r["uid"] == uid and r["log_id"] == log_id)]
+        else:
+            from google.cloud import bigquery
+            q = f"""
+                DELETE FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
+                WHERE uid=@uid AND log_id=@log_id
+            """
+            self._bq.query(q, job_config=bigquery.QueryJobConfig(query_parameters=[
+                bigquery.ScalarQueryParameter("uid", "STRING", uid),
+                bigquery.ScalarQueryParameter("log_id", "STRING", log_id),
+            ])).result()
+        return self.recompute_today_summary(uid, day=log_date)
+
     def recompute_today_summary(self, uid: str, day: date | None = None,
                                 coach_tip: str | None = None) -> TodaySummary:
         day = day or _now().date()
         rows = self._today_rows(uid, day)
+        # Distinct (meal, meal_instance) sittings, not one per logged item —
+        # e.g. a lunch with 3 ingredients logged separately is still 1 meal.
+        meals_logged = len({(r.get("meal"), r.get("meal_instance") or 1) for r in rows})
         consumed = Macros(
             cal=sum(r["calories"] or 0 for r in rows),
             protein=sum(r["protein_g"] or 0 for r in rows),
@@ -364,7 +430,7 @@ class Store:
 
         summary = TodaySummary(
             date=day, consumed=consumed, remaining=remaining,
-            meals_logged=len(rows), pct_to_goal=round(pct, 3),
+            meals_logged=meals_logged, pct_to_goal=round(pct, 3),
             goals=goals, coach_tip=coach_tip,
         )
         doc = summary.model_dump(mode="json")

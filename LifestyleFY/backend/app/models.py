@@ -66,6 +66,7 @@ class LogRequest(BaseModel):
 
 class LogEntry(BaseModel):
     """One itemized food_log row, as returned by GET /log."""
+    log_id: str | None = None  # addresses this row for PUT/DELETE /log/{log_id}
     item_name: str
     barcode: str | None = None
     meal: str
