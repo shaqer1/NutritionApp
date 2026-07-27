@@ -12,15 +12,22 @@ npm install
 npm start            # ng serve on http://localhost:4200
 ```
 
-Point it at the backend: `src/environments/environment.ts` → `apiBase`
-(default `http://localhost:8080`). Start the backend first (stub mode is fine):
+`src/environments/environment.ts` (the dev config) currently points `apiBase` at
+the **deployed** Cloud Run backend with `useAuth: true` — so out of the box you'll
+need to sign in with an allowlisted Google account (see
+[DEPLOYMENT.md](../DEPLOYMENT.md#managing-access)), even against your local `ng serve`.
+
+To develop against a local backend instead, start it in stub mode and point
+`apiBase` at it:
 
 ```bash
-cd ../backend && uvicorn app.main:app --reload --port 8080
+cd ../backend && cp .env.example .env && uvicorn app.main:app --reload --port 8080
 ```
 
-Then open http://localhost:4200. In dev, no login is required (backend runs with
-`DEV_NO_AUTH=true`).
+then temporarily set `apiBase: 'http://localhost:8080'` and `useAuth: false` in
+`environment.ts` — with `DEV_NO_AUTH=true` (the `.env.example` default) the backend
+skips token verification, so no login is required. Revert both before committing;
+the checked-in `environment.ts` is meant to point at the real deployment.
 
 ## Camera / scanning note
 
@@ -33,19 +40,23 @@ barcode/name entry works everywhere.
 
 ```
 src/app/
-├── app.component.ts        bottom-tab shell
+├── app.component.ts        bottom-tab shell (Today / Inventory / Groceries / Recipes / Coach)
 ├── app.routes.ts           lazy-loaded routes
 ├── app.config.ts           router + HttpClient + service worker
 ├── core/
-│   ├── models.ts           mirrors backend Pydantic models
-│   └── api.service.ts      typed client for every backend endpoint
+│   ├── models.ts            mirrors backend Pydantic models
+│   ├── api.service.ts       typed client for every backend endpoint
+│   ├── auth.service.ts      Firebase Google Sign-In
+│   ├── auth.interceptor.ts  attaches the Firebase ID token to every request
+│   ├── categories.ts        pantry category taxonomy (mirrors services/categories.py)
+│   └── meal-picker.ts       shared meal/instance-picker helpers
 └── pages/
-    ├── today.component.ts      macro rings vs goal + coach tip
-    ├── scan.component.ts       @zxing camera + manual lookup
-    ├── log.component.ts        manual / from-pantry meal logging
-    ├── inventory.component.ts  pantry CRUD
-    ├── goals.component.ts      profile + AI goal suggestion + next-goal
-    └── coach.component.ts      on-track check, recipes, grocery list
+    ├── today.component.ts           macro bars vs goal, coach tip, today's log table
+    ├── inventory.component.ts       @zxing scan / search / manual-entry, Pantry+Log views
+    ├── inventory-item.component.ts  ingredient detail: log, edit, delete
+    ├── recipes.component.ts         AI/manual recipes, pantry-only ingredients, archive lifecycle
+    ├── groceries.component.ts       AI/manual grocery lists, save/edit, archive lifecycle
+    └── coach.component.ts           profile (incl. allergies/prefs), goals, on-track check
 ```
 
 ## Build for deploy (Firebase Hosting)
@@ -58,8 +69,12 @@ firebase deploy --only hosting
 ```
 
 ## TODO before shipping
-- Add real PWA icons under `src/assets/icons/` (192 + 512 px).
-- Wire Firebase Auth: set `environment.useAuth=true`, add an HttpInterceptor that
-  attaches the Firebase ID token as `Authorization: Bearer <token>`, and flip the
-  backend `DEV_NO_AUTH=false`.
 - Add Web Push (service-worker `push` listener + VAPID) for coach nudges.
+
+PWA icons are in place: `src/assets/icons/icon-192.png` and `icon-512.png`,
+cropped from the `LifestyleFY/NutriBear-Lifestyle4U.svg` badge mark (the
+"LifestyleFY / Nutrition App" text banner in that file is deliberately excluded).
+
+Firebase Auth itself is already wired up: `useAuth: true`, `auth.interceptor.ts`
+attaches the ID token to every request, and the backend verifies it with
+`DEV_NO_AUTH=false` in production (`app/auth.py`).

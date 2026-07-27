@@ -30,6 +30,17 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
 - **Access control**: beyond a valid token, the caller's email must be in the
   `config/access` Firestore doc (`allowed_emails` array) — manage who can use the
   app from the Firebase Console's Firestore Data tab, no redeploy needed.
+- **Pantry/recipe/grocery feature batch** (latest): recipe ingredients can now only
+  be added from the pantry (never free text), so every recipe line links back to a
+  real `InventoryItem`; Pantry gained an "All" location tab and a hide-out-of-stock
+  toggle; a third "Manual entry" Add/Scan tab creates a full ingredient (macros,
+  image, ingredients text) without a barcode/AI match; Recipes support fully manual
+  creation, an image URL, and an Active/Archived lifecycle (archive/restore/delete
+  permanently); Grocery lists are now structured JSON (items grouped by section +
+  a swaps/substitutions list) instead of prose, and persist/save/edit/archive the
+  same way recipes do; the Coach profile card exposes Sex, Dietary prefs, and
+  Allergies (fields already existed in `Profile`, just had no UI before); Today now
+  shows an itemized table of everything logged that day.
 
 ## Not started / to do
 
@@ -57,9 +68,12 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
   Secret Manager) so nudges pop on the phone. (Optional: email via Gmail API —
   requires authorizing the Gmail connector in an interactive session.)
 
-### 3. Ship the PWA (icons)
-- Add real icons under `frontend/src/assets/icons/` (192 + 512 px) — currently just
-  `.gitkeep`, no icons yet, so "Add to Home Screen" will use a default icon.
+### 3. ~~Ship the PWA (icons)~~ — done
+- `frontend/src/assets/icons/icon-192.png` and `icon-512.png` now exist (cropped
+  from `LifestyleFY/NutriBear-Lifestyle4U.svg` — the badge mark only, the
+  "LifestyleFY / Nutrition App" text banner at the bottom of that file is
+  excluded). Referenced by `manifest.webmanifest`; confirmed present in
+  `ng build` output at `dist/lifestylefy/browser/assets/icons/`.
 
 ### 4. Optional
 - **Looker Studio** dashboard on BigQuery for weight/intake/adherence trends (free).
@@ -71,13 +85,6 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
   stubbed/unused since no Chomp key is active.
 - **Gemini SDK** version pin (`google-genai`) — bump if the `Client` API has moved.
 - **Angular / @zxing** version pins — confirmed only at `npm install` time.
-
-## Security note
-`backend/.env` (containing the original Gemini/Chomp keys) was committed to git and
-pushed to `origin/main` before this was caught. It's now untracked going forward
-(`.gitignore` fixed), but **the old keys are still visible in git history** on
-GitHub until that history is rewritten. Rotating both keys is recommended regardless
-of history cleanup, since committed secrets should be treated as compromised.
 
 ## Cost reminder
 Everything targets free tiers: ~**$0–3/mo** total (Gemini pennies; Chomp only if you
