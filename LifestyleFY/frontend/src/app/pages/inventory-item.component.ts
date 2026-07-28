@@ -96,6 +96,7 @@ type EditDraft = Pick<InventoryItem,
         <h3>Log this</h3>
         <div class="row">
           <input type="number" [(ngModel)]="logServings" min="0.25" step="0.25" style="max-width:90px" />
+          <input type="date" [(ngModel)]="logDate" (ngModelChange)="onLogDateChange()" style="max-width:150px" />
           <button (click)="openMealPicker()">Log as eaten</button>
         </div>
         @if (mealPickerOpen) {
@@ -174,6 +175,7 @@ export class InventoryItemComponent implements OnInit {
   categoryMeta = categoryMeta;
 
   logServings = 1;
+  logDate = todayStr();
   mealPickerOpen = false;
   mealTypes = MEAL_TYPES;
   logStatus = '';
@@ -212,7 +214,11 @@ export class InventoryItemComponent implements OnInit {
   // ---------- Log this ----------
   openMealPicker(): void {
     this.mealPickerOpen = true;
-    this.api.getLog(todayStr()).subscribe((r) => (this.pickerEntries = r.entries));
+    this.api.getLog(this.logDate).subscribe((r) => (this.pickerEntries = r.entries));
+  }
+
+  onLogDateChange(): void {
+    this.api.getLog(this.logDate).subscribe((r) => (this.pickerEntries = r.entries));
   }
 
   existingInstances(mealType: string): number[] {
@@ -235,7 +241,7 @@ export class InventoryItemComponent implements OnInit {
       meal: mealType, meal_instance: instance, item_name: this.item.name,
       barcode: this.item.barcode ?? null, source: this.item.source,
       servings: this.logServings, macros: this.item.per_serving, grams,
-      inventory_item_id: this.item.item_id, log_date: todayStr(),
+      inventory_item_id: this.item.item_id, log_date: this.logDate,
     }).subscribe(() => {
       this.mealPickerOpen = false;
       this.logStatus = `Logged ${this.mealLabel(mealType, instance)}.`;

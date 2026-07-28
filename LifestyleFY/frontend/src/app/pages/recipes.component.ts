@@ -144,6 +144,8 @@ import {
             <div style="margin:-4px 0 10px;padding:10px;border:1px solid var(--border);border-radius:10px">
               <label>Servings eaten</label>
               <input type="number" [(ngModel)]="logServingsEaten" min="0.25" step="0.25" style="max-width:90px" />
+              <label style="margin-top:8px;display:block">Date</label>
+              <input type="date" [(ngModel)]="logDate" (ngModelChange)="onLogDateChange()" style="max-width:150px" />
               <p class="muted" style="margin-top:8px">Which meal?</p>
               @for (mt of mealTypes; track mt) {
                 <div style="margin-bottom:8px">
@@ -179,6 +181,7 @@ export class RecipesComponent implements OnInit {
 
   logPanelRecipeId: string | null = null;
   logServingsEaten = 1;
+  logDate = todayStr();
   logStatus = '';
   logStatusRecipeId: string | null = null;
   private pickerEntries: LogEntry[] = [];
@@ -329,8 +332,9 @@ export class RecipesComponent implements OnInit {
     this.logPanelRecipeId = isOpen ? null : (r.recipe_id ?? null);
     if (isOpen) return;
     this.logServingsEaten = r.servings;
+    this.logDate = todayStr();
     this.logStatus = '';
-    this.api.getLog(todayStr()).subscribe((res) => (this.pickerEntries = res.entries));
+    this.api.getLog(this.logDate).subscribe((res) => (this.pickerEntries = res.entries));
     this.api.listInventory().subscribe((res) => (this.pantryItems = res.items));
   }
 
@@ -344,6 +348,10 @@ export class RecipesComponent implements OnInit {
 
   mealLabel(mealType: string, instance: number): string {
     return sharedMealLabel(mealType, instance);
+  }
+
+  onLogDateChange(): void {
+    this.api.getLog(this.logDate).subscribe((res) => (this.pickerEntries = res.entries));
   }
 
   logRecipe(r: Recipe, mealType: string, instance: number): void {
@@ -372,7 +380,7 @@ export class RecipesComponent implements OnInit {
         return this.api.log({
           meal: mealType, meal_instance: instance, item_name: ing.name,
           source: 'manual', servings, macros: perUnit, grams,
-          inventory_item_id: ing.item_id ?? null, log_date: todayStr(),
+          inventory_item_id: ing.item_id ?? null, log_date: this.logDate,
         });
       });
 
