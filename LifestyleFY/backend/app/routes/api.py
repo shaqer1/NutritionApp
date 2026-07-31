@@ -8,7 +8,8 @@ from ..auth import current_uid
 from ..deps import coach_dep, resolver_dep, store_dep
 from ..models import (
     AiPrompts, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe, ScanRequest,
-    TodaySummary,
+    TodaySummary, WorkoutDay, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
+    WorkoutWeekOverview,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.food import FoodResolver
@@ -320,6 +321,56 @@ def set_ai_prompts(prompts: AiPrompts, uid: str = Depends(current_uid),
                    store: Store = Depends(store_dep)):
     store.set_ai_prompts(uid, prompts)
     return {"ok": True}
+
+
+# ---------- Workout ----------
+@router.get("/workout/config")
+def get_workout_config(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return {"config": store.get_workout_config(uid)}
+
+
+@router.put("/workout/config")
+def set_workout_config(current_week: int = Body(..., embed=True),
+                       uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    store.set_workout_current_week(uid, current_week)
+    return {"ok": True}
+
+
+@router.get("/workout/weeks/{week}/overview", response_model=WorkoutWeekOverview)
+def workout_week_overview(week: int, uid: str = Depends(current_uid),
+                          store: Store = Depends(store_dep)):
+    return store.get_week_overview(uid, week)
+
+
+@router.get("/workout/weeks/{week}/days/{day}", response_model=WorkoutDay)
+def workout_day(week: int, day: str, uid: str = Depends(current_uid),
+                store: Store = Depends(store_dep)):
+    return store.get_workout_day(uid, week, day)
+
+
+@router.post("/workout/sets")
+def post_workout_set(req: WorkoutSetLogRequest, uid: str = Depends(current_uid),
+                     store: Store = Depends(store_dep)):
+    store.log_workout_set(uid, req)
+    return {"ok": True}
+
+
+@router.get("/workout/sets")
+def get_workout_sets(week: int, day: str, uid: str = Depends(current_uid),
+                     store: Store = Depends(store_dep)):
+    return {"sets": store.get_workout_log_state(uid, week, day)}
+
+
+@router.post("/workout/sessions")
+def post_workout_session(req: WorkoutSessionLogRequest, uid: str = Depends(current_uid),
+                         store: Store = Depends(store_dep)):
+    store.log_workout_session(uid, req)
+    return {"ok": True}
+
+
+@router.get("/workout/progress", response_model=WorkoutProgress)
+def workout_progress(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return store.get_workout_progress(uid)
 
 
 # ---------- Summary sync (read by workout app if using HTTP variant) ----------

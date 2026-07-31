@@ -156,3 +156,91 @@ export interface GroceryList {
   is_active?: boolean;
   created_at?: string | null;
 }
+
+// --- Workout ---
+
+export interface PlanExercise {
+  plan_id?: string | null;
+  week: number;
+  day: string;
+  phase: string;
+  section: string; // Warm-Up | Strength | Cool-Down
+  order: number;
+  exercise: string;
+  sets: string;
+  reps: string;
+  weight: string;
+  tempo: string;
+  rest: string;
+  video_url: string;
+  exercise_id?: string | null;
+  notes: string;
+  category: string; // id from core/workout-categories.ts
+  is_custom?: boolean;
+  // Joined in from the shared exercise cache at read time.
+  image_url?: string | null;
+  overview?: string | null;
+  instructions: string[];
+  target_muscles: string[];
+}
+
+export interface WorkoutConfig {
+  current_week: number;
+  start_date?: string | null;
+}
+
+export interface WorkoutWeekOverview {
+  days: string[];
+  completed_days: string[];
+}
+
+export interface WorkoutDay {
+  warmup: PlanExercise[];
+  strength: PlanExercise[];
+  cooldown: PlanExercise[];
+  phase: string;
+}
+
+export interface WorkoutSetLogRequest {
+  week: number;
+  day: string;
+  exercise: string;
+  set_num: number;
+  planned_reps?: string;
+  actual_reps?: string;
+  weight?: string;
+  notes?: string;
+}
+
+export interface WorkoutSetEntry {
+  exercise: string;
+  set_num: number;
+  planned_reps: string;
+  actual_reps: string;
+  weight: string;
+  notes: string;
+}
+
+export interface WorkoutSessionLogRequest {
+  week: number;
+  day: string;
+  energy_level: string; // high | medium | low
+  notes?: string;
+  total_exercises?: number;
+}
+
+export interface WorkoutSession {
+  date: string;
+  week: string;
+  day: string;
+  energy_level: string;
+  notes: string;
+}
+
+export interface WorkoutProgress {
+  total_sessions: number; // logged session instances, repeats included
+  total_sets: number;
+  distinct_days_completed: number; // unique planned (week, day) slots with >=1 session
+  total_planned_days: number;
+  recent: WorkoutSession[];
+}

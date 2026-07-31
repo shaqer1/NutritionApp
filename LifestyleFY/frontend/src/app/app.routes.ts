@@ -30,5 +30,9 @@ export const routes: Routes = [
     path: 'coach',
     loadComponent: () => import('./pages/coach.component').then((m) => m.CoachComponent),
   },
+  {
+    path: 'workout',
+    loadComponent: () => import('./pages/workout.component').then((m) => m.WorkoutComponent),
+  },
   { path: '**', redirectTo: 'today' },
 ];

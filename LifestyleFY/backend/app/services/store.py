@@ -7,13 +7,16 @@ process memory so the API runs offline with no GCP calls.
 from __future__ import annotations
 
 import logging
+import re
 import uuid
 from datetime import date, datetime, timedelta, timezone
 
 from ..config import Settings
 from ..models import (
-    AiPrompts, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, Profile,
-    Recipe, TodaySummary,
+    AiPrompts, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, PlanExercise,
+    Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay, WorkoutProgress,
+    WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSession,
+    WorkoutWeekOverview,
 )
 
 
@@ -41,6 +44,11 @@ class Store:
             self._barcode_cache: dict[str, dict] = {}
             self._food_log: list[dict] = []
             self._scans: list[dict] = []
+            self._workout_config: dict[str, dict] = {}
+            self._workout_plan: dict[str, dict[str, dict]] = {}
+            self._exercise_cache: dict[str, dict] = {}
+            self._workout_sets: list[dict] = []
+            self._workout_sessions: list[dict] = []
         else:
             from google.cloud import bigquery, firestore
 
@@ -502,6 +510,227 @@ class Store:
         errors = self._bq.insert_rows_json(table_id, rows)
         if errors:
             raise RuntimeError(f"BigQuery insert into {table} failed: {errors}")
+
+    # ---------- Workout: config ----------
+    def get_workout_config(self, uid: str) -> WorkoutConfig:
+        if self.stub:
+            data = self._workout_config.get(uid)
+            return WorkoutConfig(**data) if data else WorkoutConfig()
+        snap = self._user_doc(uid).collection("meta").document("workout_config").get()
+        return WorkoutConfig(**snap.to_dict()) if snap.exists else WorkoutConfig()
+
+    def set_workout_current_week(self, uid: str, week: int) -> None:
+        if self.stub:
+            cfg = self._workout_config.get(uid, {})
+            cfg["current_week"] = week
+            self._workout_config[uid] = cfg
+            return
+        self._user_doc(uid).collection("meta").document("workout_config").set(
+            {"current_week": week}, merge=True)
+
+    # ---------- Workout: plan (hot, editable state) ----------
+    @staticmethod
+    def _plan_id(week: int, day: str, section: str, order) -> str:
+        """Deterministic key mirroring how the old Apps Script app looked rows
+        up by position (week+day+section+order) — needed so a future edit/
+        clone endpoint can upsert by this same key instead of a random id."""
+        safe_day = re.sub(r"[^a-zA-Z0-9]", "_", str(day))
+        safe_section = re.sub(r"[^a-zA-Z0-9]", "_", str(section))
+        return f"{week}_{safe_day}_{safe_section}_{order}"
+
+    def _workout_plan_rows(self, uid: str) -> list[dict]:
+        """All plan rows for this user across every week — small collection
+        (~400 rows total for a 10-week program), so callers filter in Python
+        rather than needing a Firestore composite index, matching how
+        list_inventory/list_recipes stream a whole collection."""
+        if self.stub:
+            rows = []
+            for plan_id, row in self._workout_plan.get(uid, {}).items():
+                rows.append({**row, "plan_id": plan_id})
+            return rows
+        docs = self._user_doc(uid).collection("workout_plan").stream()
+        out = []
+        for d in docs:
+            row = d.to_dict()
+            row["plan_id"] = d.id
+            out.append(row)
+        return out
+
+    def _get_exercise_cache_entry(self, exercise_id: str) -> dict | None:
+        if self.stub:
+            return self._exercise_cache.get(exercise_id)
+        snap = self._fs.collection("exercise_cache").document(exercise_id).get()
+        return snap.to_dict() if snap.exists else None
+
+    def get_week_overview(self, uid: str, week: int) -> WorkoutWeekOverview:
+        days: list[str] = []
+        seen: set[str] = set()
+        for r in self._workout_plan_rows(uid):
+            if r["week"] == week and r["day"] not in seen:
+                seen.add(r["day"])
+                days.append(r["day"])
+        completed: set[str] = set()
+        for row in self._workout_session_rows(uid, week=week):
+            completed.add(row["day_name"])
+        for row in self._workout_set_rows(uid, week=week):
+            completed.add(row["day"])
+        return WorkoutWeekOverview(days=days, completed_days=sorted(completed))
+
+    def get_workout_day(self, uid: str, week: int, day: str) -> WorkoutDay:
+        plan_rows = [r for r in self._workout_plan_rows(uid)
+                     if r["week"] == week and r["day"] == day]
+        plan_rows.sort(key=lambda r: (r["section"], int(r["order"])))
+
+        cache: dict[str, dict] = {}
+        for r in plan_rows:
+            eid = r.get("exercise_id")
+            if eid and eid not in cache:
+                cache[eid] = self._get_exercise_cache_entry(eid) or {}
+
+        section_key = {"Warm-Up": "warmup", "Strength": "strength", "Cool-Down": "cooldown"}
+        buckets: dict[str, list[PlanExercise]] = {"warmup": [], "strength": [], "cooldown": []}
+        phase = ""
+        for r in plan_rows:
+            c = cache.get(r.get("exercise_id") or "", {})
+            ex = PlanExercise(
+                plan_id=r["plan_id"], week=r["week"], day=r["day"], phase=r.get("phase", ""),
+                section=r["section"], order=r["order"], exercise=r["exercise"],
+                sets=r.get("sets", ""), reps=r.get("reps", ""), weight=r.get("weight", ""),
+                tempo=r.get("tempo", ""), rest=r.get("rest", ""),
+                # Cache's ExerciseDB video takes priority over the plan row's
+                # own Video_URL column, matching the old app's
+                # `detailVideoUrl || video` — most live plan rows have Exercise_ID
+                # set but an empty Video_URL, so the cache is the real source.
+                video_url=c.get("video_url") or r.get("video_url", ""),
+                exercise_id=r.get("exercise_id"),
+                notes=r.get("notes", ""), category=r.get("category", ""),
+                is_custom=bool(r.get("is_custom")),
+                image_url=c.get("image_url"), overview=c.get("overview"),
+                instructions=c.get("instructions") or [],
+                target_muscles=c.get("target_muscles") or [],
+            )
+            key = section_key.get(r["section"])
+            if key:
+                buckets[key].append(ex)
+            phase = phase or r.get("phase", "")
+        return WorkoutDay(warmup=buckets["warmup"], strength=buckets["strength"],
+                          cooldown=buckets["cooldown"], phase=phase)
+
+    # ---------- Workout: set + session logging (append-only, BigQuery) ----------
+    def log_workout_set(self, uid: str, req: WorkoutSetLogRequest) -> None:
+        ts = req.ts or _now()
+        log_date = req.log_date or ts.date()
+        row = {
+            "set_log_id": uuid.uuid4().hex, "uid": uid, "ts": ts.isoformat(),
+            "log_date": log_date.isoformat(), "week": req.week, "day": req.day,
+            "exercise": req.exercise, "set_num": req.set_num,
+            "planned_reps": req.planned_reps, "actual_reps": req.actual_reps,
+            "weight": req.weight, "notes": req.notes,
+        }
+        self._bq_insert("workout_set_log", [row])
+        if self.stub:
+            self._workout_sets.append(row)
+
+    def log_workout_session(self, uid: str, req: WorkoutSessionLogRequest) -> None:
+        ts = req.ts or _now()
+        log_date = req.log_date or ts.date()
+        row = {
+            "session_id": uuid.uuid4().hex, "uid": uid, "ts": ts.isoformat(),
+            "log_date": log_date.isoformat(), "week": req.week, "day_name": req.day,
+            "completed": True, "total_exercises": req.total_exercises,
+            "notes": req.notes, "energy_level": req.energy_level,
+        }
+        self._bq_insert("workout_session_log", [row])
+        if self.stub:
+            self._workout_sessions.append(row)
+
+    def _workout_set_rows(self, uid: str, week: int | None = None) -> list[dict]:
+        if self.stub:
+            rows = [r for r in self._workout_sets if r["uid"] == uid]
+        else:
+            q = f"""
+                SELECT set_log_id, ts, log_date, week, day, exercise, set_num,
+                       planned_reps, actual_reps, weight, notes
+                FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_set_log`
+                WHERE uid=@uid
+            """
+            from google.cloud import bigquery
+            job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("uid", "STRING", uid)]))
+            rows = [dict(r) for r in job.result()]
+        if week is not None:
+            rows = [r for r in rows if int(r["week"]) == int(week)]
+        return rows
+
+    def _workout_session_rows(self, uid: str, week: int | None = None) -> list[dict]:
+        if self.stub:
+            rows = [r for r in self._workout_sessions if r["uid"] == uid]
+        else:
+            q = f"""
+                SELECT session_id, ts, log_date, week, day_name, completed,
+                       total_exercises, notes, energy_level
+                FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_session_log`
+                WHERE uid=@uid
+            """
+            from google.cloud import bigquery
+            job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("uid", "STRING", uid)]))
+            rows = [dict(r) for r in job.result()]
+        if week is not None:
+            rows = [r for r in rows if int(r["week"]) == int(week)]
+        return rows
+
+    def get_workout_log_state(self, uid: str, week: int, day: str) -> list[WorkoutSetEntry]:
+        rows = [r for r in self._workout_set_rows(uid, week=week) if r["day"] == day]
+        return [
+            WorkoutSetEntry(
+                exercise=r["exercise"], set_num=int(r["set_num"]),
+                planned_reps=r.get("planned_reps") or "", actual_reps=r.get("actual_reps") or "",
+                weight=r.get("weight") or "", notes=r.get("notes") or "",
+            )
+            for r in rows
+        ]
+
+    def get_workout_progress(self, uid: str) -> WorkoutProgress:
+        sessions = self._workout_session_rows(uid)
+        sets = self._workout_set_rows(uid)
+
+        by_key: dict[str, dict] = {}
+        for r in sessions:
+            key = f"{r.get('log_date', '')}|{r['week']}|{r['day_name']}"
+            by_key[key] = {
+                "date": r.get("log_date", ""), "week": str(r["week"]), "day": r["day_name"],
+                "energy_level": r.get("energy_level", ""), "notes": r.get("notes", ""),
+            }
+        set_counts: dict[str, int] = {}
+        for r in sets:
+            key = f"{r.get('log_date', '')}|{r['week']}|{r['day']}"
+            set_counts[key] = set_counts.get(key, 0) + 1
+            if key not in by_key:
+                by_key[key] = {"date": r.get("log_date", ""), "week": str(r["week"]),
+                              "day": r["day"], "energy_level": "", "notes": ""}
+
+        # Distinct planned (week, day) slots with at least one logged session —
+        # dedupes repeat sessions on the same slot (e.g. redoing a workout on
+        # a different date), so the progress bar reflects unique days done,
+        # not raw session count. total_sessions (below) keeps counting every
+        # instance, repeats included, for the "Sessions" stat card.
+        distinct_days_completed = len({(r["week"], r["day"]) for r in by_key.values()})
+
+        recent = sorted(by_key.values(), key=lambda r: r["date"], reverse=True)
+        plan_day_keys = {(r["week"], r["day"]) for r in self._workout_plan_rows(uid)}
+        total_planned_days = len(plan_day_keys) or 40
+
+        return WorkoutProgress(
+            total_sessions=len(by_key), total_sets=len(sets),
+            distinct_days_completed=distinct_days_completed,
+            total_planned_days=total_planned_days,
+            recent=[
+                WorkoutSession(date=r["date"], week=r["week"], day=r["day"],
+                              energy_level=r["energy_level"], notes=r["notes"])
+                for r in recent[:5]
+            ],
+        )
 
     # ---------- Workout-app summary sync (Sheets) ----------
     def sync_summary_to_sheet(self, uid: str) -> bool:

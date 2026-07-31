@@ -4,7 +4,9 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
   AiPromptPreview, AiPrompts, CoachMessage, FoodItem, Goals, GroceryList, InventoryItem,
-  LogEntry, LogRequest, Profile, Recipe, TodaySummary,
+  LogEntry, LogRequest, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
+  WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest,
+  WorkoutWeekOverview,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -135,5 +137,34 @@ export class ApiService {
   }
   setAiPrompts(prompts: AiPrompts): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${this.base}/ai-prompts`, prompts);
+  }
+
+  // --- workout ---
+  getWorkoutConfig(): Observable<{ config: WorkoutConfig }> {
+    return this.http.get<{ config: WorkoutConfig }>(`${this.base}/workout/config`);
+  }
+  setWorkoutConfig(currentWeek: number): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(
+      `${this.base}/workout/config`, { current_week: currentWeek });
+  }
+  getWorkoutWeekOverview(week: number): Observable<WorkoutWeekOverview> {
+    return this.http.get<WorkoutWeekOverview>(`${this.base}/workout/weeks/${week}/overview`);
+  }
+  getWorkoutDay(week: number, day: string): Observable<WorkoutDay> {
+    return this.http.get<WorkoutDay>(
+      `${this.base}/workout/weeks/${week}/days/${encodeURIComponent(day)}`);
+  }
+  logWorkoutSet(req: WorkoutSetLogRequest): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/workout/sets`, req);
+  }
+  getWorkoutSets(week: number, day: string): Observable<{ sets: WorkoutSetEntry[] }> {
+    return this.http.get<{ sets: WorkoutSetEntry[] }>(
+      `${this.base}/workout/sets`, { params: { week, day } });
+  }
+  logWorkoutSession(req: WorkoutSessionLogRequest): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/workout/sessions`, req);
+  }
+  getWorkoutProgress(): Observable<WorkoutProgress> {
+    return this.http.get<WorkoutProgress>(`${this.base}/workout/progress`);
   }
 }

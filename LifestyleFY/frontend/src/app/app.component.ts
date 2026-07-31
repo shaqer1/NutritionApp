@@ -29,6 +29,9 @@ import { environment } from '../environments/environment';
         <a routerLink="/coach" routerLinkActive="active">
           <span class="ico">🤖</span>Coach
         </a>
+        <a routerLink="/workout" routerLinkActive="active">
+          <span class="ico">🏋️</span>Workout
+        </a>
       </nav>
     } @else if (auth.ready) {
       <div class="app login">

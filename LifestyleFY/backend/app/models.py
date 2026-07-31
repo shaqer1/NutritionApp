@@ -163,3 +163,100 @@ class GroceryList(BaseModel):
     source: str = "manual"  # ai | manual
     is_active: bool = True
     created_at: datetime | None = None
+
+
+# ---------- Workout ----------
+
+class PlanExercise(BaseModel):
+    """One WorkoutPlan slot (a single exercise within a week/day/section).
+    image_url/overview/instructions/target_muscles are joined in from
+    exercise_cache at read time — never stored on the plan doc itself."""
+    plan_id: str | None = None  # deterministic: week_day_section_order
+    week: int
+    day: str
+    phase: str = ""
+    section: str  # Warm-Up | Strength | Cool-Down
+    order: int
+    exercise: str
+    sets: str = ""
+    reps: str = ""
+    weight: str = ""
+    tempo: str = ""
+    rest: str = ""
+    video_url: str = ""
+    exercise_id: str | None = None
+    notes: str = ""
+    category: str = ""  # push | pull | legs | arms | core | warmup | stretch
+    is_custom: bool = False
+    image_url: str | None = None
+    overview: str | None = None
+    instructions: list[str] = Field(default_factory=list)
+    target_muscles: list[str] = Field(default_factory=list)
+
+
+class WorkoutConfig(BaseModel):
+    current_week: int = 1
+    start_date: date | None = None
+
+
+class WorkoutWeekOverview(BaseModel):
+    days: list[str] = Field(default_factory=list)
+    completed_days: list[str] = Field(default_factory=list)
+
+
+class WorkoutDay(BaseModel):
+    warmup: list[PlanExercise] = Field(default_factory=list)
+    strength: list[PlanExercise] = Field(default_factory=list)
+    cooldown: list[PlanExercise] = Field(default_factory=list)
+    phase: str = ""
+
+
+class WorkoutSetLogRequest(BaseModel):
+    week: int
+    day: str
+    exercise: str
+    set_num: int
+    planned_reps: str = ""
+    actual_reps: str = ""
+    weight: str = ""
+    notes: str = ""
+    log_date: date | None = None
+    ts: datetime | None = None
+
+
+class WorkoutSetEntry(BaseModel):
+    """One already-logged set, as returned by GET /workout/sets — used to
+    hydrate the set tracker with what's already been logged for a day."""
+    exercise: str
+    set_num: int
+    planned_reps: str = ""
+    actual_reps: str = ""
+    weight: str = ""
+    notes: str = ""
+
+
+class WorkoutSessionLogRequest(BaseModel):
+    week: int
+    day: str
+    energy_level: str = "medium"  # high | medium | low
+    notes: str = ""
+    total_exercises: int = 0
+    log_date: date | None = None
+    ts: datetime | None = None
+
+
+class WorkoutSession(BaseModel):
+    """One completed workout session, as returned in progress history."""
+    date: str
+    week: str
+    day: str
+    energy_level: str = ""
+    notes: str = ""
+
+
+class WorkoutProgress(BaseModel):
+    total_sessions: int = 0  # logged session instances, repeats included
+    total_sets: int = 0
+    distinct_days_completed: int = 0  # unique planned (week, day) slots with >=1 session
+    total_planned_days: int = 40
+    recent: list[WorkoutSession] = Field(default_factory=list)

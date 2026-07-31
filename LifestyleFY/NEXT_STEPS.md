@@ -56,23 +56,102 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
   which BigQuery rejects for rows still in the streaming buffer (recently
   inserted, ~up to 90 min) — editing/deleting something logged moments ago can
   fail until the buffer flushes. Not an issue in `USE_STUBS=true` local dev.
+- **Workout tab — Phase 1 (latest)**: the old Google Sheets/Apps Script workout
+  app (`GDrive/WorkoutPlan/CodeBck`) is being migrated into this codebase as a
+  6th 🏋️ Workout bottom-nav tab, to fix its Apps Script/Sheets latency and
+  consolidate onto one stack. Phase 1 (core loop — the stuff used every
+  session) is done and the data is live:
+  - **Backend**: `PlanExercise`/`WorkoutConfig`/`WorkoutDay`/`WorkoutProgress`
+    etc. in `app/models.py`; workout methods on `Store` in
+    `app/services/store.py` (`get_workout_day`, `log_workout_set`,
+    `get_workout_progress`, etc.); 7 routes under `# ---------- Workout ----------`
+    in `app/routes/api.py` (`/workout/config`, `/workout/weeks/{week}/overview`,
+    `/workout/weeks/{week}/days/{day}`, `/workout/sets` GET+POST,
+    `/workout/sessions`, `/workout/progress`).
+  - **Data model**: Firestore `users/{uid}/workout_plan/{planId}` (hot,
+    editable plan — `planId` is a deterministic `week_day_section_order` key)
+    + top-level `exercise_cache/{exerciseId}` (shared reference data, like
+    `barcode_cache`) + `users/{uid}/meta/workout_config`. BigQuery
+    `nutrition.workout_set_log` / `nutrition.workout_session_log`
+    (append-only, added to `infra/bigquery_schema.sql`, same
+    `PARTITION BY DATE(ts)` convention as `food_log`/`scans`).
+  - **Migration**: `backend/scripts/import_workout_xlsx.py` (one-off,
+    `pip install openpyxl` locally, not a runtime dependency) reads the
+    Sheets xlsx export and writes Firestore + BigQuery batch-load jobs. **Already
+    run for real** against uid `VfitOACrGQZEenfWJMhpLWvOMQH2`: 409
+    `workout_plan` docs, 1,520 `exercise_cache` docs, 528 `workout_set_log`
+    rows, 28 `workout_session_log` rows, `workout_config.current_week=9`.
+  - **Frontend**: `frontend/src/app/pages/workout.component.ts` (Workout/
+    Progress toggle in one page, matching Inventory's segmented-control
+    pattern), `core/workout-categories.ts`, wired into `app.routes.ts` /
+    `app.component.ts` nav.
+  - **Deployed**: backend on Cloud Run (revision `nutrition-api-00028-hms`),
+    frontend on Firebase Hosting — both live with the new Workout tab.
+  - **Post-migration bug fixes** (found by eyeballing the real deployed data):
+    exercise videos weren't showing — the live spreadsheet's per-row
+    `Video_URL` column was empty for all 409 rows, but every row has an
+    `Exercise_ID`, and the joined `exercise_cache` doc has a real ExerciseDB
+    video for all 1,520 exercises; `get_workout_day` now prefers the cache's
+    `video_url`, falling back to the plan row's own (mirrors the old app's
+    `detailVideoUrl || video`). Also restored the "TARGET" reps column in the
+    set tracker (dropped by mistake when porting from the old app's SET/
+    TARGET/ACTUAL REPS/WEIGHT layout). And fixed a misleading progress
+    percentage: `total_sessions` counts every logged session instance
+    (repeats included, e.g. redoing a day on a different date), which for
+    this real data happened to numerically equal `total_planned_days`,
+    showing "32/32 days complete (100%)" even though week 10 hadn't started.
+    Added `distinct_days_completed` (unique planned week+day slots with
+    at least one session) as the progress-bar numerator instead — correctly
+    shows 28/32 (88%). `total_sessions` still drives the "Sessions" stat card
+    unchanged (total workout instances, repeats intentionally included there).
+  - Removed the redundant Nutrition tab from
+    `GDrive/WorkoutPlan/CodeBck/index.html.html` (superseded by this app's own
+    Today/Coach tabs) — the Sheets/Apps Script Workout + Progress tabs
+    otherwise still work as-is, since Phase 2 (below) hasn't shipped yet.
+  - Full plan: `.claude/plans/i-made-some-updates-jaunty-scott.md` in this
+    checkout's Claude Code history (cost analysis, architecture rationale,
+    verification steps).
 
 ## Not started / to do
 
-### 1. Phase 5 — Workout-app overview integration (deferred by choice)
-- Backend already has `store.sync_summary_to_sheet()` — it writes a
-  `NutritionSummary` tab row to the workout spreadsheet. Share that sheet with the
-  Cloud Run service account (`nutrition-run@...`, Editor) so it can write. Note this
-  write is **not** scoped per-user (fixed cell range `A2:K2`) — fine for a single
-  user, but a second signed-in account would overwrite it.
-- Edit `CodeBck/Code.gs`: replace `getNutritionForDay()` (line ~421) with
-  `getNutritionOverview()` reading the `NutritionSummary` tab; keep the old static
-  version as fallback if the tab is empty.
-- Edit `CodeBck/index.html.html`: update `renderNutrition(n)` (line ~898) to draw a
-  live consumed-vs-goal card + latest coach tip. Reuse existing `.nutrition-card`
-  CSS and the `google.script.run.withSuccessHandler` pattern.
+### 1. Phase 2 — Workout tab: editing & program management (deferred by choice)
+Everything used to *adjust* the program rather than run a session — kept on
+the old Sheets/Apps Script app for now, ported here next:
+- **Edit exercise fields** — new `PUT /workout/plan/{plan_id}` endpoint
+  (mirrors Code.gs's `updateWorkoutPlanRow`) + an inline edit form on each
+  exercise card in `workout.component.ts` (sets/reps/weight/tempo/rest/notes/
+  category), using the same draft-object-then-Save pattern as
+  `inventory-item.component.ts`.
+- **Clone day / clone week** — `POST /workout/plan/clone-day` and
+  `.../clone-week` (mirror `cloneWorkoutDay`/`cloneWeekToEnd`), duplicating
+  Firestore `workout_plan` docs with new deterministic ids.
+- **Exercise cache browser** — filterable/paginated list over the (already
+  migrated) 1,520-doc `exercise_cache` collection, mirroring
+  `getExerciseCacheOptions`/`searchExerciseCache`.
+- **Exercise search + swap** — live ExerciseDB RapidAPI calls
+  (`searchExercisesForUi`/`getExerciseDetailsForId` equivalents). New backend
+  service (`app/services/exercisedb.py`, `httpx` async, mirrors
+  `food.py`'s Chomp-call pattern) + a new `EXERCISEDB_API_KEY` setting,
+  moved into Secret Manager (`create_secret EXERCISEDB_API_KEY` in
+  `infra/00_setup.sh`) instead of the hardcoded key currently sitting in
+  `Code.gs`'s source.
+- **Custom exercise creation** — mirrors `saveCustomExerciseCache`, writes a
+  `customex_...` doc into `exercise_cache` and points the plan row at it.
+- **Decommission the Sheets/Apps Script app** once the above has parity —
+  stop directing use to that URL; at that point `WORKOUT_SHEET_ID` and
+  `sync_summary_to_sheet()` (see below) can also be retired since nothing
+  will read the Sheet anymore.
 
-### 2. Phase 4 polish — proactive coach nudges
+### 2. Phase 5 — Workout-app overview integration (superseded, don't build)
+This was the *other* direction of integration (workout app reading a
+nutrition summary written into the Sheet) — planned back when the workout
+app still lived in Sheets. Now that the workout app itself is moving into
+this codebase (Phase 2 above), this whole approach is moot: `getNutritionForDay`
+in `Code.gs` and `store.sync_summary_to_sheet()` become dead code once Phase 2
+ships and the Sheets app is retired. Left here only as a historical note —
+do not implement this.
+
+### 3. Phase 4 polish — proactive coach nudges
 - Add **Cloud Scheduler** jobs hitting `/coach` at meal checkpoints (e.g. 14:00,
   18:30). Endpoint already computes behind-pace and generates a Gemini suggestion.
   Since the API now requires auth, the Scheduler job needs a way to call it — either
@@ -83,14 +162,14 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
   Secret Manager) so nudges pop on the phone. (Optional: email via Gmail API —
   requires authorizing the Gmail connector in an interactive session.)
 
-### 3. ~~Ship the PWA (icons)~~ — done
+### 4. ~~Ship the PWA (icons)~~ — done
 - `frontend/src/assets/icons/icon-192.png` and `icon-512.png` now exist (cropped
   from `LifestyleFY/NutriBear-Lifestyle4U.svg` — the badge mark only, the
   "LifestyleFY / Nutrition App" text banner at the bottom of that file is
   excluded). Referenced by `manifest.webmanifest`; confirmed present in
   `ng build` output at `dist/lifestylefy/browser/assets/icons/`.
 
-### 4. Optional
+### 5. Optional
 - **Looker Studio** dashboard on BigQuery for weight/intake/adherence trends (free).
 - **Prepared-food scanning** (lower priority) already flows through `/scan`.
 

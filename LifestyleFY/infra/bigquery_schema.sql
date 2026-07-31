@@ -80,3 +80,39 @@ CREATE TABLE IF NOT EXISTS nutrition.goal_history (
 )
 PARTITION BY DATE(created_at)
 OPTIONS (description = 'Goal change history');
+
+-- Append-only workout set log. One row per logged set (reps/weight actually
+-- performed). Migrated from the old Google Sheets WorkoutLog tab.
+CREATE TABLE IF NOT EXISTS nutrition.workout_set_log (
+  set_log_id   STRING    NOT NULL,   -- uuid
+  uid          STRING    NOT NULL,
+  ts           TIMESTAMP NOT NULL,
+  log_date     STRING,               -- client's local calendar day (YYYY-MM-DD)
+  week         INT64,
+  day          STRING,               -- e.g. "Day 1 - Upper Body A"
+  exercise     STRING,
+  set_num      INT64,
+  planned_reps STRING,
+  actual_reps  STRING,
+  weight       STRING,
+  notes        STRING
+)
+PARTITION BY DATE(ts)
+OPTIONS (description = 'Append-only workout set log, one row per logged set');
+
+-- Completed workout sessions (energy level + notes). Migrated from the old
+-- Google Sheets Progress tab.
+CREATE TABLE IF NOT EXISTS nutrition.workout_session_log (
+  session_id      STRING    NOT NULL, -- uuid
+  uid             STRING    NOT NULL,
+  ts              TIMESTAMP NOT NULL,
+  log_date        STRING,
+  week            INT64,
+  day_name        STRING,
+  completed       BOOL,
+  total_exercises INT64,
+  notes           STRING,
+  energy_level    STRING              -- high | medium | low
+)
+PARTITION BY DATE(ts)
+OPTIONS (description = 'Completed workout sessions with energy level + notes');
