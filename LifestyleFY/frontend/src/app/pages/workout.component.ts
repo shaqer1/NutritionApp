@@ -111,6 +111,10 @@ const EMPTY_CACHE_FILTERS = () => ({
               <img [src]="previewDetails.image_url" alt=""
                    style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:8px" />
             }
+            @if (previewDetails.video_url) {
+              <a [href]="previewDetails.video_url" target="_blank" class="muted"
+                 style="display:inline-block;font-size:12px;margin-top:8px">▶ Watch Video</a>
+            }
             @if (previewDetails.overview) {
               <p style="font-size:13px;margin-top:8px">{{ previewDetails.overview }}</p>
             }
