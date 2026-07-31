@@ -106,41 +106,77 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
     unchanged (total workout instances, repeats intentionally included there).
   - Removed the redundant Nutrition tab from
     `GDrive/WorkoutPlan/CodeBck/index.html.html` (superseded by this app's own
-    Today/Coach tabs) — the Sheets/Apps Script Workout + Progress tabs
-    otherwise still work as-is, since Phase 2 (below) hasn't shipped yet.
+    Today/Coach tabs) — the rest of the Sheets/Apps Script app stayed
+    untouched at the time, since Phase 2 (edit/clone/swap) hadn't shipped
+    yet. It has now (see the Phase 2 bullet below) — see "Not started / to
+    do" for the decommission step.
   - Full plan: `.claude/plans/i-made-some-updates-jaunty-scott.md` in this
     checkout's Claude Code history (cost analysis, architecture rationale,
     verification steps).
 
+- **Workout tab — Phase 2 (latest)**: plan editing & program management,
+  everything that was deferred when Phase 1 shipped. Built, verified end-to-end
+  over real HTTP (edit/clone/cache-search/custom-exercise/swap, plus the
+  live→cache round trip against the real RapidAPI key) and against real
+  migrated data (1,519 cached exercises), and **deployed**: backend on Cloud
+  Run (revision `nutrition-api-00030-ftg`, `EXERCISEDB_API_KEY` created in
+  Secret Manager and wired into `--set-secrets`), frontend on Firebase
+  Hosting. Sheets/Apps Script decommission intentionally deferred — revisit
+  once Phase 2 has had some real use (see "Not started / to do" below).
+  - **Edit exercise fields** — `PUT /workout/plan/{plan_id}`
+    (`store.update_workout_plan_exercise`, mirrors Code.gs's
+    `updateWorkoutPlanRow`) + an inline edit form (pencil icon) on each
+    exercise card in `workout.component.ts`.
+  - **Clone day / clone week** — `POST /workout/plan/clone-day` /
+    `.../clone-week` (`store.clone_workout_day`/`clone_workout_week`), "+
+    Clone" button per day card (uses `window.prompt` for the new name,
+    matching the old app exactly) and a "Clone a week" panel by the week
+    selector.
+  - **Exercise cache browser** — `GET /workout/exercise-cache/options` +
+    `POST /workout/exercise-cache/search` (paginated, all 6 filters —
+    equipment/body part/type/target muscle/secondary muscle/keyword — as
+    compact toggle-button dropdowns with an in-dropdown text filter, since
+    `keywords` alone has ~7,800 distinct values), inline under each
+    exercise's "🔁 Swap exercise" panel. Every result card (live search,
+    cache browse, and related exercises) shows the same equipment +
+    type/body-part label and has its own "Info" preview (image, overview,
+    equipment, target muscles, instructions) before you commit to "Use".
+  - **Exercise search + swap** — new `app/services/exercisedb.py` (httpx
+    async, mirrors `food.py`'s Chomp-call pattern exactly) backing
+    `GET /workout/exercises/search` (live RapidAPI, results decorated with
+    cached equipment/body-part/type via `store.decorate_search_results` when
+    already seen before) and `GET /workout/exercises/{id}` /
+    `PUT /workout/plan/{plan_id}/exercise-selection` (cache-aside:
+    `_ensure_exercise_cached` in `api.py` checks `exercise_cache` first, only
+    calls RapidAPI on a miss, then persists the result — verified this
+    round-trip works with a real API key). The RapidAPI key moved to a new
+    `EXERCISEDB_API_KEY` setting/secret (`.env.example`, `infra/00_setup.sh`,
+    `DEPLOYMENT.md` all updated) instead of staying hardcoded in `Code.gs`'s
+    source — created in Secret Manager and live on Cloud Run's
+    `--set-secrets`.
+  - **Full exercise detail on the card itself** — `PlanExercise` now also
+    carries `equipments`/`exercise_tips`/`variations`/`related_exercise_ids`
+    (joined from `exercise_cache`, same as image/overview/instructions).
+    Equipment shows inline; tips, variations, and related exercises are
+    expandable accordions to keep the card from getting cluttered — related
+    exercises lazily fetch their own details (cache-aside, `forkJoin` over
+    `getWorkoutExerciseDetails`) only when that accordion is opened, each
+    shown with the same equipment/label treatment and its own Info/Use.
+  - **Custom exercise creation** — `POST /workout/plan/{plan_id}/custom-exercise`
+    (`store.save_custom_exercise`, mirrors `saveCustomExerciseCache`), writes
+    a `customex_{plan_id}` doc into `exercise_cache` and points the plan row
+    at it.
+
 ## Not started / to do
 
-### 1. Phase 2 — Workout tab: editing & program management (deferred by choice)
-Everything used to *adjust* the program rather than run a session — kept on
-the old Sheets/Apps Script app for now, ported here next:
-- **Edit exercise fields** — new `PUT /workout/plan/{plan_id}` endpoint
-  (mirrors Code.gs's `updateWorkoutPlanRow`) + an inline edit form on each
-  exercise card in `workout.component.ts` (sets/reps/weight/tempo/rest/notes/
-  category), using the same draft-object-then-Save pattern as
-  `inventory-item.component.ts`.
-- **Clone day / clone week** — `POST /workout/plan/clone-day` and
-  `.../clone-week` (mirror `cloneWorkoutDay`/`cloneWeekToEnd`), duplicating
-  Firestore `workout_plan` docs with new deterministic ids.
-- **Exercise cache browser** — filterable/paginated list over the (already
-  migrated) 1,520-doc `exercise_cache` collection, mirroring
-  `getExerciseCacheOptions`/`searchExerciseCache`.
-- **Exercise search + swap** — live ExerciseDB RapidAPI calls
-  (`searchExercisesForUi`/`getExerciseDetailsForId` equivalents). New backend
-  service (`app/services/exercisedb.py`, `httpx` async, mirrors
-  `food.py`'s Chomp-call pattern) + a new `EXERCISEDB_API_KEY` setting,
-  moved into Secret Manager (`create_secret EXERCISEDB_API_KEY` in
-  `infra/00_setup.sh`) instead of the hardcoded key currently sitting in
-  `Code.gs`'s source.
-- **Custom exercise creation** — mirrors `saveCustomExerciseCache`, writes a
-  `customex_...` doc into `exercise_cache` and points the plan row at it.
-- **Decommission the Sheets/Apps Script app** once the above has parity —
-  stop directing use to that URL; at that point `WORKOUT_SHEET_ID` and
-  `sync_summary_to_sheet()` (see below) can also be retired since nothing
-  will read the Sheet anymore.
+### 1. Decommission the Sheets/Apps Script workout app
+Now that Phase 2 gives this app full parity with `CodeBck` (view, log, edit,
+clone, swap, custom exercises), the old Google Sheets/Apps Script app has no
+remaining reason to be used — stop directing use to that URL once you've
+spot-checked Phase 2 for a session or two. At that point `WORKOUT_SHEET_ID`
+and `sync_summary_to_sheet()` in `store.py` can also be retired, since
+nothing will read the Sheet anymore (that was always the *other* direction
+of integration anyway — see Phase 5 below).
 
 ### 2. Phase 5 — Workout-app overview integration (superseded, don't build)
 This was the *other* direction of integration (workout app reading a

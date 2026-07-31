@@ -104,7 +104,7 @@ gcloud run deploy nutrition-api \
   --region us-central1 \
   --service-account nutrition-run@YOUR_PROJECT_ID.iam.gserviceaccount.com \
   --set-env-vars "^;^GCP_PROJECT=YOUR_PROJECT_ID;BQ_DATASET=nutrition;WORKOUT_SHEET_ID=YOUR_SHEET_ID;CORS_ORIGINS=http://localhost:4200,https://YOUR_PROJECT_ID.web.app,https://YOUR_PROJECT_ID.firebaseapp.com" \
-  --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest" \
+  --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest,EXERCISEDB_API_KEY=EXERCISEDB_API_KEY:latest" \
   --allow-unauthenticated
 ```
 

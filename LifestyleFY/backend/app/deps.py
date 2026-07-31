@@ -3,11 +3,13 @@ from fastapi import Depends
 
 from .config import Settings, get_settings
 from .services.coach import Coach
+from .services.exercisedb import ExerciseDbClient
 from .services.food import FoodResolver
 from .services.store import Store, get_store
 
 _coach: Coach | None = None
 _resolver: FoodResolver | None = None
+_exercisedb: ExerciseDbClient | None = None
 
 
 def store_dep(settings: Settings = Depends(get_settings)) -> Store:
@@ -26,3 +28,10 @@ def coach_dep(settings: Settings = Depends(get_settings)) -> Coach:
     if _coach is None:
         _coach = Coach(settings)
     return _coach
+
+
+def exercisedb_dep(settings: Settings = Depends(get_settings)) -> ExerciseDbClient:
+    global _exercisedb
+    if _exercisedb is None:
+        _exercisedb = ExerciseDbClient(settings)
+    return _exercisedb

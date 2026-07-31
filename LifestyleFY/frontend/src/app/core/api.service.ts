@@ -3,10 +3,12 @@ import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import {
-  AiPromptPreview, AiPrompts, CoachMessage, FoodItem, Goals, GroceryList, InventoryItem,
-  LogEntry, LogRequest, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
-  WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest,
-  WorkoutWeekOverview,
+  AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest, CoachMessage,
+  CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
+  ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals, GroceryList, InventoryItem,
+  LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
+  WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
+  WorkoutSetLogRequest, WorkoutWeekOverview,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -166,5 +168,44 @@ export class ApiService {
   }
   getWorkoutProgress(): Observable<WorkoutProgress> {
     return this.http.get<WorkoutProgress>(`${this.base}/workout/progress`);
+  }
+
+  // --- workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---
+  updateWorkoutPlanExercise(planId: string, req: WorkoutPlanUpdateRequest):
+    Observable<{ exercise: PlanExercise }> {
+    return this.http.put<{ exercise: PlanExercise }>(
+      `${this.base}/workout/plan/${planId}`, req);
+  }
+  cloneWorkoutDay(req: CloneDayRequest): Observable<CloneResult> {
+    return this.http.post<CloneResult>(`${this.base}/workout/plan/clone-day`, req);
+  }
+  cloneWorkoutWeek(req: CloneWeekRequest): Observable<CloneResult> {
+    return this.http.post<CloneResult>(`${this.base}/workout/plan/clone-week`, req);
+  }
+  getExerciseCacheOptions(): Observable<ExerciseCacheOptions> {
+    return this.http.get<ExerciseCacheOptions>(`${this.base}/workout/exercise-cache/options`);
+  }
+  searchExerciseCache(filters: ExerciseCacheFilters): Observable<ExerciseCacheSearchResult> {
+    return this.http.post<ExerciseCacheSearchResult>(
+      `${this.base}/workout/exercise-cache/search`, filters);
+  }
+  saveCustomExercise(planId: string, req: CustomExerciseRequest):
+    Observable<{ exercise: PlanExercise }> {
+    return this.http.post<{ exercise: PlanExercise }>(
+      `${this.base}/workout/plan/${planId}/custom-exercise`, req);
+  }
+  searchWorkoutExercises(q: string): Observable<{ results: ExerciseSearchResultItem[] }> {
+    return this.http.get<{ results: ExerciseSearchResultItem[] }>(
+      `${this.base}/workout/exercises/search`, { params: { q } });
+  }
+  getWorkoutExerciseDetails(exerciseId: string): Observable<ExerciseDetails> {
+    return this.http.get<ExerciseDetails>(
+      `${this.base}/workout/exercises/${encodeURIComponent(exerciseId)}`);
+  }
+  swapWorkoutExercise(planId: string, newExerciseId: string):
+    Observable<{ exercise: PlanExercise }> {
+    return this.http.put<{ exercise: PlanExercise }>(
+      `${this.base}/workout/plan/${planId}/exercise-selection`,
+      { new_exercise_id: newExerciseId });
   }
 }

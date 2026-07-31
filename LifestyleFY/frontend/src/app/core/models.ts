@@ -182,6 +182,10 @@ export interface PlanExercise {
   overview?: string | null;
   instructions: string[];
   target_muscles: string[];
+  equipments: string[];
+  exercise_tips: string[];
+  variations: string[];
+  related_exercise_ids: string[];
 }
 
 export interface WorkoutConfig {
@@ -243,4 +247,114 @@ export interface WorkoutProgress {
   distinct_days_completed: number; // unique planned (week, day) slots with >=1 session
   total_planned_days: number;
   recent: WorkoutSession[];
+}
+
+// --- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---
+
+export interface WorkoutPlanUpdateRequest {
+  exercise?: string;
+  sets?: string;
+  reps?: string;
+  weight?: string;
+  tempo?: string;
+  rest?: string;
+  notes?: string;
+  category?: string;
+}
+
+export interface CloneDayRequest {
+  week: number;
+  source_day: string;
+  new_day_name: string;
+}
+
+export interface CloneWeekRequest {
+  source_week: number;
+}
+
+export interface CloneResult {
+  success: boolean;
+  message: string;
+  new_week?: number;
+}
+
+export interface ExerciseCacheOptions {
+  equipments: string[];
+  body_parts: string[];
+  exercise_type: string[];
+  target_muscles: string[];
+  secondary_muscles: string[];
+  keywords: string[];
+  total: number;
+}
+
+export interface ExerciseCacheFilters {
+  equipments: string[];
+  body_parts: string[];
+  exercise_type: string[];
+  target_muscles: string[];
+  secondary_muscles: string[];
+  keywords: string[];
+  search_text: string;
+  page: number;
+}
+
+export interface ExerciseCacheItem {
+  exercise_id: string;
+  name: string;
+  image_url: string;
+  equipments: string[];
+  body_parts: string[];
+  exercise_type: string;
+  target_muscles: string[];
+}
+
+export interface ExerciseCacheSearchResult {
+  items: ExerciseCacheItem[];
+  total: number;
+  page: number;
+  total_pages: number;
+}
+
+export interface ExerciseSearchResultItem {
+  exercise_id: string;
+  name: string;
+  image_url: string;
+  equipments: string[];
+  body_parts: string[];
+  exercise_type: string;
+}
+
+export interface ExerciseDetails {
+  exercise_id: string;
+  name: string;
+  image_url: string;
+  video_url: string;
+  overview: string;
+  instructions: string[];
+  exercise_tips: string[];
+  variations: string[];
+  target_muscles: string[];
+  secondary_muscles: string[];
+  equipments: string[];
+  body_parts: string[];
+  exercise_type: string;
+  keywords: string[];
+  related_exercise_ids: string[];
+}
+
+export interface CustomExerciseRequest {
+  name: string;
+  image_url?: string;
+  video_url?: string;
+  overview?: string;
+  instructions?: string[];
+  exercise_tips?: string[];
+  variations?: string[];
+  target_muscles?: string[];
+  secondary_muscles?: string[];
+  equipments?: string[];
+  body_parts?: string[];
+  exercise_type?: string;
+  keywords?: string[];
 }

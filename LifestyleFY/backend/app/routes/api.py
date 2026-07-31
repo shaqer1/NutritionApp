@@ -5,13 +5,16 @@ from datetime import datetime, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException
 
 from ..auth import current_uid
-from ..deps import coach_dep, resolver_dep, store_dep
+from ..deps import coach_dep, exercisedb_dep, resolver_dep, store_dep
 from ..models import (
-    AiPrompts, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe, ScanRequest,
-    TodaySummary, WorkoutDay, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
-    WorkoutWeekOverview,
+    AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
+    ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
+    ExerciseSwapRequest, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
+    ScanRequest, TodaySummary, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
+    WorkoutSessionLogRequest, WorkoutSetLogRequest, WorkoutWeekOverview,
 )
 from ..services.coach import Coach, compute_goals, next_goal
+from ..services.exercisedb import ExerciseDbClient
 from ..services.food import FoodResolver
 from ..services.store import Store
 
@@ -371,6 +374,112 @@ def post_workout_session(req: WorkoutSessionLogRequest, uid: str = Depends(curre
 @router.get("/workout/progress", response_model=WorkoutProgress)
 def workout_progress(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return store.get_workout_progress(uid)
+
+
+# ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------
+
+async def _ensure_exercise_cached(store: Store, exercisedb: ExerciseDbClient,
+                                  exercise_id: str) -> ExerciseDetails | None:
+    """Cache-aside: return the cached record if we have one, otherwise fetch
+    it live from ExerciseDB and persist it so it's never fetched twice."""
+    details = store.get_exercise_details(exercise_id)
+    if details:
+        return details
+    raw = await exercisedb.get_details(exercise_id)
+    if not raw:
+        return None
+    store.upsert_exercise_cache(exercise_id, {
+        "name": raw.get("name", ""), "image_url": raw.get("imageUrl", ""),
+        "image_urls": raw.get("imageUrls") or {},
+        "equipments": raw.get("equipments") or [], "body_parts": raw.get("bodyParts") or [],
+        "exercise_type": raw.get("exerciseType", ""),
+        "target_muscles": raw.get("targetMuscles") or [],
+        "secondary_muscles": raw.get("secondaryMuscles") or [],
+        "video_url": raw.get("videoUrl", ""), "keywords": raw.get("keywords") or [],
+        "overview": raw.get("overview", ""), "instructions": raw.get("instructions") or [],
+        "exercise_tips": raw.get("exerciseTips") or [], "variations": raw.get("variations") or [],
+        "related_exercise_ids": raw.get("relatedExerciseIds") or [],
+    })
+    return store.get_exercise_details(exercise_id)
+
+
+@router.put("/workout/plan/{plan_id}")
+def update_workout_plan_exercise(plan_id: str, req: WorkoutPlanUpdateRequest,
+                                 uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    ex = store.update_workout_plan_exercise(uid, plan_id, req)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found.")
+    return {"exercise": ex}
+
+
+@router.post("/workout/plan/clone-day")
+def clone_workout_day(req: CloneDayRequest, uid: str = Depends(current_uid),
+                      store: Store = Depends(store_dep)):
+    return store.clone_workout_day(uid, req)
+
+
+@router.post("/workout/plan/clone-week")
+def clone_workout_week(req: CloneWeekRequest, uid: str = Depends(current_uid),
+                       store: Store = Depends(store_dep)):
+    return store.clone_workout_week(uid, req)
+
+
+@router.get("/workout/exercise-cache/options", response_model=ExerciseCacheOptions)
+def exercise_cache_options(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return store.get_exercise_cache_options()
+
+
+@router.post("/workout/exercise-cache/search", response_model=ExerciseCacheSearchResult)
+def exercise_cache_search(filters: ExerciseCacheFilters, uid: str = Depends(current_uid),
+                          store: Store = Depends(store_dep)):
+    return store.search_exercise_cache(filters)
+
+
+@router.post("/workout/plan/{plan_id}/custom-exercise")
+def save_custom_exercise(plan_id: str, req: CustomExerciseRequest,
+                         uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    ex = store.save_custom_exercise(uid, plan_id, req)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found.")
+    return {"exercise": ex}
+
+
+@router.get("/workout/exercises/search")
+async def search_workout_exercises(q: str, uid: str = Depends(current_uid),
+                                   store: Store = Depends(store_dep),
+                                   exercisedb: ExerciseDbClient = Depends(exercisedb_dep)):
+    results = await exercisedb.search(q)
+    decorated = store.decorate_search_results(results)
+    return {"results": [
+        ExerciseSearchResultItem(
+            exercise_id=r["exerciseId"], name=r["name"], image_url=r["imageUrl"],
+            equipments=r["equipments"], body_parts=r["body_parts"],
+            exercise_type=r["exercise_type"])
+        for r in decorated
+    ]}
+
+
+@router.get("/workout/exercises/{exercise_id}", response_model=ExerciseDetails)
+async def get_workout_exercise_details(exercise_id: str, uid: str = Depends(current_uid),
+                                       store: Store = Depends(store_dep),
+                                       exercisedb: ExerciseDbClient = Depends(exercisedb_dep)):
+    details = await _ensure_exercise_cached(store, exercisedb, exercise_id)
+    if details is None:
+        raise HTTPException(404, "Exercise details not found.")
+    return details
+
+
+@router.put("/workout/plan/{plan_id}/exercise-selection")
+async def swap_workout_exercise(plan_id: str, req: ExerciseSwapRequest,
+                                uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                                exercisedb: ExerciseDbClient = Depends(exercisedb_dep)):
+    details = await _ensure_exercise_cached(store, exercisedb, req.new_exercise_id)
+    if details is None:
+        raise HTTPException(404, "Could not resolve the new exercise.")
+    ex = store.update_exercise_selection(uid, plan_id, req.new_exercise_id)
+    if ex is None:
+        raise HTTPException(404, "Exercise not found.")
+    return {"exercise": ex}
 
 
 # ---------- Summary sync (read by workout app if using HTTP variant) ----------

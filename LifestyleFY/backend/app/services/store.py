@@ -13,8 +13,10 @@ from datetime import date, datetime, timedelta, timezone
 
 from ..config import Settings
 from ..models import (
-    AiPrompts, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, PlanExercise,
-    Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay, WorkoutProgress,
+    AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
+    ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, Goals,
+    GroceryList, InventoryItem, LogEntry, LogRequest, Macros, PlanExercise, Profile, Recipe,
+    TodaySummary, WorkoutConfig, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
     WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSession,
     WorkoutWeekOverview,
 )
@@ -562,6 +564,41 @@ class Store:
         snap = self._fs.collection("exercise_cache").document(exercise_id).get()
         return snap.to_dict() if snap.exists else None
 
+    def _get_workout_plan_row(self, uid: str, plan_id: str) -> dict | None:
+        if self.stub:
+            row = self._workout_plan.get(uid, {}).get(plan_id)
+            return dict(row) if row else None
+        snap = self._user_doc(uid).collection("workout_plan").document(plan_id).get()
+        return snap.to_dict() if snap.exists else None
+
+    def _save_workout_plan_row(self, uid: str, plan_id: str, data: dict) -> None:
+        if self.stub:
+            self._workout_plan.setdefault(uid, {})[plan_id] = data
+            return
+        self._user_doc(uid).collection("workout_plan").document(plan_id).set(data)
+
+    def _plan_exercise_from_row(self, r: dict, cache_entry: dict | None = None) -> PlanExercise:
+        eid = r.get("exercise_id")
+        c = cache_entry if cache_entry is not None else (
+            self._get_exercise_cache_entry(eid) if eid else None)
+        c = c or {}
+        return PlanExercise(
+            plan_id=r.get("plan_id"), week=r["week"], day=r["day"], phase=r.get("phase", ""),
+            section=r["section"], order=r["order"], exercise=r["exercise"],
+            sets=r.get("sets", ""), reps=r.get("reps", ""), weight=r.get("weight", ""),
+            tempo=r.get("tempo", ""), rest=r.get("rest", ""),
+            video_url=c.get("video_url") or r.get("video_url", ""), exercise_id=eid,
+            notes=r.get("notes", ""), category=r.get("category", ""),
+            is_custom=bool(r.get("is_custom")),
+            image_url=c.get("image_url"), overview=c.get("overview"),
+            instructions=c.get("instructions") or [],
+            target_muscles=c.get("target_muscles") or [],
+            equipments=c.get("equipments") or [],
+            exercise_tips=c.get("exercise_tips") or [],
+            variations=c.get("variations") or [],
+            related_exercise_ids=c.get("related_exercise_ids") or [],
+        )
+
     def get_week_overview(self, uid: str, week: int) -> WorkoutWeekOverview:
         days: list[str] = []
         seen: set[str] = set()
@@ -591,30 +628,247 @@ class Store:
         buckets: dict[str, list[PlanExercise]] = {"warmup": [], "strength": [], "cooldown": []}
         phase = ""
         for r in plan_rows:
-            c = cache.get(r.get("exercise_id") or "", {})
-            ex = PlanExercise(
-                plan_id=r["plan_id"], week=r["week"], day=r["day"], phase=r.get("phase", ""),
-                section=r["section"], order=r["order"], exercise=r["exercise"],
-                sets=r.get("sets", ""), reps=r.get("reps", ""), weight=r.get("weight", ""),
-                tempo=r.get("tempo", ""), rest=r.get("rest", ""),
-                # Cache's ExerciseDB video takes priority over the plan row's
-                # own Video_URL column, matching the old app's
-                # `detailVideoUrl || video` — most live plan rows have Exercise_ID
-                # set but an empty Video_URL, so the cache is the real source.
-                video_url=c.get("video_url") or r.get("video_url", ""),
-                exercise_id=r.get("exercise_id"),
-                notes=r.get("notes", ""), category=r.get("category", ""),
-                is_custom=bool(r.get("is_custom")),
-                image_url=c.get("image_url"), overview=c.get("overview"),
-                instructions=c.get("instructions") or [],
-                target_muscles=c.get("target_muscles") or [],
-            )
+            ex = self._plan_exercise_from_row(r, cache.get(r.get("exercise_id") or ""))
             key = section_key.get(r["section"])
             if key:
                 buckets[key].append(ex)
             phase = phase or r.get("phase", "")
         return WorkoutDay(warmup=buckets["warmup"], strength=buckets["strength"],
                           cooldown=buckets["cooldown"], phase=phase)
+
+    def update_workout_plan_exercise(self, uid: str, plan_id: str,
+                                     req: WorkoutPlanUpdateRequest) -> PlanExercise | None:
+        row = self._get_workout_plan_row(uid, plan_id)
+        if row is None:
+            return None
+        row.update(req.model_dump(exclude_none=True))
+        self._save_workout_plan_row(uid, plan_id, row)
+        return self._plan_exercise_from_row({**row, "plan_id": plan_id})
+
+    def clone_workout_day(self, uid: str, req: CloneDayRequest) -> dict:
+        new_day_name = req.new_day_name.strip()
+        if not new_day_name:
+            return {"success": False, "message": "New day name is required."}
+        week_rows = [r for r in self._workout_plan_rows(uid) if r["week"] == req.week]
+        if any(r["day"] == new_day_name for r in week_rows):
+            return {"success": False,
+                   "message": f'A day named "{new_day_name}" already exists in Week {req.week}.'}
+        source_rows = [r for r in week_rows if r["day"] == req.source_day]
+        if not source_rows:
+            return {"success": False,
+                   "message": f'Source day "{req.source_day}" not found in Week {req.week}.'}
+        for r in source_rows:
+            new_row = {k: v for k, v in r.items() if k != "plan_id"}
+            new_row["day"] = new_day_name
+            new_plan_id = self._plan_id(req.week, new_day_name, new_row["section"], new_row["order"])
+            self._save_workout_plan_row(uid, new_plan_id, new_row)
+        return {"success": True,
+               "message": f'Cloned {len(source_rows)} exercises to "{new_day_name}".'}
+
+    def clone_workout_week(self, uid: str, req: CloneWeekRequest) -> dict:
+        rows = self._workout_plan_rows(uid)
+        source_rows = [r for r in rows if r["week"] == req.source_week]
+        if not source_rows:
+            return {"success": False, "message": f"No exercises found for Week {req.source_week}."}
+        new_week = max((r["week"] for r in rows), default=0) + 1
+        for r in source_rows:
+            new_row = {k: v for k, v in r.items() if k != "plan_id"}
+            new_row["week"] = new_week
+            new_plan_id = self._plan_id(new_week, new_row["day"], new_row["section"], new_row["order"])
+            self._save_workout_plan_row(uid, new_plan_id, new_row)
+        return {"success": True, "new_week": new_week,
+               "message": f"Successfully cloned Week {req.source_week} to Week {new_week} "
+                          f"({len(source_rows)} exercises)."}
+
+    # ---------- Workout: exercise cache (shared, top-level collection) ----------
+    _CACHE_PAGE_SIZE = 10
+
+    def _exercise_cache_rows(self) -> list[dict]:
+        """All cached exercises, global (not per-user) — small enough
+        (~1,500 rows) to stream + filter in Python, same tradeoff as
+        _workout_plan_rows."""
+        if self.stub:
+            return [{**row, "exercise_id": eid} for eid, row in self._exercise_cache.items()]
+        docs = self._fs.collection("exercise_cache").stream()
+        out = []
+        for d in docs:
+            row = d.to_dict()
+            row["exercise_id"] = d.id
+            out.append(row)
+        return out
+
+    def get_exercise_cache_options(self) -> ExerciseCacheOptions:
+        equipments: set[str] = set()
+        body_parts: set[str] = set()
+        exercise_type: set[str] = set()
+        target_muscles: set[str] = set()
+        secondary_muscles: set[str] = set()
+        keywords: set[str] = set()
+        total = 0
+        for r in self._exercise_cache_rows():
+            if not r.get("exercise_id"):
+                continue
+            total += 1
+            equipments.update(x for x in (r.get("equipments") or []) if x)
+            body_parts.update(x for x in (r.get("body_parts") or []) if x)
+            target_muscles.update(x for x in (r.get("target_muscles") or []) if x)
+            secondary_muscles.update(x for x in (r.get("secondary_muscles") or []) if x)
+            keywords.update(x for x in (r.get("keywords") or []) if x)
+            et = r.get("exercise_type")
+            if et:
+                exercise_type.add(et)
+        return ExerciseCacheOptions(
+            equipments=sorted(equipments), body_parts=sorted(body_parts),
+            exercise_type=sorted(exercise_type), target_muscles=sorted(target_muscles),
+            secondary_muscles=sorted(secondary_muscles), keywords=sorted(keywords), total=total,
+        )
+
+    def search_exercise_cache(self, filters: ExerciseCacheFilters) -> ExerciseCacheSearchResult:
+        def norm(vals) -> set[str]:
+            return {str(v).strip().lower() for v in vals if v}
+
+        f_eq, f_bp, f_et = norm(filters.equipments), norm(filters.body_parts), norm(filters.exercise_type)
+        f_tm, f_sm, f_kw = norm(filters.target_muscles), norm(filters.secondary_muscles), norm(filters.keywords)
+        search_text = filters.search_text.strip().lower()
+
+        def arr_match(row_vals, filt: set[str]) -> bool:
+            if not filt:
+                return True
+            return bool(filt & {str(v).strip().lower() for v in (row_vals or [])})
+
+        def str_match(val, filt: set[str]) -> bool:
+            return not filt or str(val or "").strip().lower() in filt
+
+        matched: list[ExerciseCacheItem] = []
+        for r in self._exercise_cache_rows():
+            eid = r.get("exercise_id")
+            if not eid:
+                continue
+            name = str(r.get("name") or "")
+            if search_text and search_text not in (name + " " + str(r.get("overview") or "")).lower():
+                continue
+            if not arr_match(r.get("equipments"), f_eq):
+                continue
+            if not arr_match(r.get("body_parts"), f_bp):
+                continue
+            if not str_match(r.get("exercise_type"), f_et):
+                continue
+            if not arr_match(r.get("target_muscles"), f_tm):
+                continue
+            if not arr_match(r.get("secondary_muscles"), f_sm):
+                continue
+            if not arr_match(r.get("keywords"), f_kw):
+                continue
+            matched.append(ExerciseCacheItem(
+                exercise_id=eid, name=name, image_url=r.get("image_url") or "",
+                equipments=r.get("equipments") or [], body_parts=r.get("body_parts") or [],
+                exercise_type=r.get("exercise_type") or "", target_muscles=r.get("target_muscles") or [],
+            ))
+
+        total = len(matched)
+        page = max(1, filters.page)
+        total_pages = -(-total // self._CACHE_PAGE_SIZE) if total else 0
+        start = (page - 1) * self._CACHE_PAGE_SIZE
+        return ExerciseCacheSearchResult(
+            items=matched[start:start + self._CACHE_PAGE_SIZE],
+            total=total, page=page, total_pages=total_pages,
+        )
+
+    def _exercise_details_from_row(self, exercise_id: str, row: dict) -> ExerciseDetails:
+        return ExerciseDetails(
+            exercise_id=exercise_id, name=row.get("name", ""), image_url=row.get("image_url", ""),
+            video_url=row.get("video_url", ""), overview=row.get("overview", ""),
+            instructions=row.get("instructions") or [], exercise_tips=row.get("exercise_tips") or [],
+            variations=row.get("variations") or [], target_muscles=row.get("target_muscles") or [],
+            secondary_muscles=row.get("secondary_muscles") or [], equipments=row.get("equipments") or [],
+            body_parts=row.get("body_parts") or [], exercise_type=row.get("exercise_type", ""),
+            keywords=row.get("keywords") or [],
+            related_exercise_ids=row.get("related_exercise_ids") or [],
+        )
+
+    def get_exercise_details(self, exercise_id: str) -> ExerciseDetails | None:
+        """Cache-only lookup. Store has no async HTTP path, so a miss is the
+        caller's (route's) job to resolve via a live ExerciseDB call and then
+        persist with upsert_exercise_cache()."""
+        row = self._get_exercise_cache_entry(exercise_id)
+        if not row or not row.get("name"):
+            return None
+        return self._exercise_details_from_row(exercise_id, row)
+
+    def decorate_search_results(self, items: list[dict]) -> list[dict]:
+        """Cross-references live ExerciseDB search hits against the local
+        cache (read-only, no live fetch) so a result already seen before
+        shows its equipment/body-part/type immediately — a genuinely new
+        result just comes back with those fields empty until "Info" is
+        tapped. Mirrors the old app's decorateSearchResultsWithCachedInfo_."""
+        out = []
+        for it in items:
+            eid = it.get("exerciseId", "")
+            cached = (self._get_exercise_cache_entry(eid) if eid else None) or {}
+            out.append({
+                "exerciseId": eid, "name": it.get("name", ""), "imageUrl": it.get("imageUrl", ""),
+                "equipments": cached.get("equipments") or [],
+                "body_parts": cached.get("body_parts") or [],
+                "exercise_type": cached.get("exercise_type") or "",
+            })
+        return out
+
+    def upsert_exercise_cache(self, exercise_id: str, details: dict) -> None:
+        """`details` uses the same snake_case keys as ExerciseDetails."""
+        doc = {
+            "name": details.get("name", ""), "image_url": details.get("image_url", ""),
+            "image_urls": details.get("image_urls") or {},
+            "equipments": details.get("equipments") or [],
+            "body_parts": details.get("body_parts") or [],
+            "exercise_type": details.get("exercise_type", ""),
+            "target_muscles": details.get("target_muscles") or [],
+            "secondary_muscles": details.get("secondary_muscles") or [],
+            "video_url": details.get("video_url", ""), "keywords": details.get("keywords") or [],
+            "overview": details.get("overview", ""),
+            "instructions": details.get("instructions") or [],
+            "exercise_tips": details.get("exercise_tips") or [],
+            "variations": details.get("variations") or [],
+            "related_exercise_ids": details.get("related_exercise_ids") or [],
+            "is_custom": bool(details.get("is_custom")), "date_added": _now().isoformat(),
+        }
+        if self.stub:
+            self._exercise_cache[exercise_id] = doc
+            return
+        self._fs.collection("exercise_cache").document(exercise_id).set(doc)
+
+    def update_exercise_selection(self, uid: str, plan_id: str,
+                                  new_exercise_id: str) -> PlanExercise | None:
+        """Swap: points the plan row at a different exercise_id. Assumes the
+        caller (route) has already ensured new_exercise_id is cached."""
+        row = self._get_workout_plan_row(uid, plan_id)
+        if row is None:
+            return None
+        row["exercise_id"] = new_exercise_id
+        cache_entry = self._get_exercise_cache_entry(new_exercise_id) or {}
+        if cache_entry.get("name"):
+            row["exercise"] = cache_entry["name"]
+        self._save_workout_plan_row(uid, plan_id, row)
+        return self._plan_exercise_from_row({**row, "plan_id": plan_id})
+
+    def save_custom_exercise(self, uid: str, plan_id: str,
+                             req: CustomExerciseRequest) -> PlanExercise | None:
+        row = self._get_workout_plan_row(uid, plan_id)
+        if row is None:
+            return None
+        custom_id = f"customex_{plan_id}"
+        self.upsert_exercise_cache(custom_id, {
+            "name": req.name, "image_url": req.image_url, "video_url": req.video_url,
+            "overview": req.overview, "instructions": req.instructions,
+            "exercise_tips": req.exercise_tips, "variations": req.variations,
+            "target_muscles": req.target_muscles, "secondary_muscles": req.secondary_muscles,
+            "equipments": req.equipments, "body_parts": req.body_parts,
+            "exercise_type": req.exercise_type, "keywords": req.keywords, "is_custom": True,
+        })
+        row["exercise_id"] = custom_id
+        row["exercise"] = req.name
+        row["is_custom"] = True
+        self._save_workout_plan_row(uid, plan_id, row)
+        return self._plan_exercise_from_row({**row, "plan_id": plan_id})
 
     # ---------- Workout: set + session logging (append-only, BigQuery) ----------
     def log_workout_set(self, uid: str, req: WorkoutSetLogRequest) -> None:

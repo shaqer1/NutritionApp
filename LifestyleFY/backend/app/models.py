@@ -192,6 +192,10 @@ class PlanExercise(BaseModel):
     overview: str | None = None
     instructions: list[str] = Field(default_factory=list)
     target_muscles: list[str] = Field(default_factory=list)
+    equipments: list[str] = Field(default_factory=list)
+    exercise_tips: list[str] = Field(default_factory=list)
+    variations: list[str] = Field(default_factory=list)
+    related_exercise_ids: list[str] = Field(default_factory=list)
 
 
 class WorkoutConfig(BaseModel):
@@ -260,3 +264,118 @@ class WorkoutProgress(BaseModel):
     distinct_days_completed: int = 0  # unique planned (week, day) slots with >=1 session
     total_planned_days: int = 40
     recent: list[WorkoutSession] = Field(default_factory=list)
+
+
+# ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------
+
+class WorkoutPlanUpdateRequest(BaseModel):
+    """Body for PUT /workout/plan/{plan_id}. All fields optional — only the
+    ones provided are changed, mirroring the old app's updateWorkoutPlanRow."""
+    exercise: str | None = None
+    sets: str | None = None
+    reps: str | None = None
+    weight: str | None = None
+    tempo: str | None = None
+    rest: str | None = None
+    notes: str | None = None
+    category: str | None = None
+
+
+class CloneDayRequest(BaseModel):
+    week: int
+    source_day: str
+    new_day_name: str
+
+
+class CloneWeekRequest(BaseModel):
+    source_week: int
+
+
+class ExerciseCacheOptions(BaseModel):
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: list[str] = Field(default_factory=list)
+    target_muscles: list[str] = Field(default_factory=list)
+    secondary_muscles: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    total: int = 0
+
+
+class ExerciseCacheFilters(BaseModel):
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: list[str] = Field(default_factory=list)
+    target_muscles: list[str] = Field(default_factory=list)
+    secondary_muscles: list[str] = Field(default_factory=list)
+    keywords: list[str] = Field(default_factory=list)
+    search_text: str = ""
+    page: int = 1
+
+
+class ExerciseCacheItem(BaseModel):
+    exercise_id: str
+    name: str
+    image_url: str = ""
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: str = ""
+    target_muscles: list[str] = Field(default_factory=list)
+
+
+class ExerciseCacheSearchResult(BaseModel):
+    items: list[ExerciseCacheItem] = Field(default_factory=list)
+    total: int = 0
+    page: int = 1
+    total_pages: int = 0
+
+
+class ExerciseSearchResultItem(BaseModel):
+    """A single ExerciseDB live-search hit, decorated with cached
+    equipment/body-part/type info when we've already seen this exercise
+    before (empty when it's a genuinely new result)."""
+    exercise_id: str
+    name: str
+    image_url: str = ""
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: str = ""
+
+
+class ExerciseDetails(BaseModel):
+    """Full exercise record — used for both the cache-browse "Info" view and
+    the live ExerciseDB search-result preview before swapping."""
+    exercise_id: str
+    name: str
+    image_url: str = ""
+    video_url: str = ""
+    overview: str = ""
+    instructions: list[str] = Field(default_factory=list)
+    exercise_tips: list[str] = Field(default_factory=list)
+    variations: list[str] = Field(default_factory=list)
+    target_muscles: list[str] = Field(default_factory=list)
+    secondary_muscles: list[str] = Field(default_factory=list)
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: str = ""
+    keywords: list[str] = Field(default_factory=list)
+    related_exercise_ids: list[str] = Field(default_factory=list)
+
+
+class ExerciseSwapRequest(BaseModel):
+    new_exercise_id: str
+
+
+class CustomExerciseRequest(BaseModel):
+    name: str
+    image_url: str = ""
+    video_url: str = ""
+    overview: str = ""
+    instructions: list[str] = Field(default_factory=list)
+    exercise_tips: list[str] = Field(default_factory=list)
+    variations: list[str] = Field(default_factory=list)
+    target_muscles: list[str] = Field(default_factory=list)
+    secondary_muscles: list[str] = Field(default_factory=list)
+    equipments: list[str] = Field(default_factory=list)
+    body_parts: list[str] = Field(default_factory=list)
+    exercise_type: str = ""
+    keywords: list[str] = Field(default_factory=list)

@@ -65,6 +65,7 @@ create_secret () {
 }
 create_secret GEMINI_API_KEY
 create_secret CHOMP_API_KEY   || true
+create_secret EXERCISEDB_API_KEY || true
 
 echo
 echo "==> Grant the Cloud Run SA access to the workout spreadsheet:"
@@ -79,7 +80,7 @@ cat <<EOF
     --region ${REGION} \\
     --service-account ${SA_EMAIL} \\
     --set-env-vars "GCP_PROJECT=${PROJECT_ID},BQ_DATASET=${DATASET},WORKOUT_SHEET_ID=${WORKOUT_SHEET_ID}" \\
-    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest" \\
+    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest,EXERCISEDB_API_KEY=EXERCISEDB_API_KEY:latest" \\
     --allow-unauthenticated
 
 (Auth is enforced in-app via Firebase ID tokens, so --allow-unauthenticated is fine:

@@ -2,8 +2,11 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { PlanExercise, WorkoutDay, WorkoutProgress } from '../core/models';
-import { exerciseCategoryMeta } from '../core/workout-categories';
+import {
+  CustomExerciseRequest, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails,
+  ExerciseSearchResultItem, PlanExercise, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
+} from '../core/models';
+import { EXERCISE_CATEGORIES, exerciseCategoryMeta } from '../core/workout-categories';
 
 interface SetDraft {
   set_num: number;
@@ -11,6 +14,24 @@ interface SetDraft {
   weight: string;
   done: boolean;
 }
+
+type CacheFilterKey =
+  'equipments' | 'body_parts' | 'exercise_type' | 'target_muscles' | 'secondary_muscles' | 'keywords';
+
+const CACHE_FILTER_DEFS: { key: CacheFilterKey; label: string }[] = [
+  { key: 'equipments', label: 'Equipment' },
+  { key: 'body_parts', label: 'Body Part' },
+  { key: 'exercise_type', label: 'Type' },
+  { key: 'target_muscles', label: 'Target Muscle' },
+  { key: 'secondary_muscles', label: '2nd Muscle' },
+  { key: 'keywords', label: 'Keyword' },
+];
+
+const EMPTY_CACHE_FILTERS = () => ({
+  equipments: [] as string[], body_parts: [] as string[], exercise_type: [] as string[],
+  target_muscles: [] as string[], secondary_muscles: [] as string[], keywords: [] as string[],
+  search_text: '', page: 1,
+});
 
 @Component({
   selector: 'app-workout',
@@ -37,6 +58,18 @@ interface SetDraft {
             <button class="ghost" (click)="changeWeek(1)">›</button>
           </div>
         </div>
+        <button class="ghost" style="width:100%;margin-top:10px"
+                (click)="cloneWeekOpen = !cloneWeekOpen">📋 Clone a week onto the end</button>
+        @if (cloneWeekOpen) {
+          <div class="row" style="margin-top:10px;gap:8px">
+            <select [(ngModel)]="cloneWeekSource" style="flex:1">
+              @for (w of weekOptions; track w) {
+                <option [value]="w">Week {{ w }}</option>
+              }
+            </select>
+            <button (click)="performCloneWeek()">Clone</button>
+          </div>
+        }
       </div>
 
       @if (weekLoading) {
@@ -52,6 +85,8 @@ interface SetDraft {
               <div class="muted" style="font-size:10px">
                 {{ completedDays.includes(day) ? 'Done ✓' : dayTag(day) }}
               </div>
+              <button class="ghost" style="width:100%;margin-top:6px;padding:3px;font-size:11px"
+                      (click)="$event.stopPropagation(); cloneDay(day)">+ Clone</button>
             </div>
           }
         </div>
@@ -65,14 +100,84 @@ interface SetDraft {
         <p class="muted">Loading workout…</p>
       }
 
+      <ng-template #exercisePreview>
+        <div style="background:#0c0c12;border-radius:10px;padding:10px;margin-top:10px">
+          <div class="row spread">
+            <div style="font-weight:700">{{ previewLoading ? 'Loading…' : (previewDetails?.name || 'Exercise') }}</div>
+            <button class="ghost" style="font-size:11px;padding:3px 8px" (click)="closePreview()">✕</button>
+          </div>
+          @if (previewDetails) {
+            @if (previewDetails.image_url) {
+              <img [src]="previewDetails.image_url" alt=""
+                   style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;margin-top:8px" />
+            }
+            @if (previewDetails.overview) {
+              <p style="font-size:13px;margin-top:8px">{{ previewDetails.overview }}</p>
+            }
+            @if (previewDetails.equipments.length) {
+              <div class="muted" style="margin-top:8px">EQUIPMENT</div>
+              <div style="font-size:13px">{{ previewDetails.equipments.join(', ') }}</div>
+            }
+            @if (previewDetails.target_muscles.length) {
+              <div class="muted" style="margin-top:8px">TARGET MUSCLES</div>
+              <div style="font-size:13px">{{ previewDetails.target_muscles.join(', ') }}</div>
+            }
+            @if (previewDetails.instructions.length) {
+              <div class="muted" style="margin-top:8px">INSTRUCTIONS</div>
+              <ol style="padding-left:18px;font-size:13px;line-height:1.5;margin:4px 0 0">
+                @for (s of previewDetails.instructions; track $index) { <li>{{ s }}</li> }
+              </ol>
+            }
+            <button style="width:100%;margin-top:10px"
+                    (click)="useExercise(previewPlanId, previewDetails.exercise_id)">
+              Use this exercise
+            </button>
+          }
+        </div>
+      </ng-template>
+
       <ng-template #exerciseCard let-ex="ex" let-showTracker="showTracker">
         <div class="card">
           <div class="row spread" style="align-items:flex-start">
             <div style="font-weight:700;flex:1">{{ ex.exercise }}</div>
-            <div class="muted" style="font-size:11px;white-space:nowrap">
-              {{ categoryMeta(ex.category).emoji }} {{ categoryMeta(ex.category).label }}
+            <div class="row" style="gap:6px;flex-shrink:0">
+              <div class="muted" style="font-size:11px;white-space:nowrap">
+                {{ categoryMeta(ex.category).emoji }} {{ categoryMeta(ex.category).label }}
+              </div>
+              <button class="ghost" style="padding:2px 7px;font-size:12px" (click)="openEditPlan(ex)">✏️</button>
             </div>
           </div>
+
+          @if (editingPlanId === ex.plan_id) {
+            <div style="background:#14141c;border-radius:10px;padding:10px;margin-top:8px">
+              <label>Exercise name</label>
+              <input [(ngModel)]="editDraft.exercise" />
+              <div class="row">
+                <div style="flex:1"><label>Sets</label><input [(ngModel)]="editDraft.sets" /></div>
+                <div style="flex:1"><label>Reps</label><input [(ngModel)]="editDraft.reps" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Weight/Load</label><input [(ngModel)]="editDraft.weight" /></div>
+                <div style="flex:1"><label>Rest</label><input [(ngModel)]="editDraft.rest" /></div>
+              </div>
+              <div class="row">
+                <div style="flex:1"><label>Tempo</label><input [(ngModel)]="editDraft.tempo" /></div>
+                <div style="flex:1"><label>Category</label>
+                  <select [(ngModel)]="editDraft.category">
+                    @for (c of exerciseCategories; track c.id) {
+                      <option [value]="c.id">{{ c.emoji }} {{ c.label }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+              <label>Notes</label>
+              <input [(ngModel)]="editDraft.notes" />
+              <div class="row" style="margin-top:10px">
+                <button (click)="saveEditPlan()">Save</button>
+                <button class="ghost" (click)="editingPlanId = null">Cancel</button>
+              </div>
+            </div>
+          } @else {
 
           <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
             <div class="muted" style="font-size:12px">SETS <b style="color:var(--text)">{{ ex.sets || '-' }}</b></div>
@@ -123,6 +228,181 @@ interface SetDraft {
                 <div class="muted" style="margin-top:8px">TARGET MUSCLES</div>
                 <div style="font-size:13px">{{ ex.target_muscles.join(', ') }}</div>
               }
+              @if (ex.equipments.length) {
+                <div class="muted" style="margin-top:8px">EQUIPMENT</div>
+                <div style="font-size:13px">{{ ex.equipments.join(', ') }}</div>
+              }
+
+              @if (ex.exercise_tips.length) {
+                <div class="row spread" style="cursor:pointer;margin-top:10px"
+                     (click)="toggleAccordion(tipsOpenPlanIds, ex.plan_id)">
+                  <div class="muted">💡 EXERCISE TIPS ({{ ex.exercise_tips.length }})</div>
+                  <span class="muted">{{ tipsOpenPlanIds.has(ex.plan_id) ? '▲' : '▼' }}</span>
+                </div>
+                @if (tipsOpenPlanIds.has(ex.plan_id)) {
+                  <ul style="padding-left:18px;font-size:13px;line-height:1.5;margin-top:6px">
+                    @for (t of ex.exercise_tips; track $index) { <li>{{ t }}</li> }
+                  </ul>
+                }
+              }
+
+              @if (ex.variations.length) {
+                <div class="row spread" style="cursor:pointer;margin-top:10px"
+                     (click)="toggleAccordion(variationsOpenPlanIds, ex.plan_id)">
+                  <div class="muted">🔀 VARIATIONS ({{ ex.variations.length }})</div>
+                  <span class="muted">{{ variationsOpenPlanIds.has(ex.plan_id) ? '▲' : '▼' }}</span>
+                </div>
+                @if (variationsOpenPlanIds.has(ex.plan_id)) {
+                  <ul style="padding-left:18px;font-size:13px;line-height:1.5;margin-top:6px">
+                    @for (v of ex.variations; track $index) { <li>{{ v }}</li> }
+                  </ul>
+                }
+              }
+
+              <div class="row" style="gap:8px;margin-top:10px">
+                <button class="ghost" style="flex:1;font-size:12px;padding:8px"
+                        (click)="toggleDetailPanel(ex.plan_id, 'swap')">🔁 Swap exercise</button>
+                <button class="ghost" style="flex:1;font-size:12px;padding:8px"
+                        (click)="toggleDetailPanel(ex.plan_id, 'custom')">➕ Custom exercise</button>
+              </div>
+
+              @if (detailPanelPlanId === ex.plan_id && detailPanelMode === 'swap') {
+                <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                  <label>Search ExerciseDB</label>
+                  <div class="row">
+                    <input [(ngModel)]="swapQuery" placeholder="e.g. incline dumbbell press" />
+                    <button class="ghost" (click)="searchLiveExercises()">Search</button>
+                  </div>
+                  <p class="muted">{{ swapStatus }}</p>
+                  @for (r of swapResults; track r.exercise_id) {
+                    <div class="row spread" style="background:#0c0c12;border-radius:8px;padding:8px;margin-top:6px">
+                      <div class="row" style="gap:8px;min-width:0">
+                        @if (r.image_url) {
+                          <img class="thumb" [src]="r.image_url" alt="" style="width:32px;height:32px" />
+                        } @else {
+                          <div class="thumb" style="width:32px;height:32px;font-size:14px">🏋️</div>
+                        }
+                        <div style="min-width:0">
+                          <div style="font-size:13px">{{ r.name }}</div>
+                          <div class="muted" style="font-size:10px">{{ typeLabel(r) }}</div>
+                          @if (r.equipments.length) {
+                            <div class="muted" style="font-size:10px">{{ r.equipments.join(', ') }}</div>
+                          }
+                        </div>
+                      </div>
+                      <div class="row" style="gap:6px;flex-shrink:0">
+                        <button class="ghost" style="font-size:11px;padding:5px 8px"
+                                (click)="showPreview(ex.plan_id, r.exercise_id)">Info</button>
+                        <button class="ghost" style="font-size:11px;padding:5px 8px"
+                                (click)="useExercise(ex.plan_id, r.exercise_id)">Use</button>
+                      </div>
+                    </div>
+                  }
+
+                  <div class="row spread" style="cursor:pointer;margin-top:12px" (click)="toggleCacheBrowse()">
+                    <label style="margin:0">Browse already-cached exercises ({{ cacheOptions?.total || '…' }})</label>
+                    <span class="muted">{{ cacheBrowseOpen ? '▲' : '▼' }}</span>
+                  </div>
+                  @if (cacheBrowseOpen) {
+                    <input [(ngModel)]="cacheFilters.search_text" placeholder="Search name/overview…"
+                           style="margin-top:8px" (ngModelChange)="runCacheSearch()" />
+
+                    <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
+                      @for (f of filterDefs; track f.key) {
+                        <button class="ghost" style="font-size:11px;padding:6px 10px"
+                                (click)="toggleFilterDropdown(f.key)">
+                          {{ f.label }}{{ cacheFilters[f.key].length ? ' (' + cacheFilters[f.key].length + ')' : '' }}
+                          {{ openFilterKey === f.key ? '▲' : '▼' }}
+                        </button>
+                      }
+                      <button class="ghost" style="font-size:11px;padding:6px 10px"
+                              (click)="resetCacheFilters()">↺ Reset filters</button>
+                    </div>
+                    @if (openFilterKey) {
+                      <div style="background:#0c0c12;border-radius:8px;padding:8px;margin-top:6px">
+                        <input [(ngModel)]="filterOptionSearch" placeholder="Filter options…"
+                               style="margin-bottom:6px" />
+                        <div style="max-height:160px;overflow:auto">
+                          @for (opt of currentFilterOptions(); track opt) {
+                            <label style="display:flex;align-items:center;gap:8px;padding:4px 0;font-size:13px">
+                              <input type="checkbox" style="width:auto" [checked]="isFilterSelected(opt)"
+                                     (change)="toggleFilterOption(opt)" />
+                              {{ opt }}
+                            </label>
+                          } @empty {
+                            <p class="muted" style="margin:0">No matches.</p>
+                          }
+                        </div>
+                      </div>
+                    }
+
+                    @for (item of cacheResults?.items || []; track item.exercise_id) {
+                      <div class="row spread" style="background:#0c0c12;border-radius:8px;padding:8px;margin-top:6px">
+                        <div class="row" style="gap:8px;min-width:0">
+                          @if (item.image_url) {
+                            <img class="thumb" [src]="item.image_url" alt="" style="width:32px;height:32px" />
+                          } @else {
+                            <div class="thumb" style="width:32px;height:32px;font-size:14px">🏋️</div>
+                          }
+                          <div style="min-width:0">
+                            <div style="font-size:13px">{{ item.name }}</div>
+                            <div class="muted" style="font-size:10px">{{ typeLabel(item) }}</div>
+                            @if (item.equipments.length) {
+                              <div class="muted" style="font-size:10px">{{ item.equipments.join(', ') }}</div>
+                            }
+                          </div>
+                        </div>
+                        <div class="row" style="gap:6px;flex-shrink:0">
+                          <button class="ghost" style="font-size:11px;padding:5px 8px"
+                                  (click)="showPreview(ex.plan_id, item.exercise_id)">Info</button>
+                          <button class="ghost" style="font-size:11px;padding:5px 8px"
+                                  (click)="useExercise(ex.plan_id, item.exercise_id)">Use</button>
+                        </div>
+                      </div>
+                    }
+                    @if (cacheResults && cacheResults.total_pages > 1) {
+                      <div class="row spread" style="margin-top:8px">
+                        <button class="ghost" [disabled]="cacheResults.page <= 1"
+                                (click)="setCachePage(cacheResults.page - 1)">← Prev</button>
+                        <span class="muted">Page {{ cacheResults.page }}/{{ cacheResults.total_pages }}</span>
+                        <button class="ghost" [disabled]="cacheResults.page >= cacheResults.total_pages"
+                                (click)="setCachePage(cacheResults.page + 1)">Next →</button>
+                      </div>
+                    }
+                  }
+                </div>
+              }
+
+              @if (previewPlanId === ex.plan_id) {
+                <ng-container [ngTemplateOutlet]="exercisePreview"></ng-container>
+              }
+
+              @if (detailPanelPlanId === ex.plan_id && detailPanelMode === 'custom') {
+                <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                  <label>Name</label>
+                  <input [(ngModel)]="customDraft.name" placeholder="Exercise name" />
+                  <label>Image URL</label>
+                  <input [(ngModel)]="customDraft.image_url" placeholder="https://…" />
+                  <label>Video URL</label>
+                  <input [(ngModel)]="customDraft.video_url" placeholder="https://…" />
+                  <label>Overview</label>
+                  <input [(ngModel)]="customDraft.overview" />
+                  <label>Instructions (one per line)</label>
+                  <textarea [(ngModel)]="customInstructionsText" rows="3"
+                            style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
+                                   border-radius:10px;padding:10px 12px;font-size:15px;resize:none"></textarea>
+                  <div class="row">
+                    <div style="flex:1"><label>Target muscles (comma-separated)</label>
+                      <input [(ngModel)]="customMusclesText" /></div>
+                    <div style="flex:1"><label>Equipment (comma-separated)</label>
+                      <input [(ngModel)]="customEquipText" /></div>
+                  </div>
+                  <div class="row" style="margin-top:10px">
+                    <button (click)="saveCustomExerciseForm()">Save custom exercise</button>
+                    <button class="ghost" (click)="detailPanelPlanId = null; detailPanelMode = null">Cancel</button>
+                  </div>
+                </div>
+              }
             </div>
           }
 
@@ -153,6 +433,7 @@ interface SetDraft {
                 {{ completedExercises.has(ex.exercise) ? '✓ Done!' : 'Mark Complete' }}
               </button>
             </div>
+          }
           }
         </div>
       </ng-template>
@@ -257,11 +538,13 @@ export class WorkoutComponent implements OnInit {
 
   viewMode: 'workout' | 'progress' = 'workout';
   categoryMeta = exerciseCategoryMeta;
+  exerciseCategories = EXERCISE_CATEGORIES;
 
   currentWeek = 1;
   days: string[] = [];
   completedDays: string[] = [];
   weekLoading = false;
+  weekOptions = Array.from({ length: 52 }, (_, i) => i + 1);
 
   currentDay: string | null = null;
   dayData: WorkoutDay | null = null;
@@ -278,6 +561,44 @@ export class WorkoutComponent implements OnInit {
   progressLoading = false;
 
   status = '';
+
+  // --- Phase 2: edit exercise fields ---
+  editingPlanId: string | null = null;
+  editDraft: WorkoutPlanUpdateRequest = {};
+
+  // --- Phase 2: clone week ---
+  cloneWeekOpen = false;
+  cloneWeekSource = 1;
+
+  // --- Phase 2: swap / custom exercise (one exercise's panel active at a time) ---
+  detailPanelPlanId: string | null = null;
+  detailPanelMode: 'swap' | 'custom' | null = null;
+
+  swapQuery = '';
+  swapResults: ExerciseSearchResultItem[] = [];
+  swapStatus = '';
+
+  cacheBrowseOpen = false;
+  cacheOptions: ExerciseCacheOptions | null = null;
+  cacheFilters = EMPTY_CACHE_FILTERS();
+  cacheResults: ExerciseCacheSearchResult | null = null;
+  filterDefs = CACHE_FILTER_DEFS;
+  openFilterKey: CacheFilterKey | null = null;
+  filterOptionSearch = '';
+
+  customDraft: CustomExerciseRequest = { name: '' };
+  customInstructionsText = '';
+  customMusclesText = '';
+  customEquipText = '';
+
+  // --- Phase 2: exercise detail accordions (tips / variations / related) ---
+  tipsOpenPlanIds = new Set<string>();
+  variationsOpenPlanIds = new Set<string>();
+
+  // --- Phase 2: exercise info preview (search results, cache results) ---
+  previewPlanId: string | null = null;
+  previewDetails: ExerciseDetails | null = null;
+  previewLoading = false;
 
   ngOnInit(): void {
     this.api.getWorkoutConfig().subscribe({
@@ -326,6 +647,12 @@ export class WorkoutComponent implements OnInit {
     this.completedExercises = new Set<string>();
     this.expandedPlanIds = new Set<string>();
     this.finishOpen = false;
+    this.editingPlanId = null;
+    this.detailPanelPlanId = null;
+    this.detailPanelMode = null;
+    this.tipsOpenPlanIds = new Set<string>();
+    this.variationsOpenPlanIds = new Set<string>();
+    this.closePreview();
     this.dayLoading = true;
 
     this.api.getWorkoutDay(this.currentWeek, day).subscribe({
@@ -449,5 +776,235 @@ export class WorkoutComponent implements OnInit {
 
   dayTag(day: string): string {
     return day.split(' - ')[0] || day;
+  }
+
+  // ==========================================
+  // Phase 2: edit exercise fields
+  // ==========================================
+
+  openEditPlan(ex: PlanExercise): void {
+    if (!ex.plan_id) return;
+    this.editingPlanId = ex.plan_id;
+    this.editDraft = {
+      exercise: ex.exercise, sets: ex.sets, reps: ex.reps, weight: ex.weight,
+      tempo: ex.tempo, rest: ex.rest, notes: ex.notes, category: ex.category,
+    };
+  }
+
+  saveEditPlan(): void {
+    if (!this.editingPlanId) return;
+    this.api.updateWorkoutPlanExercise(this.editingPlanId, this.editDraft).subscribe({
+      next: () => {
+        this.editingPlanId = null;
+        this.status = 'Exercise updated.';
+        if (this.currentDay) this.selectDay(this.currentDay);
+      },
+      error: () => (this.status = 'Could not update exercise.'),
+    });
+  }
+
+  // ==========================================
+  // Phase 2: clone day / clone week
+  // ==========================================
+
+  cloneDay(day: string): void {
+    const newName = window.prompt(
+      'New day name for the cloned session:\n(e.g. "Day 4 - Upper Body B")', `${day} (Copy)`);
+    if (!newName || !newName.trim()) return;
+    this.api.cloneWorkoutDay({
+      week: this.currentWeek, source_day: day, new_day_name: newName.trim(),
+    }).subscribe({
+      next: (res) => {
+        this.status = res.message;
+        if (res.success) this.loadWeek(this.currentWeek);
+      },
+      error: () => (this.status = 'Clone failed.'),
+    });
+  }
+
+  performCloneWeek(): void {
+    this.api.cloneWorkoutWeek({ source_week: this.cloneWeekSource }).subscribe({
+      next: (res) => {
+        this.cloneWeekOpen = false;
+        this.status = res.message;
+        if (res.success && res.new_week) {
+          this.currentWeek = res.new_week;
+          this.currentDay = null;
+          this.dayData = null;
+          this.api.setWorkoutConfig(this.currentWeek).subscribe();
+          this.loadWeek(this.currentWeek);
+        }
+      },
+      error: () => (this.status = 'Clone failed.'),
+    });
+  }
+
+  // ==========================================
+  // Phase 2: swap exercise (live search + cache browse) / custom exercise
+  // ==========================================
+
+  toggleDetailPanel(planId: string | null | undefined, mode: 'swap' | 'custom'): void {
+    if (!planId) return;
+    if (this.detailPanelPlanId === planId && this.detailPanelMode === mode) {
+      this.detailPanelPlanId = null;
+      this.detailPanelMode = null;
+      return;
+    }
+    this.detailPanelPlanId = planId;
+    this.detailPanelMode = mode;
+    this.swapQuery = '';
+    this.swapResults = [];
+    this.swapStatus = '';
+    this.cacheBrowseOpen = false;
+    this.cacheResults = null;
+    this.cacheFilters = EMPTY_CACHE_FILTERS();
+    this.openFilterKey = null;
+    this.closePreview();
+    if (mode === 'custom') {
+      this.customDraft = { name: '' };
+      this.customInstructionsText = '';
+      this.customMusclesText = '';
+      this.customEquipText = '';
+    }
+  }
+
+  searchLiveExercises(): void {
+    const q = this.swapQuery.trim();
+    if (!q) return;
+    this.swapStatus = 'Searching…';
+    this.api.searchWorkoutExercises(q).subscribe({
+      next: (res) => {
+        this.swapResults = res.results;
+        this.swapStatus = res.results.length
+          ? `Found ${res.results.length} result(s).` : 'No exercises found.';
+      },
+      error: () => (this.swapStatus = 'Search failed.'),
+    });
+  }
+
+  toggleCacheBrowse(): void {
+    this.cacheBrowseOpen = !this.cacheBrowseOpen;
+    if (!this.cacheBrowseOpen) return;
+    if (!this.cacheOptions) {
+      this.api.getExerciseCacheOptions().subscribe((opts) => {
+        this.cacheOptions = opts;
+        this.runCacheSearch();
+      });
+    } else {
+      this.runCacheSearch();
+    }
+  }
+
+  runCacheSearch(): void {
+    this.cacheFilters.page = 1;
+    this.api.searchExerciseCache(this.cacheFilters).subscribe((res) => (this.cacheResults = res));
+  }
+
+  setCachePage(page: number): void {
+    this.cacheFilters.page = page;
+    this.api.searchExerciseCache(this.cacheFilters).subscribe((res) => (this.cacheResults = res));
+  }
+
+  resetCacheFilters(): void {
+    this.cacheFilters = EMPTY_CACHE_FILTERS();
+    this.openFilterKey = null;
+    this.filterOptionSearch = '';
+    this.runCacheSearch();
+  }
+
+  toggleFilterDropdown(key: CacheFilterKey): void {
+    this.openFilterKey = this.openFilterKey === key ? null : key;
+    this.filterOptionSearch = '';
+  }
+
+  currentFilterOptions(): string[] {
+    if (!this.openFilterKey || !this.cacheOptions) return [];
+    const all = this.cacheOptions[this.openFilterKey] || [];
+    const q = this.filterOptionSearch.trim().toLowerCase();
+    return q ? all.filter((o) => o.toLowerCase().includes(q)) : all;
+  }
+
+  isFilterSelected(opt: string): boolean {
+    return !!this.openFilterKey && this.cacheFilters[this.openFilterKey].includes(opt);
+  }
+
+  toggleFilterOption(opt: string): void {
+    if (!this.openFilterKey) return;
+    const arr = this.cacheFilters[this.openFilterKey];
+    const idx = arr.indexOf(opt);
+    if (idx >= 0) arr.splice(idx, 1); else arr.push(opt);
+    this.runCacheSearch();
+  }
+
+  typeLabel(item: { exercise_type?: string; body_parts?: string[] }): string {
+    return [item.exercise_type, ...(item.body_parts || [])].filter(Boolean).join(' · ');
+  }
+
+  // --- exercise info preview ---
+
+  showPreview(planId: string | null | undefined, exerciseId: string): void {
+    if (!planId) return;
+    this.previewPlanId = planId;
+    this.previewDetails = null;
+    this.previewLoading = true;
+    this.api.getWorkoutExerciseDetails(exerciseId).subscribe({
+      next: (d) => {
+        this.previewDetails = d;
+        this.previewLoading = false;
+      },
+      error: () => {
+        this.previewLoading = false;
+        this.swapStatus = 'Could not load details.';
+      },
+    });
+  }
+
+  closePreview(): void {
+    this.previewPlanId = null;
+    this.previewDetails = null;
+    this.previewLoading = false;
+  }
+
+  // --- tips / variations accordions ---
+
+  toggleAccordion(set: Set<string>, planId: string | null | undefined): void {
+    if (!planId) return;
+    if (set.has(planId)) set.delete(planId); else set.add(planId);
+  }
+
+  useExercise(planId: string | null | undefined, exerciseId: string): void {
+    if (!planId) return;
+    this.api.swapWorkoutExercise(planId, exerciseId).subscribe({
+      next: () => {
+        this.status = 'Exercise updated.';
+        this.detailPanelPlanId = null;
+        this.detailPanelMode = null;
+        this.closePreview();
+        if (this.currentDay) this.selectDay(this.currentDay);
+      },
+      error: () => (this.swapStatus = 'Could not swap exercise.'),
+    });
+  }
+
+  saveCustomExerciseForm(): void {
+    if (!this.detailPanelPlanId || !this.customDraft.name.trim()) {
+      this.status = 'Exercise name is required.';
+      return;
+    }
+    const req: CustomExerciseRequest = {
+      ...this.customDraft,
+      instructions: this.customInstructionsText.split('\n').map((s) => s.trim()).filter(Boolean),
+      target_muscles: this.customMusclesText.split(',').map((s) => s.trim()).filter(Boolean),
+      equipments: this.customEquipText.split(',').map((s) => s.trim()).filter(Boolean),
+    };
+    this.api.saveCustomExercise(this.detailPanelPlanId, req).subscribe({
+      next: () => {
+        this.status = 'Custom exercise saved.';
+        this.detailPanelPlanId = null;
+        this.detailPanelMode = null;
+        if (this.currentDay) this.selectDay(this.currentDay);
+      },
+      error: () => (this.status = 'Could not save custom exercise.'),
+    });
   }
 }

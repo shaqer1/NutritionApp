@@ -13,6 +13,7 @@ class Settings(BaseSettings):
 
     gemini_api_key: str = ""
     chomp_api_key: str = ""
+    exercisedb_api_key: str = ""
     gemini_model_fast: str = "gemini-flash-lite-latest"
     gemini_model_smart: str = "gemini-flash-latest"
 
