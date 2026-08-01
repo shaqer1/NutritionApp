@@ -428,12 +428,12 @@ const EMPTY_CACHE_FILTERS = () => ({
                          style="flex:1;text-align:center" [disabled]="set.done" />
                   <input type="number" placeholder="lbs" [(ngModel)]="set.weight"
                          style="flex:1;text-align:center" [disabled]="set.done" />
-                  <button [class.green]="set.done" [disabled]="set.done"
-                          style="width:44px;padding:8px" (click)="completeSet(ex, set.set_num)">✓</button>
+                  <button [class.green]="set.done"
+                          style="width:44px;padding:8px" (click)="toggleSet(ex, set.set_num)">✓</button>
                 </div>
               }
               <button class="ghost ex-done-btn" [class.green]="completedExercises.has(ex.exercise)"
-                      style="width:100%;margin-top:4px" (click)="markExerciseComplete(ex)">
+                      style="width:100%;margin-top:4px" (click)="toggleExerciseComplete(ex)">
                 {{ completedExercises.has(ex.exercise) ? '✓ Done!' : 'Mark Complete' }}
               </button>
             </div>
@@ -703,18 +703,28 @@ export class WorkoutComponent implements OnInit {
     else this.expandedPlanIds.add(planId);
   }
 
-  completeSet(ex: PlanExercise, setNum: number): void {
+  toggleSet(ex: PlanExercise, setNum: number): void {
     const draft = this.setDraftsByExercise[ex.exercise]?.find((d) => d.set_num === setNum);
     if (!draft || !this.currentDay) return;
-    draft.done = true;
-    this.api.logWorkoutSet({
-      week: this.currentWeek, day: this.currentDay, exercise: ex.exercise, set_num: setNum,
-      planned_reps: ex.reps, actual_reps: draft.actual_reps, weight: draft.weight,
-    }).subscribe();
+    if (draft.done) {
+      draft.done = false;
+      this.completedExercises.delete(ex.exercise);
+      this.api.deleteWorkoutSet(this.currentWeek, this.currentDay, ex.exercise, setNum).subscribe();
+    } else {
+      draft.done = true;
+      this.api.logWorkoutSet({
+        week: this.currentWeek, day: this.currentDay, exercise: ex.exercise, set_num: setNum,
+        planned_reps: ex.reps, actual_reps: draft.actual_reps, weight: draft.weight,
+      }).subscribe();
+    }
   }
 
-  markExerciseComplete(ex: PlanExercise): void {
-    this.completedExercises.add(ex.exercise);
+  toggleExerciseComplete(ex: PlanExercise): void {
+    if (this.completedExercises.has(ex.exercise)) {
+      this.completedExercises.delete(ex.exercise);
+    } else {
+      this.completedExercises.add(ex.exercise);
+    }
   }
 
   saveWorkout(): void {

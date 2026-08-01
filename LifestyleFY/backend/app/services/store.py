@@ -885,6 +885,31 @@ class Store:
         if self.stub:
             self._workout_sets.append(row)
 
+    def delete_workout_set(self, uid: str, week: int, day: str, exercise: str,
+                           set_num: int) -> None:
+        """Removes logged rows for one set, un-checking it (append-only table,
+        so undoing completion means deleting the row rather than updating it)."""
+        if self.stub:
+            self._workout_sets = [
+                r for r in self._workout_sets
+                if not (r["uid"] == uid and int(r["week"]) == week and r["day"] == day
+                        and r["exercise"] == exercise and int(r["set_num"]) == set_num)
+            ]
+        else:
+            from google.cloud import bigquery
+            q = f"""
+                DELETE FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_set_log`
+                WHERE uid=@uid AND week=@week AND day=@day
+                  AND exercise=@exercise AND set_num=@set_num
+            """
+            self._bq.query(q, job_config=bigquery.QueryJobConfig(query_parameters=[
+                bigquery.ScalarQueryParameter("uid", "STRING", uid),
+                bigquery.ScalarQueryParameter("week", "INT64", week),
+                bigquery.ScalarQueryParameter("day", "STRING", day),
+                bigquery.ScalarQueryParameter("exercise", "STRING", exercise),
+                bigquery.ScalarQueryParameter("set_num", "INT64", set_num),
+            ])).result()
+
     def log_workout_session(self, uid: str, req: WorkoutSessionLogRequest) -> None:
         ts = req.ts or _now()
         log_date = req.log_date or ts.date()

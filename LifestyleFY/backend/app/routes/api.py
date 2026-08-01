@@ -364,6 +364,13 @@ def get_workout_sets(week: int, day: str, uid: str = Depends(current_uid),
     return {"sets": store.get_workout_log_state(uid, week, day)}
 
 
+@router.delete("/workout/sets")
+def delete_workout_set(week: int, day: str, exercise: str, set_num: int,
+                       uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    store.delete_workout_set(uid, week, day, exercise, set_num)
+    return {"ok": True}
+
+
 @router.post("/workout/sessions")
 def post_workout_session(req: WorkoutSessionLogRequest, uid: str = Depends(current_uid),
                          store: Store = Depends(store_dep)):

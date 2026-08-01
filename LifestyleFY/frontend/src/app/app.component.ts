@@ -35,7 +35,8 @@ import { environment } from '../environments/environment';
       </nav>
     } @else if (auth.ready) {
       <div class="app login">
-        <h1>LifestyleFY</h1>
+        <img src="assets/logo/logo.svg" alt="Lifestyle4U" style="width:96px;height:96px;margin-bottom:8px" />
+        <h1>Lifestyle4U</h1>
         <p class="muted">Sign in to track your nutrition.</p>
         <button (click)="signIn()">Sign in with Google</button>
       </div>

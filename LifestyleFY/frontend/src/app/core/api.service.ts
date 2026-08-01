@@ -163,6 +163,11 @@ export class ApiService {
     return this.http.get<{ sets: WorkoutSetEntry[] }>(
       `${this.base}/workout/sets`, { params: { week, day } });
   }
+  deleteWorkoutSet(week: number, day: string, exercise: string,
+                   setNum: number): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/workout/sets`, { params: { week, day, exercise, set_num: setNum } });
+  }
   logWorkoutSession(req: WorkoutSessionLogRequest): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${this.base}/workout/sessions`, req);
   }
