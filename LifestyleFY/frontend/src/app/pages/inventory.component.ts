@@ -548,8 +548,8 @@ export class InventoryComponent implements OnInit, OnDestroy {
   pantryTabs: { id: Location | 'all'; label: string }[] = [
     { id: 'all', label: 'All' }, ...LOCATIONS,
   ];
-  activeLocation: Location | 'all' = 'pantry';
-  hideOutOfStock = false;
+  activeLocation: Location | 'all' = 'all';
+  hideOutOfStock = true;
 
   ngOnInit(): void {
     this.reloadInventory();

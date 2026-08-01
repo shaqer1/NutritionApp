@@ -134,17 +134,11 @@ class Coach:
     def nudge(self, summary: TodaySummary, inventory: list[InventoryItem],
               log_entries: list[LogEntry], meal: str, time_label: str,
               custom_note: str = "", message: str = "") -> str | None:
-        g = summary.goals
-        # A direct one-time question ("how do I make tacos?") always gets an
-        # answer — the "only nudge if behind" gate exists to avoid unprompted
-        # nagging, not to block a question the user actually asked.
-        if not message.strip():
-            if not g:
-                return None
-            behind = (summary.remaining.protein > g.protein_g * 0.35
-                      or summary.remaining.cal > g.calories * 0.45)
-            if not behind:
-                return None
+        # Always generates on request (button click or direct question) — no
+        # "only nudge if behind on macros" gate. Only skips if there's no goal
+        # to nudge against at all.
+        if not summary.goals:
+            return None
         generic, context = self.nudge_prompt_parts(summary, inventory, log_entries, meal, time_label)
         return self._generate(self._assemble_prompt(generic, context, custom_note, message))
 
@@ -211,6 +205,7 @@ class Coach:
         """A structured (not free-text) recipe draft, built preferentially from
         real pantry ingredients so it's directly editable/saveable and its
         ingredient lines can later be logged against actual inventory."""
+        inventory = [i for i in inventory if i.qty > 0]
         if self.s.use_stubs or not self.s.gemini_api_key:
             sample = inventory[:2]
             return Recipe(

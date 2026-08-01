@@ -15,7 +15,7 @@ import { environment } from '../environments/environment';
       </div>
       <nav class="tabs">
         <a routerLink="/today" routerLinkActive="active">
-          <span class="ico">📊</span>Today
+          <span class="ico">📊</span>Overview
         </a>
         <a routerLink="/inventory" routerLinkActive="active">
           <span class="ico">🧺</span>Inventory

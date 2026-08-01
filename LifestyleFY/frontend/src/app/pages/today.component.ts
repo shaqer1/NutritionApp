@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { LogEntry, LogRequest, TodaySummary } from '../core/models';
-import { MEAL_TYPES, mealLabel as sharedMealLabel, todayStr } from '../core/meal-picker';
+import { MEAL_TYPES, mealLabel as sharedMealLabel } from '../core/meal-picker';
 
 @Component({
   selector: 'app-today',
@@ -11,7 +11,16 @@ import { MEAL_TYPES, mealLabel as sharedMealLabel, todayStr } from '../core/meal
   imports: [CommonModule, FormsModule],
   template: `
     <div class="row spread">
-      <h1 style="margin:0">Today</h1>
+      <button class="ghost" (click)="changeDay(-1)">←</button>
+      <h1 style="margin:0">{{ dateLabel() }}</h1>
+      <button class="ghost" (click)="changeDay(1)">→</button>
+    </div>
+    <div class="row spread" style="margin-top:4px">
+      @if (!isToday()) {
+        <button class="ghost" (click)="goToday()">Today</button>
+      } @else {
+        <span></span>
+      }
       <button class="ghost" (click)="load()" [disabled]="loading">
         {{ loading ? 'Refreshing…' : '↻ Refresh' }}
       </button>
@@ -171,6 +180,7 @@ export class TodayComponent implements OnInit {
   error = false;
   loading = false;
   mealTypes = MEAL_TYPES;
+  selectedDate = new Date();
 
   editingLogId: string | null = null;
   editDraft = this.blankEditDraft();
@@ -188,14 +198,42 @@ export class TodayComponent implements OnInit {
     this.load();
   }
 
+  private dateStr(d: Date): string {
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  changeDay(delta: number): void {
+    const d = new Date(this.selectedDate);
+    d.setDate(d.getDate() + delta);
+    this.selectedDate = d;
+    this.load();
+  }
+
+  goToday(): void {
+    this.selectedDate = new Date();
+    this.load();
+  }
+
+  isToday(): boolean {
+    return this.selectedDate.toDateString() === new Date().toDateString();
+  }
+
+  dateLabel(): string {
+    return this.isToday() ? 'Today'
+      : this.selectedDate.toLocaleDateString(undefined, {
+          weekday: 'short', month: 'short', day: 'numeric',
+        });
+  }
+
   load(): void {
     this.loading = true;
     this.error = false;
-    this.api.today(todayStr()).subscribe({
+    const date = this.dateStr(this.selectedDate);
+    this.api.today(date).subscribe({
       next: (s) => { this.summary = s; this.loading = false; },
       error: () => { this.error = true; this.loading = false; },
     });
-    this.api.getLog(todayStr()).subscribe((r) => (this.logEntries = r.entries));
+    this.api.getLog(date).subscribe((r) => (this.logEntries = r.entries));
   }
 
   mealLabel(mealType: string, instance: number): string {
@@ -238,7 +276,7 @@ export class TodayComponent implements OnInit {
         sugar_g: d.sugar_g / servings, fiber_g: d.fiber_g / servings,
         sat_fat_g: d.sat_fat_g / servings, sodium_mg: d.sodium_mg / servings,
       },
-      log_date: todayStr(),
+      log_date: this.dateStr(this.selectedDate),
     };
     this.api.updateLog(this.editingLogId, req).subscribe(() => {
       this.editingLogId = null;
@@ -248,6 +286,6 @@ export class TodayComponent implements OnInit {
 
   deleteEntry(e: LogEntry): void {
     if (!e.log_id) return;
-    this.api.deleteLog(e.log_id, todayStr()).subscribe(() => this.load());
+    this.api.deleteLog(e.log_id, this.dateStr(this.selectedDate)).subscribe(() => this.load());
   }
 }
