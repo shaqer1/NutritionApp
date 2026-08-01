@@ -709,13 +709,26 @@ export class WorkoutComponent implements OnInit {
     if (draft.done) {
       draft.done = false;
       this.completedExercises.delete(ex.exercise);
-      this.api.deleteWorkoutSet(this.currentWeek, this.currentDay, ex.exercise, setNum).subscribe();
+      this.api.deleteWorkoutSet(this.currentWeek, this.currentDay, ex.exercise, setNum).subscribe({
+        error: () => {
+          draft.done = true;
+          this.status = 'Could not update set.';
+        },
+      });
     } else {
       draft.done = true;
       this.api.logWorkoutSet({
         week: this.currentWeek, day: this.currentDay, exercise: ex.exercise, set_num: setNum,
-        planned_reps: ex.reps, actual_reps: draft.actual_reps, weight: draft.weight,
-      }).subscribe();
+        planned_reps: ex.reps,
+        actual_reps: draft.actual_reps != null ? String(draft.actual_reps) : '',
+        weight: draft.weight != null ? String(draft.weight) : '',
+      }).subscribe({
+        error: () => {
+          draft.done = false;
+          this.completedExercises.delete(ex.exercise);
+          this.status = 'Could not update set.';
+        },
+      });
     }
   }
 

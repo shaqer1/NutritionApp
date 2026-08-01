@@ -28,12 +28,23 @@ users/{uid}
 │                                     per-category standing note the user can edit,
 │                                     appended to that category's AI prompt on every
 │                                     future generate call
-└── recipes/{recipeId}     (docs)  { name, servings, instructions,
-                                      ingredients:[{item_id, name, quantity,
-                                        unit, macros:{...}}] — snapshotted,
-                                        not a live join, so past recipes don't
-                                        change if a pantry ingredient is edited
-                                        later, source:'ai'|'manual', created_at }
+├── recipes/{recipeId}     (docs)  { name, servings, instructions,
+│                                     ingredients:[{item_id, name, quantity,
+│                                       unit, macros:{...}}] — snapshotted,
+│                                       not a live join, so past recipes don't
+│                                       change if a pantry ingredient is edited
+│                                       later, source:'ai'|'manual', created_at }
+├── workout_set_log/{setLogId}  (docs)  { uid, ts, log_date, week, day, exercise,
+│                                     set_num, planned_reps, actual_reps, weight,
+│                                     notes } — one doc per logged set; doc ID is
+│                                     the set_log_id, so unchecking a set is a
+│                                     direct doc delete (was BigQuery before,
+│                                     moved here to avoid the streaming-buffer
+│                                     delete lock)
+└── workout_session_log/{sessionId} (docs) { uid, ts, log_date, week, day_name,
+                                      completed, total_exercises, notes,
+                                      energy_level } — one doc per completed
+                                      session, never mutated
 
 barcode_cache/{barcode}    (doc)   { name, per_serving:{...}, source,
                                       brand, serving_size, serving_qty_g,

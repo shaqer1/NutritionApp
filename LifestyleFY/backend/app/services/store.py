@@ -870,7 +870,7 @@ class Store:
         self._save_workout_plan_row(uid, plan_id, row)
         return self._plan_exercise_from_row({**row, "plan_id": plan_id})
 
-    # ---------- Workout: set + session logging (append-only, BigQuery) ----------
+    # ---------- Workout: set + session logging (Firestore, append-mostly) ----------
     def log_workout_set(self, uid: str, req: WorkoutSetLogRequest) -> None:
         ts = req.ts or _now()
         log_date = req.log_date or ts.date()
@@ -881,14 +881,14 @@ class Store:
             "planned_reps": req.planned_reps, "actual_reps": req.actual_reps,
             "weight": req.weight, "notes": req.notes,
         }
-        self._bq_insert("workout_set_log", [row])
         if self.stub:
             self._workout_sets.append(row)
+        else:
+            self._user_doc(uid).collection("workout_set_log").document(row["set_log_id"]).set(row)
 
     def delete_workout_set(self, uid: str, week: int, day: str, exercise: str,
                            set_num: int) -> None:
-        """Removes logged rows for one set, un-checking it (append-only table,
-        so undoing completion means deleting the row rather than updating it)."""
+        """Removes logged rows for one set, un-checking it."""
         if self.stub:
             self._workout_sets = [
                 r for r in self._workout_sets
@@ -896,19 +896,14 @@ class Store:
                         and r["exercise"] == exercise and int(r["set_num"]) == set_num)
             ]
         else:
-            from google.cloud import bigquery
-            q = f"""
-                DELETE FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_set_log`
-                WHERE uid=@uid AND week=@week AND day=@day
-                  AND exercise=@exercise AND set_num=@set_num
-            """
-            self._bq.query(q, job_config=bigquery.QueryJobConfig(query_parameters=[
-                bigquery.ScalarQueryParameter("uid", "STRING", uid),
-                bigquery.ScalarQueryParameter("week", "INT64", week),
-                bigquery.ScalarQueryParameter("day", "STRING", day),
-                bigquery.ScalarQueryParameter("exercise", "STRING", exercise),
-                bigquery.ScalarQueryParameter("set_num", "INT64", set_num),
-            ])).result()
+            from google.cloud.firestore_v1.base_query import FieldFilter
+            docs = (self._user_doc(uid).collection("workout_set_log")
+                    .where(filter=FieldFilter("week", "==", week)).stream())
+            for d in docs:
+                r = d.to_dict()
+                if (r["day"] == day and r["exercise"] == exercise
+                        and int(r["set_num"]) == set_num):
+                    d.reference.delete()
 
     def log_workout_session(self, uid: str, req: WorkoutSessionLogRequest) -> None:
         ts = req.ts or _now()
@@ -919,24 +914,20 @@ class Store:
             "completed": True, "total_exercises": req.total_exercises,
             "notes": req.notes, "energy_level": req.energy_level,
         }
-        self._bq_insert("workout_session_log", [row])
         if self.stub:
             self._workout_sessions.append(row)
+        else:
+            self._user_doc(uid).collection("workout_session_log").document(row["session_id"]).set(row)
 
     def _workout_set_rows(self, uid: str, week: int | None = None) -> list[dict]:
         if self.stub:
             rows = [r for r in self._workout_sets if r["uid"] == uid]
         else:
-            q = f"""
-                SELECT set_log_id, ts, log_date, week, day, exercise, set_num,
-                       planned_reps, actual_reps, weight, notes
-                FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_set_log`
-                WHERE uid=@uid
-            """
-            from google.cloud import bigquery
-            job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("uid", "STRING", uid)]))
-            rows = [dict(r) for r in job.result()]
+            q = self._user_doc(uid).collection("workout_set_log")
+            if week is not None:
+                from google.cloud.firestore_v1.base_query import FieldFilter
+                q = q.where(filter=FieldFilter("week", "==", week))
+            rows = [d.to_dict() for d in q.stream()]
         if week is not None:
             rows = [r for r in rows if int(r["week"]) == int(week)]
         return rows
@@ -945,16 +936,11 @@ class Store:
         if self.stub:
             rows = [r for r in self._workout_sessions if r["uid"] == uid]
         else:
-            q = f"""
-                SELECT session_id, ts, log_date, week, day_name, completed,
-                       total_exercises, notes, energy_level
-                FROM `{self.s.gcp_project}.{self.s.bq_dataset}.workout_session_log`
-                WHERE uid=@uid
-            """
-            from google.cloud import bigquery
-            job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
-                query_parameters=[bigquery.ScalarQueryParameter("uid", "STRING", uid)]))
-            rows = [dict(r) for r in job.result()]
+            q = self._user_doc(uid).collection("workout_session_log")
+            if week is not None:
+                from google.cloud.firestore_v1.base_query import FieldFilter
+                q = q.where(filter=FieldFilter("week", "==", week))
+            rows = [d.to_dict() for d in q.stream()]
         if week is not None:
             rows = [r for r in rows if int(r["week"]) == int(week)]
         return rows
