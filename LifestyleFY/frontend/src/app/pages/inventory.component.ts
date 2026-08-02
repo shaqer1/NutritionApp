@@ -424,39 +424,59 @@ const LOCATION_EMOJI: Record<Location, string> = {
         }
       </div>
 
-      <label class="row" style="align-items:center;gap:6px;margin-top:8px">
-        <input type="checkbox" [(ngModel)]="hideOutOfStock" style="width:auto" />
-        <span class="muted">Hide out of stock</span>
-      </label>
+      <div class="seg" style="margin-top:8px">
+        <button [class.active]="stockFilter === 'inStock'" (click)="stockFilter = 'inStock'">In Stock</button>
+        <button [class.active]="stockFilter === 'all'" (click)="stockFilter = 'all'">All</button>
+        <button [class.active]="stockFilter === 'outOfStock'" (click)="stockFilter = 'outOfStock'">Out of Stock</button>
+      </div>
 
       @if (!shelves.length) {
         <div class="card"><p class="muted">Nothing here yet — scan groceries or add above.</p></div>
       }
       @for (shelf of shelves; track shelf.meta.id) {
         <div class="card">
-          <h3>{{ shelf.meta.emoji }} {{ shelf.meta.label }}</h3>
-          <div class="grid-cards">
-            @for (it of shelf.items; track it.item_id) {
-              <div class="item-card">
-                <a [routerLink]="['/inventory/item', it.item_id]" style="text-decoration:none;color:inherit">
-                  @if (it.image_url) {
-                    <img class="thumb" [src]="it.image_url" alt="" style="width:100%;height:60px;font-size:22px" />
-                  } @else {
-                    <div class="thumb" style="width:100%;height:60px;font-size:22px">{{ shelf.meta.emoji }}</div>
-                  }
-                  <div class="muted" style="font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-                    {{ it.name }}
-                  </div>
-                </a>
-                <div class="row spread" style="margin-top:5px;gap:2px;flex-wrap:nowrap">
-                  <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, -1)">－</button>
-                  <span style="font-size:13px;white-space:nowrap">{{ it.qty }}</span>
-                  <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, 1)">＋</button>
-                </div>
-                <button class="ghost" style="width:100%;margin-top:5px;padding:3px" (click)="removeItem(it)">🗑</button>
-              </div>
-            }
+          <div class="row spread" style="align-items:center;cursor:pointer" (click)="toggleCategory(shelf.meta.id)">
+            <h3 style="margin:0">
+              {{ shelf.meta.emoji }} {{ shelf.meta.label }}
+              <span class="muted" style="font-weight:normal">({{ shelf.items.length }})</span>
+            </h3>
+            <span class="muted">{{ expandedCategoryIds.has(shelf.meta.id) ? '▲' : '▼' }}</span>
           </div>
+
+          @if (!expandedCategoryIds.has(shelf.meta.id)) {
+            <div class="row" style="gap:6px;margin-top:8px;flex-wrap:wrap">
+              @for (it of shelf.items; track it.item_id) {
+                @if (it.image_url) {
+                  <img class="thumb" [src]="it.image_url" alt="" style="width:32px;height:32px" />
+                } @else {
+                  <div class="thumb" style="width:32px;height:32px;font-size:16px">{{ shelf.meta.emoji }}</div>
+                }
+              }
+            </div>
+          } @else {
+            <div class="grid-cards">
+              @for (it of shelf.items; track it.item_id) {
+                <div class="item-card">
+                  <a [routerLink]="['/inventory/item', it.item_id]" style="text-decoration:none;color:inherit">
+                    @if (it.image_url) {
+                      <img class="thumb" [src]="it.image_url" alt="" style="width:100%;height:60px;font-size:22px" />
+                    } @else {
+                      <div class="thumb" style="width:100%;height:60px;font-size:22px">{{ shelf.meta.emoji }}</div>
+                    }
+                    <div class="muted" style="font-size:11px;margin-top:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
+                      {{ it.name }}
+                    </div>
+                  </a>
+                  <div class="row spread" style="margin-top:5px;gap:2px;flex-wrap:nowrap">
+                    <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, -1)">－</button>
+                    <span style="font-size:13px;white-space:nowrap">{{ it.qty }}</span>
+                    <button class="ghost" style="padding:2px 6px" (click)="adjustQty(it, 1)">＋</button>
+                  </div>
+                  <button class="ghost" style="width:100%;margin-top:5px;padding:3px" (click)="removeItem(it)">🗑</button>
+                </div>
+              }
+            </div>
+          }
         </div>
       }
     }
@@ -549,7 +569,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
     { id: 'all', label: 'All' }, ...LOCATIONS,
   ];
   activeLocation: Location | 'all' = 'all';
-  hideOutOfStock = true;
+  stockFilter: 'inStock' | 'all' | 'outOfStock' = 'inStock';
+  expandedCategoryIds = new Set<string>();
+
+  toggleCategory(id: string): void {
+    if (this.expandedCategoryIds.has(id)) this.expandedCategoryIds.delete(id);
+    else this.expandedCategoryIds.add(id);
+  }
 
   ngOnInit(): void {
     this.reloadInventory();
@@ -924,8 +950,10 @@ export class InventoryComponent implements OnInit, OnDestroy {
     let inLocation = this.activeLocation === 'all'
       ? this.items
       : this.items.filter((it) => (it.location || 'pantry') === this.activeLocation);
-    if (this.hideOutOfStock) {
+    if (this.stockFilter === 'inStock') {
       inLocation = inLocation.filter((it) => it.qty > 0);
+    } else if (this.stockFilter === 'outOfStock') {
+      inLocation = inLocation.filter((it) => it.qty <= 0);
     }
     const groups = new Map<string, InventoryItem[]>();
     for (const it of inLocation) {
