@@ -208,6 +208,33 @@ class WorkoutWeekOverview(BaseModel):
     completed_days: list[str] = Field(default_factory=list)
 
 
+class OverviewExercise(BaseModel):
+    """One planned exercise slot, annotated with load-so-far pulled from
+    workout_set_log — for the swipeable card overview, not plan editing."""
+    order: int
+    section: str
+    exercise: str
+    category: str = ""
+    sets: str = ""
+    reps: str = ""
+    sets_logged: int = 0
+    week_min: int | None = None
+    week_max: int | None = None
+    best_weight: float | None = None
+    recent_weight: float | None = None
+    recent_reps: float | None = None
+
+
+class OverviewDay(BaseModel):
+    day: str
+    exercises: list[OverviewExercise] = Field(default_factory=list)
+
+
+class WorkoutOverview(BaseModel):
+    week: int
+    days: list[OverviewDay] = Field(default_factory=list)
+
+
 class WorkoutDay(BaseModel):
     warmup: list[PlanExercise] = Field(default_factory=list)
     strength: list[PlanExercise] = Field(default_factory=list)

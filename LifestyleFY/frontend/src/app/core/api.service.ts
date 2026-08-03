@@ -7,8 +7,8 @@ import {
   CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
   ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals, GroceryList, InventoryItem,
   LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
-  WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
-  WorkoutSetLogRequest, WorkoutWeekOverview,
+  WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest,
+  WorkoutSetEntry, WorkoutSetLogRequest, WorkoutWeekOverview,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -151,6 +151,9 @@ export class ApiService {
   }
   getWorkoutWeekOverview(week: number): Observable<WorkoutWeekOverview> {
     return this.http.get<WorkoutWeekOverview>(`${this.base}/workout/weeks/${week}/overview`);
+  }
+  getWorkoutLoadOverview(week: number): Observable<WorkoutOverview> {
+    return this.http.get<WorkoutOverview>(`${this.base}/workout/weeks/${week}/load-overview`);
   }
   getWorkoutDay(week: number, day: string): Observable<WorkoutDay> {
     return this.http.get<WorkoutDay>(

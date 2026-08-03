@@ -10,8 +10,8 @@ from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
     ExerciseSwapRequest, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
-    ScanRequest, TodaySummary, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
-    WorkoutSessionLogRequest, WorkoutSetLogRequest, WorkoutWeekOverview,
+    ScanRequest, TodaySummary, WorkoutDay, WorkoutOverview, WorkoutPlanUpdateRequest,
+    WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest, WorkoutWeekOverview,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.exercisedb import ExerciseDbClient
@@ -343,6 +343,12 @@ def set_workout_config(current_week: int = Body(..., embed=True),
 def workout_week_overview(week: int, uid: str = Depends(current_uid),
                           store: Store = Depends(store_dep)):
     return store.get_week_overview(uid, week)
+
+
+@router.get("/workout/weeks/{week}/load-overview", response_model=WorkoutOverview)
+def workout_load_overview(week: int, uid: str = Depends(current_uid),
+                          store: Store = Depends(store_dep)):
+    return store.get_workout_overview(uid, week)
 
 
 @router.get("/workout/weeks/{week}/days/{day}", response_model=WorkoutDay)

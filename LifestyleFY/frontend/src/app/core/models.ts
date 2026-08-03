@@ -198,6 +198,31 @@ export interface WorkoutWeekOverview {
   completed_days: string[];
 }
 
+export interface OverviewExercise {
+  order: number;
+  section: string;
+  exercise: string;
+  category: string;
+  sets: string;
+  reps: string;
+  sets_logged: number;
+  week_min: number | null;
+  week_max: number | null;
+  best_weight: number | null;
+  recent_weight: number | null;
+  recent_reps: number | null;
+}
+
+export interface OverviewDay {
+  day: string;
+  exercises: OverviewExercise[];
+}
+
+export interface WorkoutOverview {
+  week: number;
+  days: OverviewDay[];
+}
+
 export interface WorkoutDay {
   warmup: PlanExercise[];
   strength: PlanExercise[];

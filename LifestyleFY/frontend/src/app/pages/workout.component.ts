@@ -4,7 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import {
   CustomExerciseRequest, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails,
-  ExerciseSearchResultItem, PlanExercise, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
+  ExerciseSearchResultItem, OverviewDay, PlanExercise, WorkoutDay, WorkoutOverview,
+  WorkoutPlanUpdateRequest, WorkoutProgress,
 } from '../core/models';
 import { EXERCISE_CATEGORIES, exerciseCategoryMeta } from '../core/workout-categories';
 
@@ -55,9 +56,87 @@ const PHASE_GROUPS: PhaseGroup[] = [
     <h1>Workout</h1>
 
     <div class="seg">
+      <button [class.active]="viewMode === 'overview'" (click)="switchView('overview')">Overview</button>
       <button [class.active]="viewMode === 'workout'" (click)="switchView('workout')">Workout</button>
       <button [class.active]="viewMode === 'progress'" (click)="switchView('progress')">Progress</button>
     </div>
+
+    @if (viewMode === 'overview') {
+      <div class="card" style="margin-top:16px">
+        <div class="row spread">
+          <div>
+            <div class="muted" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700">
+              {{ getPhaseGroup(overviewWeek).label }}
+            </div>
+            <h3 style="margin-bottom:2px">{{ getPhaseLabel(overviewWeek) }}</h3>
+            <div class="muted">Load so far · swipe or tap to switch days</div>
+          </div>
+          <div class="row" style="gap:8px">
+            <button class="ghost" (click)="changeOverviewWeek(-1)">‹</button>
+            <div style="font-weight:700;white-space:nowrap">W{{ overviewWeek }}</div>
+            <button class="ghost" (click)="changeOverviewWeek(1)">›</button>
+          </div>
+        </div>
+      </div>
+
+      @if (overviewLoading) {
+        <p class="muted">Loading overview…</p>
+      } @else if (overview && overview.days.length) {
+        <div class="row" style="gap:6px;justify-content:center;margin:4px 0 12px">
+          @for (d of overview.days; track d.day; let i = $index) {
+            <button class="ghost" style="padding:4px 10px;font-size:12px"
+                    [style.background]="i === overviewCardIndex ? 'var(--accent)' : ''"
+                    [style.color]="i === overviewCardIndex ? 'white' : ''"
+                    (click)="goToCard(i)">{{ i + 1 }}</button>
+          }
+        </div>
+
+        <div class="row spread" style="align-items:center">
+          <button class="ghost" (click)="goToCard(overviewCardIndex - 1)"
+                  [disabled]="overviewCardIndex === 0">‹</button>
+
+          <div class="card" style="flex:1;margin-bottom:0"
+               (touchstart)="onTouchStart($event)" (touchend)="onTouchEnd($event)">
+            @let card = overview.days[overviewCardIndex];
+            <h3>{{ dayLabel(card.day) }}</h3>
+            <div class="muted" style="margin-top:-8px;margin-bottom:10px">{{ dayTag(card.day) }}</div>
+
+            @for (section of ['Warm-Up', 'Strength', 'Cool-Down']; track section) {
+              @if (sectionExercises(card, section).length) {
+                <div class="muted" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700;margin-top:12px">
+                  {{ section }}
+                </div>
+                @for (ex of sectionExercises(card, section); track ex.order) {
+                  <div class="row spread" style="margin-top:8px;align-items:flex-start">
+                    <div style="flex:1">
+                      <div style="font-weight:600">{{ ex.exercise }}</div>
+                      <div class="muted">{{ ex.sets || '-' }}×{{ ex.reps || '-' }}</div>
+                    </div>
+                    <div style="text-align:right">
+                      @if (ex.best_weight != null) {
+                        <div style="font-weight:700;color:var(--accent)">
+                          {{ ex.recent_weight ?? ex.best_weight }} lbs
+                        </div>
+                        <div class="muted" style="font-size:11px">
+                          {{ ex.sets_logged }} {{ ex.sets_logged === 1 ? 'set' : 'sets' }} · wks {{ ex.week_min }}–{{ ex.week_max }}
+                        </div>
+                      } @else {
+                        <div class="muted">BW</div>
+                      }
+                    </div>
+                  </div>
+                }
+              }
+            }
+          </div>
+
+          <button class="ghost" (click)="goToCard(overviewCardIndex + 1)"
+                  [disabled]="overviewCardIndex === overview.days.length - 1">›</button>
+        </div>
+      } @else if (overview) {
+        <p class="muted">No planned days found for week {{ overviewWeek }}.</p>
+      }
+    }
 
     @if (viewMode === 'workout') {
       <div class="card" style="margin-top:16px">
@@ -564,9 +643,15 @@ const PHASE_GROUPS: PhaseGroup[] = [
 export class WorkoutComponent implements OnInit {
   private api = inject(ApiService);
 
-  viewMode: 'workout' | 'progress' = 'workout';
+  viewMode: 'overview' | 'workout' | 'progress' = 'workout';
   categoryMeta = exerciseCategoryMeta;
   exerciseCategories = EXERCISE_CATEGORIES;
+
+  overviewWeek = 1;
+  overviewLoading = false;
+  overview: WorkoutOverview | null = null;
+  overviewCardIndex = 0;
+  private touchStartX = 0;
 
   currentWeek = 1;
   days: string[] = [];
@@ -640,12 +725,54 @@ export class WorkoutComponent implements OnInit {
     });
   }
 
-  switchView(mode: 'workout' | 'progress'): void {
+  switchView(mode: 'overview' | 'workout' | 'progress'): void {
     this.viewMode = mode;
     if (mode === 'progress') {
       this.progressPhaseGroupKey = this.getPhaseGroup(this.currentWeek).key;
       this.loadProgress();
+    } else if (mode === 'overview') {
+      this.overviewWeek = this.currentWeek;
+      this.loadOverview();
     }
+  }
+
+  loadOverview(): void {
+    this.overviewLoading = true;
+    this.overviewCardIndex = 0;
+    this.api.getWorkoutLoadOverview(this.overviewWeek).subscribe({
+      next: (o) => {
+        this.overview = o;
+        this.overviewLoading = false;
+      },
+      error: () => {
+        this.overview = null;
+        this.overviewLoading = false;
+      },
+    });
+  }
+
+  changeOverviewWeek(delta: number): void {
+    this.overviewWeek = Math.max(1, this.overviewWeek + delta);
+    this.loadOverview();
+  }
+
+  goToCard(i: number): void {
+    if (!this.overview) return;
+    this.overviewCardIndex = Math.max(0, Math.min(this.overview.days.length - 1, i));
+  }
+
+  sectionExercises(card: OverviewDay, section: string) {
+    return card.exercises.filter((ex) => ex.section === section);
+  }
+
+  onTouchStart(e: TouchEvent): void {
+    this.touchStartX = e.touches[0].clientX;
+  }
+
+  onTouchEnd(e: TouchEvent): void {
+    const dx = e.changedTouches[0].clientX - this.touchStartX;
+    if (Math.abs(dx) < 40) return;
+    this.goToCard(this.overviewCardIndex + (dx < 0 ? 1 : -1));
   }
 
   loadWeek(week: number): void {

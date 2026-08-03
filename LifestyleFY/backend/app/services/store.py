@@ -15,15 +15,23 @@ from ..config import Settings
 from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, Goals,
-    GroceryList, InventoryItem, LogEntry, LogRequest, Macros, PlanExercise, Profile, Recipe,
-    TodaySummary, WorkoutConfig, WorkoutDay, WorkoutPlanUpdateRequest, WorkoutProgress,
-    WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSession,
-    WorkoutWeekOverview,
+    GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay, OverviewExercise,
+    PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
+    WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
+    WorkoutSetLogRequest, WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
 )
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+_LOAD_NUM_RE = re.compile(r"-?\d+(?:\.\d+)?")
+
+
+def _parse_load_number(s: str) -> float | None:
+    m = _LOAD_NUM_RE.search(s or "")
+    return float(m.group()) if m else None
 
 
 log = logging.getLogger(__name__)
@@ -635,6 +643,62 @@ class Store:
             phase = phase or r.get("phase", "")
         return WorkoutDay(warmup=buckets["warmup"], strength=buckets["strength"],
                           cooldown=buckets["cooldown"], phase=phase)
+
+    def _exercise_load_index(self, uid: str) -> dict[str, dict]:
+        """Per-exercise load-so-far, aggregated from every logged set: best
+        weight ever hit, and weight/reps from the most recently logged set
+        (ts sorts correctly as an ISO string, matching how it's stored)."""
+        idx: dict[str, dict] = {}
+        for r in self._workout_set_rows(uid):
+            ex = r["exercise"]
+            e = idx.setdefault(ex, {
+                "sets_logged": 0, "week_min": None, "week_max": None,
+                "best_weight": None, "recent_weight": None, "recent_reps": None,
+                "_recent_ts": "",
+            })
+            e["sets_logged"] += 1
+            week = int(r["week"])
+            e["week_min"] = week if e["week_min"] is None else min(e["week_min"], week)
+            e["week_max"] = week if e["week_max"] is None else max(e["week_max"], week)
+
+            weight = _parse_load_number(r.get("weight", ""))
+            if weight is not None and (e["best_weight"] is None or weight > e["best_weight"]):
+                e["best_weight"] = weight
+
+            ts = r.get("ts", "")
+            if ts >= e["_recent_ts"]:
+                e["_recent_ts"] = ts
+                e["recent_weight"] = weight
+                e["recent_reps"] = _parse_load_number(r.get("actual_reps", ""))
+        for e in idx.values():
+            del e["_recent_ts"]
+        return idx
+
+    def get_workout_overview(self, uid: str, week: int) -> WorkoutOverview:
+        week_rows = [r for r in self._workout_plan_rows(uid) if r["week"] == week]
+        days: list[str] = []
+        seen: set[str] = set()
+        for r in week_rows:
+            if r["day"] not in seen:
+                seen.add(r["day"])
+                days.append(r["day"])
+
+        load_idx = self._exercise_load_index(uid)
+        out_days = []
+        for day in days:
+            rows = sorted([r for r in week_rows if r["day"] == day],
+                          key=lambda r: (r["section"], int(r["order"])))
+            exercises = [
+                OverviewExercise(
+                    order=int(r["order"]), section=r["section"], exercise=r["exercise"],
+                    category=r.get("category", ""), sets=r.get("sets", ""),
+                    reps=r.get("reps", ""),
+                    **load_idx.get(r["exercise"], {}),
+                )
+                for r in rows
+            ]
+            out_days.append(OverviewDay(day=day, exercises=exercises))
+        return WorkoutOverview(week=week, days=out_days)
 
     def update_workout_plan_exercise(self, uid: str, plan_id: str,
                                      req: WorkoutPlanUpdateRequest) -> PlanExercise | None:
