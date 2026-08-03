@@ -956,9 +956,18 @@ class Store:
             for r in rows
         ]
 
-    def get_workout_progress(self, uid: str) -> WorkoutProgress:
-        sessions = self._workout_session_rows(uid)
-        sets = self._workout_set_rows(uid)
+    def get_workout_progress(self, uid: str, week_min: int | None = None,
+                             week_max: int | None = None) -> WorkoutProgress:
+        def in_range(week) -> bool:
+            week = int(week)
+            if week_min is not None and week < week_min:
+                return False
+            if week_max is not None and week > week_max:
+                return False
+            return True
+
+        sessions = [r for r in self._workout_session_rows(uid) if in_range(r["week"])]
+        sets = [r for r in self._workout_set_rows(uid) if in_range(r["week"])]
 
         by_key: dict[str, dict] = {}
         for r in sessions:
@@ -983,7 +992,8 @@ class Store:
         distinct_days_completed = len({(r["week"], r["day"]) for r in by_key.values()})
 
         recent = sorted(by_key.values(), key=lambda r: r["date"], reverse=True)
-        plan_day_keys = {(r["week"], r["day"]) for r in self._workout_plan_rows(uid)}
+        plan_day_keys = {(r["week"], r["day"]) for r in self._workout_plan_rows(uid)
+                         if in_range(r["week"])}
         total_planned_days = len(plan_day_keys) or 40
 
         return WorkoutProgress(

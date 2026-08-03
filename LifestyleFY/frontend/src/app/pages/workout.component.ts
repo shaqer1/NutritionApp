@@ -33,6 +33,20 @@ const EMPTY_CACHE_FILTERS = () => ({
   search_text: '', page: 1,
 });
 
+interface PhaseGroup {
+  key: string;
+  label: string;
+  weekStart: number;
+  weekEnd: number;
+}
+
+// Higher-level grouping above the per-week "Phase 1/2/3/4" labels (getPhaseLabel below).
+// Weeks past the last group's end still fall into that group, so future weeks never go unlabeled.
+const PHASE_GROUPS: PhaseGroup[] = [
+  { key: 'reintroduction', label: 'Reintroduction', weekStart: 1, weekEnd: 10 },
+  { key: 'maintenance-building', label: 'Maintenance Building', weekStart: 11, weekEnd: 16 },
+];
+
 @Component({
   selector: 'app-workout',
   standalone: true,
@@ -49,8 +63,11 @@ const EMPTY_CACHE_FILTERS = () => ({
       <div class="card" style="margin-top:16px">
         <div class="row spread">
           <div>
+            <div class="muted" style="text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700">
+              {{ getPhaseGroup(currentWeek).label }}
+            </div>
             <h3 style="margin-bottom:2px">{{ getPhaseLabel(currentWeek) }}</h3>
-            <div class="muted">Week {{ currentWeek }} of 10 · select a workout day</div>
+            <div class="muted">{{ weekInGroupLabel(currentWeek) }} · select a workout day</div>
           </div>
           <div class="row" style="gap:8px">
             <button class="ghost" (click)="changeWeek(-1)">‹</button>
@@ -490,6 +507,13 @@ const EMPTY_CACHE_FILTERS = () => ({
     }
 
     @if (viewMode === 'progress') {
+      <div class="seg" style="margin-top:16px">
+        @for (g of phaseGroups; track g.key) {
+          <button [class.active]="progressPhaseGroupKey === g.key"
+                  (click)="selectProgressPhaseGroup(g.key)">{{ g.label }}</button>
+        }
+      </div>
+
       @if (progressLoading) {
         <p class="muted" style="margin-top:16px">Loading progress…</p>
       } @else if (progress) {
@@ -509,7 +533,7 @@ const EMPTY_CACHE_FILTERS = () => ({
         </div>
 
         <div class="card" style="margin-top:16px">
-          <h3>🏋️ 10-Week Progress</h3>
+          <h3>🏋️ {{ selectedProgressPhaseGroup().label }} Progress</h3>
           <div class="bar"><span [style.width.%]="progressPct()"></span></div>
           <p class="muted" style="text-align:center;margin-top:6px">
             {{ progress.distinct_days_completed }} of {{ progress.total_planned_days }} days complete ({{ progressPct() }}%)
@@ -563,6 +587,8 @@ export class WorkoutComponent implements OnInit {
 
   progress: WorkoutProgress | null = null;
   progressLoading = false;
+  phaseGroups = PHASE_GROUPS;
+  progressPhaseGroupKey = PHASE_GROUPS[0].key;
 
   status = '';
 
@@ -616,7 +642,10 @@ export class WorkoutComponent implements OnInit {
 
   switchView(mode: 'workout' | 'progress'): void {
     this.viewMode = mode;
-    if (mode === 'progress') this.loadProgress();
+    if (mode === 'progress') {
+      this.progressPhaseGroupKey = this.getPhaseGroup(this.currentWeek).key;
+      this.loadProgress();
+    }
   }
 
   loadWeek(week: number): void {
@@ -758,7 +787,8 @@ export class WorkoutComponent implements OnInit {
 
   loadProgress(): void {
     this.progressLoading = true;
-    this.api.getWorkoutProgress().subscribe({
+    const g = this.selectedProgressPhaseGroup();
+    this.api.getWorkoutProgress(g.weekStart, g.weekEnd).subscribe({
       next: (p) => {
         this.progress = p;
         this.progressLoading = false;
@@ -767,6 +797,16 @@ export class WorkoutComponent implements OnInit {
         this.progressLoading = false;
       },
     });
+  }
+
+  selectedProgressPhaseGroup(): PhaseGroup {
+    return this.phaseGroups.find((g) => g.key === this.progressPhaseGroupKey) ?? this.phaseGroups[0];
+  }
+
+  selectProgressPhaseGroup(key: string): void {
+    if (this.progressPhaseGroupKey === key) return;
+    this.progressPhaseGroupKey = key;
+    this.loadProgress();
   }
 
   progressPct(): number {
@@ -785,7 +825,20 @@ export class WorkoutComponent implements OnInit {
     if (week <= 2) return 'Phase 1: Reintroduction 🌱';
     if (week <= 5) return 'Phase 2: Building 📈';
     if (week <= 8) return 'Phase 3: Strength 💪';
-    return 'Phase 4: Peak 🔥';
+    if (week <= 10) return 'Phase 4: Peak 🔥';
+    return 'Maintenance 🛠️';
+  }
+
+  getPhaseGroup(week: number): PhaseGroup {
+    return PHASE_GROUPS.find((g) => week >= g.weekStart && week <= g.weekEnd)
+      ?? PHASE_GROUPS[PHASE_GROUPS.length - 1];
+  }
+
+  weekInGroupLabel(week: number): string {
+    const g = this.getPhaseGroup(week);
+    const indexInGroup = week - g.weekStart + 1;
+    const groupLength = g.weekEnd - g.weekStart + 1;
+    return `Week ${week} · week ${indexInGroup} of ${groupLength}`;
   }
 
   dayIcon(day: string): string {

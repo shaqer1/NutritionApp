@@ -171,8 +171,11 @@ export class ApiService {
   logWorkoutSession(req: WorkoutSessionLogRequest): Observable<{ ok: boolean }> {
     return this.http.post<{ ok: boolean }>(`${this.base}/workout/sessions`, req);
   }
-  getWorkoutProgress(): Observable<WorkoutProgress> {
-    return this.http.get<WorkoutProgress>(`${this.base}/workout/progress`);
+  getWorkoutProgress(weekMin?: number, weekMax?: number): Observable<WorkoutProgress> {
+    const params: Record<string, number> = {};
+    if (weekMin != null) params['week_min'] = weekMin;
+    if (weekMax != null) params['week_max'] = weekMax;
+    return this.http.get<WorkoutProgress>(`${this.base}/workout/progress`, { params });
   }
 
   // --- workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---

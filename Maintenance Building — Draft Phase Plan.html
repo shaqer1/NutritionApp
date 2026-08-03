@@ -1,0 +1,2115 @@
+
+<!-- saved from url=(0136)file:///tmp/claude-1000/-home-shafay-NutriBear-NutritionApp/d1e67d15-0416-4131-a983-21409aff83b7/scratchpad/maintenance_plan_review.html -->
+<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"><title>Maintenance Building — Draft Phase Plan</title>
+<style>
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #eef1f2; --surface: #ffffff; --surface-2: #f4f6f7;
+      --text: #182226; --muted: #5b6c73; --line: #d7dee1;
+      --accent: #2f6690; --accent-ink: #1f4a68; --warm: #a8532e; --warm-bg: #f3e4dc;
+    }
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151a; --surface: #1a2126; --surface-2: #202a30;
+      --text: #e6ecef; --muted: #93a5ac; --line: #2b3a41;
+      --accent: #74acd1; --accent-ink: #a9d2ec; --warm: #dd9268; --warm-bg: #2c211b;
+    }
+  }
+  :root[data-theme="light"] {
+    --bg: #eef1f2; --surface: #ffffff; --surface-2: #f4f6f7;
+    --text: #182226; --muted: #5b6c73; --line: #d7dee1;
+    --accent: #2f6690; --accent-ink: #1f4a68; --warm: #a8532e; --warm-bg: #f3e4dc;
+  }
+  :root[data-theme="dark"] {
+    --bg: #10151a; --surface: #1a2126; --surface-2: #202a30;
+    --text: #e6ecef; --muted: #93a5ac; --line: #2b3a41;
+    --accent: #74acd1; --accent-ink: #a9d2ec; --warm: #dd9268; --warm-bg: #2c211b;
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg); color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    max-width: 980px; margin: 0 auto; padding: 2.5rem 1.5rem 5rem;
+    line-height: 1.5;
+  }
+  h1, h2, h3, h4 {
+    font-family: Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+    font-weight: normal; text-wrap: balance; color: var(--text);
+  }
+  .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SF Mono", "Cascadia Code", "Roboto Mono", monospace; }
+
+  header.top { border-bottom: 1px solid var(--line); padding-bottom: 1.75rem; margin-bottom: 2.25rem; }
+  .eyebrow { text-transform: uppercase; letter-spacing: 0.12em; font-size: 0.72rem; color: var(--accent); font-weight: 600; }
+  h1 { font-size: 2.4rem; margin: 0.35rem 0 0.5rem; }
+  .lede { color: var(--muted); font-size: 1.02rem; max-width: 62ch; }
+
+  .stat-strip { display: flex; gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; margin-top: 1.5rem; }
+  .stat { flex: 1; background: var(--surface); padding: 0.9rem 1.1rem; }
+  .stat .k { font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); }
+  .stat .v { font-family: ui-monospace, monospace; font-size: 1.15rem; margin-top: 0.15rem; }
+
+  section { margin-bottom: 3rem; }
+  .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; }
+  .section-head h2 { font-size: 1.5rem; margin: 0; }
+  .section-head .note { color: var(--muted); font-size: 0.88rem; }
+
+  table { width: 100%; border-collapse: collapse; }
+  .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
+  .ledger th { text-align: left; font-size: 0.68rem; text-transform: uppercase; letter-spacing: 0.07em; color: var(--muted); padding: 0.6rem 0.9rem; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--surface); }
+  .ledger td { padding: 0.55rem 0.9rem; border-bottom: 1px solid var(--line); font-size: 0.88rem; }
+  .ledger tbody tr:last-child td { border-bottom: none; }
+  .ledger tbody tr:nth-child(even) { background: var(--surface-2); }
+  .ex { color: var(--text); }
+  .strong { font-weight: 600; }
+  .muted { color: var(--muted); }
+
+  .pill { display: inline-block; padding: 0.1rem 0.5rem; border-radius: 999px; font-size: 0.72rem; border: 1px solid var(--line); color: var(--muted); text-transform: capitalize; }
+
+  .callout { border-left: 3px solid var(--warm); background: var(--warm-bg); border-radius: 0 8px 8px 0; padding: 1rem 1.25rem; margin: 1.25rem 0; }
+  .callout h3 { font-size: 1rem; margin: 0 0 0.5rem; font-family: inherit; font-weight: 600; }
+  .callout ul { margin: 0; padding-left: 1.2rem; }
+  .callout li { margin-bottom: 0.4rem; font-size: 0.92rem; }
+  .callout li:last-child { margin-bottom: 0; }
+
+  .week-block { margin-bottom: 1.75rem; }
+  .week-tag { display: flex; align-items: baseline; gap: 0.7rem; margin-bottom: 0.7rem; }
+  .week-num { font-family: Georgia, serif; font-size: 1.25rem; color: var(--accent-ink); }
+  .week-sub { font-size: 0.78rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; }
+
+  .day-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.9rem; }
+  @media (max-width: 780px) { .day-grid { grid-template-columns: 1fr; } }
+  .day-card { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); overflow: hidden; }
+  .day-card.full { border-color: var(--warm); }
+  .day-head { display: flex; align-items: center; justify-content: space-between; padding: 0.65rem 0.85rem; border-bottom: 1px solid var(--line); background: var(--surface-2); }
+  .day-head h4 { margin: 0; font-size: 0.92rem; }
+  .badge { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--warm); border: 1px solid var(--warm); padding: 0.05rem 0.4rem; border-radius: 5px; }
+  .day-table { width: 100%; }
+  .day-table td { padding: 0.42rem 0.85rem; font-size: 0.82rem; border-bottom: 1px solid var(--line); }
+  .day-table tr:last-child td { border-bottom: none; }
+  .ord { color: var(--muted); width: 1.4em; }
+  .load-cell { text-align: right; white-space: nowrap; }
+  .load { color: var(--accent-ink); }
+  .sec-row td { padding: 0.35rem 0.85rem 0.2rem; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); background: var(--surface-2); border-bottom: 1px solid var(--line); }
+
+  footer { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid var(--line); color: var(--muted); font-size: 0.82rem; }
+</style>
+
+</head><body><header class="top">
+  <div class="eyebrow">Phase Group · Draft for review</div>
+  <h1>Maintenance Building</h1>
+  <p class="lede">Weeks 11–16, three sessions a week, following the 10-week <strong>Reintroduction</strong> block you just finished. Loads below are pulled from your actual logged sets, not guessed.</p>
+  <div class="stat-strip">
+    <div class="stat"><div class="k">Source</div><div class="v">workout_set_log · 532 sets</div></div>
+    <div class="stat"><div class="k">History window</div><div class="v">weeks 1–9</div></div>
+    <div class="stat"><div class="k">Exercises logged</div><div class="v">83</div></div>
+    <div class="stat"><div class="k">New sessions</div><div class="v">18 · 2 full body</div></div>
+  </div>
+</header>
+
+<section>
+  <div class="section-head">
+    <h2>Load so far</h2>
+    <div class="note">Every exercise you've logged a set for across weeks 1–9, best weight and most recent weight</div>
+  </div>
+  <div class="table-wrap">
+    <table class="ledger">
+      <thead><tr><th>Exercise</th><th>Category</th><th>Sets logged</th><th>Weeks used</th><th>Best load (lbs)</th><th>Most recent</th></tr></thead>
+      <tbody><tr>
+      <td class="ex">A1. Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">37</td>
+      <td class="num">1–9</td>
+      <td class="num strong">75</td>
+      <td class="num muted">75 × 5.0</td>
+    </tr><tr>
+      <td class="ex">A1. DB Shoulder Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">6</td>
+      <td class="num">7–8</td>
+      <td class="num strong">65</td>
+      <td class="num muted">40 × 8.0</td>
+    </tr><tr>
+      <td class="ex">A2. Standing Shoulder Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">4</td>
+      <td class="num">4–4</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 7.0</td>
+    </tr><tr>
+      <td class="ex">Arnold Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">10</td>
+      <td class="num">1–6</td>
+      <td class="num strong">30</td>
+      <td class="num muted">30 × 8.0</td>
+    </tr><tr>
+      <td class="ex">B1. Neutral Grip DB Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">3</td>
+      <td class="num">2–2</td>
+      <td class="num strong">12</td>
+      <td class="num muted">12 × 8.0</td>
+    </tr><tr>
+      <td class="ex">B2. Decline Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">8</td>
+      <td class="num">7–8</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 4.0</td>
+    </tr><tr>
+      <td class="ex">Barbell Incline Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">55</td>
+      <td class="num muted">55 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">12</td>
+      <td class="num">3–7</td>
+      <td class="num strong">65</td>
+      <td class="num muted">65 × 10.0</td>
+    </tr><tr>
+      <td class="ex">C2. Landmine Shoulder Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">3</td>
+      <td class="num">5–5</td>
+      <td class="num strong">30</td>
+      <td class="num muted">30 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Incline Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">6</td>
+      <td class="num">6–9</td>
+      <td class="num strong">55</td>
+      <td class="num muted">30 × 7.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Seated Arnold Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">3</td>
+      <td class="num">8–8</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Palms In Incline Bench Press</td>
+      <td><span class="pill pill-push">push</span></td>
+      <td class="num">8</td>
+      <td class="num">5–6</td>
+      <td class="num strong">40</td>
+      <td class="num muted">20 × 8.0</td>
+    </tr><tr>
+      <td class="ex">B1. BB Bent Over Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">8</td>
+      <td class="num">7–8</td>
+      <td class="num strong">30</td>
+      <td class="num muted">30 × 8.0</td>
+    </tr><tr>
+      <td class="ex">B2. Eccentric Pull Up</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">2–3</td>
+      <td class="num strong">37.5</td>
+      <td class="num muted">37.5 × 10.0</td>
+    </tr><tr>
+      <td class="ex">B2. Single Arm Bent Over Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">15</td>
+      <td class="num muted">15 × 10.0</td>
+    </tr><tr>
+      <td class="ex">C2. Wide Grip Lat Pulldown</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">60</td>
+      <td class="num muted">60 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Cable Front Lat Pulldown (Close Grip)</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">4–4</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 5.0</td>
+    </tr><tr>
+      <td class="ex">Cable Lat Pulldown (Wide Grip)</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">10</td>
+      <td class="num">4–9</td>
+      <td class="num strong">60</td>
+      <td class="num muted">57.5 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Cable Rear Pulldown (Wide Grip)</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">7</td>
+      <td class="num">5–8</td>
+      <td class="num strong">57.5</td>
+      <td class="num muted">57.5 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Cable Seated Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">11</td>
+      <td class="num">5–9</td>
+      <td class="num strong">50</td>
+      <td class="num muted">45 × 7.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Bent-Over Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Incline Curl</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">6–8</td>
+      <td class="num strong">30</td>
+      <td class="num muted">30 × 7.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell One Arm Bent-over Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">11</td>
+      <td class="num">1–5</td>
+      <td class="num strong">25</td>
+      <td class="num muted">25 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Rear Delt Fly </td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">3–3</td>
+      <td class="num strong">20</td>
+      <td class="num muted">20 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Lateral Raise</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">6</td>
+      <td class="num">1–4</td>
+      <td class="num strong">24</td>
+      <td class="num muted">24 × 8.0</td>
+    </tr><tr>
+      <td class="ex">One Arm Bent-over Row</td>
+      <td><span class="pill pill-pull">pull</span></td>
+      <td class="num">8</td>
+      <td class="num">4–4</td>
+      <td class="num strong">25</td>
+      <td class="num muted">25 × 10.0</td>
+    </tr><tr>
+      <td class="ex">A1. DB Front Squat (Knees Banded)</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">12</td>
+      <td class="num">3–5</td>
+      <td class="num strong">50</td>
+      <td class="num muted">35 × 8.0</td>
+    </tr><tr>
+      <td class="ex">A1. Goblet Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">20</td>
+      <td class="num muted">20 × 10.0</td>
+    </tr><tr>
+      <td class="ex">A1. KB Deadlift (Knees Banded)</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">3–3</td>
+      <td class="num strong">55</td>
+      <td class="num muted">55 × 8.0</td>
+    </tr><tr>
+      <td class="ex">B1. Bulgarian Split Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">35</td>
+      <td class="num muted">35 × 10.0</td>
+    </tr><tr>
+      <td class="ex">B1. DB Split Squats</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">1–1</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × —</td>
+    </tr><tr>
+      <td class="ex">B1. Overhead Walking Lunge</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">3–3</td>
+      <td class="num strong">55</td>
+      <td class="num muted">50 × 12.0</td>
+    </tr><tr>
+      <td class="ex">B2. BB Romanian Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">9–9</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 10.0</td>
+    </tr><tr>
+      <td class="ex">B2. Romanian Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">15</td>
+      <td class="num muted">15 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Barbell Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">5–5</td>
+      <td class="num strong">60</td>
+      <td class="num muted">60 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Barbell Lateral Lunge</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">9–9</td>
+      <td class="num strong">55</td>
+      <td class="num muted">55 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Barbell Side Split Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">7–7</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 4.0</td>
+    </tr><tr>
+      <td class="ex">Barbell Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">17</td>
+      <td class="num">5–9</td>
+      <td class="num strong">80</td>
+      <td class="num muted">80 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Bulgarian Split Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">8–8</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 6.0</td>
+    </tr><tr>
+      <td class="ex">C1. Glute Ham Raise</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">1–1</td>
+      <td class="num strong">55</td>
+      <td class="num muted">55 × 10.0</td>
+    </tr><tr>
+      <td class="ex">C1. Loaded Hip Thrust</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">3–3</td>
+      <td class="num strong">70</td>
+      <td class="num muted">70 × 8.0</td>
+    </tr><tr>
+      <td class="ex">C2. KB Sumo Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">4–5</td>
+      <td class="num strong">35</td>
+      <td class="num muted">35 × 10.0</td>
+    </tr><tr>
+      <td class="ex">D1. Single Leg Hip Thrust</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">2–2</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Hamstring Curl</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">50</td>
+      <td class="num muted">45 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Lunge</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 5.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">4–4</td>
+      <td class="num strong">30</td>
+      <td class="num muted">20 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Stiff Leg Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">5–5</td>
+      <td class="num strong">60</td>
+      <td class="num muted">60 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Stiff Leg Deadlift </td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">3–3</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Goblet Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">9</td>
+      <td class="num">2–5</td>
+      <td class="num strong">40</td>
+      <td class="num muted">30 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Hip Thrusts</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">6</td>
+      <td class="num">2–3</td>
+      <td class="num strong">55</td>
+      <td class="num muted">50 × 15.0</td>
+    </tr><tr>
+      <td class="ex">Kettlebell Front Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">9–9</td>
+      <td class="num strong">35</td>
+      <td class="num muted">35 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Kettlebell Single-Leg Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">4–4</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Lunge</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">1–1</td>
+      <td class="num strong">45</td>
+      <td class="num muted">45 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Machine Hip Abduction</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">27</td>
+      <td class="num">4–9</td>
+      <td class="num strong">80</td>
+      <td class="num muted">80 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Machine Leg Press</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">10</td>
+      <td class="num">6–8</td>
+      <td class="num strong">70</td>
+      <td class="num muted">60 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Romanian Deadlift</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">13</td>
+      <td class="num">1–8</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Standing Calf Raise</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">6</td>
+      <td class="num">3–4</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 12.0</td>
+    </tr><tr>
+      <td class="ex">Sumo Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">3</td>
+      <td class="num">1–1</td>
+      <td class="num strong">20</td>
+      <td class="num muted">20 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Trap Bar Squat</td>
+      <td><span class="pill pill-legs">legs</span></td>
+      <td class="num">4</td>
+      <td class="num">6–6</td>
+      <td class="num strong">35</td>
+      <td class="num muted">35 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Biceps Leg Concentration Curl</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">9</td>
+      <td class="num">5–7</td>
+      <td class="num strong">30</td>
+      <td class="num muted">30 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Cable One-Arm Tricep Pushdown (Reverse Grip)</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">3</td>
+      <td class="num">4–4</td>
+      <td class="num strong">50.5</td>
+      <td class="num muted">50.5 × 9.0</td>
+    </tr><tr>
+      <td class="ex">Cable Tricep Pushdown (V-Bar)</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">3</td>
+      <td class="num">8–8</td>
+      <td class="num strong">75</td>
+      <td class="num muted">75 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Cross Body Hammer Curl</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">12</td>
+      <td class="num">1–8</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Alternating Hammer Curl</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">6</td>
+      <td class="num">4–4</td>
+      <td class="num strong">20</td>
+      <td class="num muted">20 × 6.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Fly</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">20</td>
+      <td class="num muted">20 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Lying Floor Skull Crusher</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">13</td>
+      <td class="num">1–7</td>
+      <td class="num strong">70</td>
+      <td class="num muted">70 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Triceps Dip</td>
+      <td><span class="pill pill-arms">arms</span></td>
+      <td class="num">6</td>
+      <td class="num">6–8</td>
+      <td class="num strong">77.5</td>
+      <td class="num muted">70 × 10.0</td>
+    </tr><tr>
+      <td class="ex">A2. Seated Shoulder Press</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">6</td>
+      <td class="num">1–2</td>
+      <td class="num strong">40</td>
+      <td class="num muted">40 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Cross Body Crunch</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">4–4</td>
+      <td class="num strong">1</td>
+      <td class="num muted">1 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Crunch Floor</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">2–2</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 30.0</td>
+    </tr><tr>
+      <td class="ex">D1. Body Saw Plank</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">9–9</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">D1. Exercise Ball Knees to Chest</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">5</td>
+      <td class="num">7–8</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">D1. Exercise Ball Leg Lifts</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">6</td>
+      <td class="num">8–8</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">D1. Hanging Knees to Chest</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">9</td>
+      <td class="num">6–8</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">Dumbbell Side Bend</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">4–4</td>
+      <td class="num strong">60</td>
+      <td class="num muted">60 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Elbow Up and Down Dynamic Plank</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">1–1</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 8.0</td>
+    </tr><tr>
+      <td class="ex">Knee to Chest to Leg Raise</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">7–7</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">Leg Raise</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">6</td>
+      <td class="num">6–9</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">Machine Seated Leg Curl</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">6</td>
+      <td class="num">5–8</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 8.0</td>
+    </tr><tr>
+      <td class="ex">Seated Shoulder Press</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">16</td>
+      <td class="num">1–7</td>
+      <td class="num strong">45</td>
+      <td class="num muted">40 × 10.0</td>
+    </tr><tr>
+      <td class="ex">Split Squats</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">3–3</td>
+      <td class="num strong">50</td>
+      <td class="num muted">50 × 12.0</td>
+    </tr><tr>
+      <td class="ex">Weight Plate Russian Twist</td>
+      <td><span class="pill pill-core">core</span></td>
+      <td class="num">3</td>
+      <td class="num">6–6</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × 10.0</td>
+    </tr><tr>
+      <td class="ex">Machine One-Arm Pulldown</td>
+      <td><span class="pill pill-none">—</span></td>
+      <td class="num">4</td>
+      <td class="num">9–9</td>
+      <td class="num strong">—</td>
+      <td class="num muted">— × —</td>
+    </tr></tbody>
+    </table>
+  </div>
+</section>
+
+<div class="callout">
+  <h3>How the recommended loads below were set</h3>
+  <ul>
+    <li><strong>Baseline</strong> = the heaviest weight you've actually hit on that lift (not last session — several exercises show a lighter "recent" number because weeks 9–10 were the Peak phase's lighter pump-work sets).</li>
+    <li><strong>Week 11 start</strong> = baseline + 2.5 lb, i.e. "at that or slightly higher," per your instruction.</li>
+    <li><strong>Progression</strong>: Bench Press and Barbell Squat (your two barbell anchors) climb +2.5 lb every week. Everything else climbs +2.5 lb every 2 weeks — enough overload to keep building without turning a maintenance block into a second peak.</li>
+    <li><strong>Core</strong> (Hanging Knees to Chest, Body Saw Plank, L Sits, Weight Plate Russian Twist) is bodyweight, placed last in each session, with reps/hold time creeping up every 2 weeks.</li>
+    <li><strong>Chin Ups &amp; Pull Ups</strong> are new additions — you did your first unassisted rep today (not logged yet), so both start at 1–2 reps × 3 sets and build toward 4–5 by week 16. Chin Ups sit in Upper Body A, Pull Ups in Upper Body B / Full Body.</li>
+    <li><strong>Warm-up</strong> opens every session with a 10-minute full-body foam roll, then the band/mobility work already in rotation. <strong>Cool-down</strong> stretches carry over unchanged from weeks 9–10.</li>
+  </ul>
+</div>
+
+<section>
+  <div class="section-head">
+    <h2>Weeks 11–16</h2>
+    <div class="note">Upper A / Lower A / Upper B, with Full Body swapped in for Day 3 at weeks 13 and 16</div>
+  </div>
+  <section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 11</span><span class="week-sub">Maintenance Building · session 1 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">77.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×1-2</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">77.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×12</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">72.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×30s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 3 - Upper Body B</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Beast Hold</td>
+                <td class="num">1×30s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Prone Y Raise</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Arch Hold</td>
+                <td class="num">1×90s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Dumbbell Seated Arnold Press</td>
+                <td class="num">4×8-10</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Decline Bench Press</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×1</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Rear Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">60 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Barbell Lateral Lunge</td>
+                <td class="num">3×10-12/side</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Triceps Dip</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">80 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. L Sits</td>
+                <td class="num">3×15s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Thread the Needle</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Supine Spinal Twist</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Savasana / Full Body Relax</td>
+                <td class="num">1×2 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section><section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 12</span><span class="week-sub">Maintenance Building · session 2 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">80 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×2</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">77.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×12</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">85 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">72.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">52.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×30s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 3 - Upper Body B</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Beast Hold</td>
+                <td class="num">1×30s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Prone Y Raise</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Arch Hold</td>
+                <td class="num">1×90s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Dumbbell Seated Arnold Press</td>
+                <td class="num">4×8-10</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Decline Bench Press</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×1-2</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Rear Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">60 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Barbell Lateral Lunge</td>
+                <td class="num">3×10-12/side</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Triceps Dip</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">80 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. L Sits</td>
+                <td class="num">3×15s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Thread the Needle</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Supine Spinal Twist</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Savasana / Full Body Relax</td>
+                <td class="num">1×2 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section><section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 13</span><span class="week-sub">Maintenance Building · session 3 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">65 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×2-3</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">60 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">80 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×15</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">87.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">75 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">85 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×40s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card full">
+          <div class="day-head"><h4>Day 3 - Full Body</h4><span class="badge">full body</span></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">3×8</td>
+                <td class="num load-cell"><span class="strong load">87.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Bench Press</td>
+                <td class="num">3×8</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×2</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">65 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Kettlebell Front Squat</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">40 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">D1. Weight Plate Russian Twist</td>
+                <td class="num">3×15/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section><section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 14</span><span class="week-sub">Maintenance Building · session 4 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">85 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">65 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×3</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">60 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">80 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×15</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">90 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">75 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">85 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">55 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×40s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 3 - Upper Body B</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Beast Hold</td>
+                <td class="num">1×30s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Prone Y Raise</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Arch Hold</td>
+                <td class="num">1×90s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Dumbbell Seated Arnold Press</td>
+                <td class="num">4×8-10</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Decline Bench Press</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">45 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×2-3</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Rear Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Barbell Lateral Lunge</td>
+                <td class="num">3×10-12/side</td>
+                <td class="num load-cell"><span class="strong load">60 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Triceps Dip</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. L Sits</td>
+                <td class="num">3×20s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Thread the Needle</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Supine Spinal Twist</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Savasana / Full Body Relax</td>
+                <td class="num">1×2 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section><section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 15</span><span class="week-sub">Maintenance Building · session 5 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">87.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">67.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×3-4</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×15</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">92.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">77.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">87.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×45s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 3 - Upper Body B</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Beast Hold</td>
+                <td class="num">1×30s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Prone Y Raise</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Arch Hold</td>
+                <td class="num">1×90s</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Dumbbell Seated Arnold Press</td>
+                <td class="num">4×8-10</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Decline Bench Press</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×3</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Rear Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">65 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Barbell Lateral Lunge</td>
+                <td class="num">3×10-12/side</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Triceps Dip</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">85 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. L Sits</td>
+                <td class="num">3×20s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Thread the Needle</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Supine Spinal Twist</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Savasana / Full Body Relax</td>
+                <td class="num">1×2 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section><section class="week-block">
+      <div class="week-tag"><span class="week-num">Week 16</span><span class="week-sub">Maintenance Building · session 6 of 6</span></div>
+      <div class="day-grid"><div class="day-card">
+          <div class="day-head"><h4>Day 1 - Upper Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Upside Down KB Press</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">SA Scapular Push Up</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Bench Press</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">90 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">67.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">A3. Chin Ups</td>
+                <td class="num">3×4-5</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B1. Cable Seated Row</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">B2. Dumbbell Incline Bench Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">62.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C1. Cross Body Hammer Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">C2. Cable Tricep Pushdown (V-Bar)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">82.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">8</td>
+                <td class="ex">D1. Hanging Knees to Chest</td>
+                <td class="num">3×18</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Child's Pose w/ Lat Reach</td>
+                <td class="num">1×60s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card">
+          <div class="day-head"><h4>Day 2 - Lower Body A</h4></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Broad Jumps</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">Lateral Lunge</td>
+                <td class="num">1×15/side</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">4×6-8</td>
+                <td class="num load-cell"><span class="strong load">95 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Romanian Deadlift</td>
+                <td class="num">3×8-10</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Machine Leg Press</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">77.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Bulgarian Split Squat</td>
+                <td class="num">3×8-10/side</td>
+                <td class="num load-cell"><span class="strong load">47.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Machine Hip Abduction</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">87.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">C2. Machine Seated Leg Curl</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">57.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">7</td>
+                <td class="ex">D1. Body Saw Plank</td>
+                <td class="num">3×45s</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Hip Flexor Stretch</td>
+                <td class="num">1×45s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Foam Roll Glutes</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div><div class="day-card full">
+          <div class="day-head"><h4>Day 3 - Full Body</h4><span class="badge">full body</span></div>
+          <table class="day-table">
+            <tbody><tr class="sec-row"><td colspan="4">Warm-Up</td></tr><tr>
+                <td class="ord"></td>
+                <td class="ex">Foam Roll — Full Body</td>
+                <td class="num">1×10 min</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Overhead Pull Apart</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Duck Walks</td>
+                <td class="num">1×15</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">Banded Glute Bridge</td>
+                <td class="num">1×25</td>
+                <td class="num load-cell"><span class="muted">BW/band</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Strength</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">A1. Barbell Squat</td>
+                <td class="num">3×8</td>
+                <td class="num load-cell"><span class="strong load">95 lbs</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">A2. Bench Press</td>
+                <td class="num">3×8</td>
+                <td class="num load-cell"><span class="strong load">90 lbs</span></td>
+              </tr><tr>
+                <td class="ord">3</td>
+                <td class="ex">B1. Pull Ups</td>
+                <td class="num">3×3-4</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">4</td>
+                <td class="ex">B2. Cable Lat Pulldown (Wide Grip)</td>
+                <td class="num">3×10-12</td>
+                <td class="num load-cell"><span class="strong load">67.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">5</td>
+                <td class="ex">C1. Kettlebell Front Squat</td>
+                <td class="num">3×12-15</td>
+                <td class="num load-cell"><span class="strong load">42.5 lbs</span></td>
+              </tr><tr>
+                <td class="ord">6</td>
+                <td class="ex">D1. Weight Plate Russian Twist</td>
+                <td class="num">3×18/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr class="sec-row"><td colspan="4">Cool-Down</td></tr><tr>
+                <td class="ord">1</td>
+                <td class="ex">Doorway Pec Stretch</td>
+                <td class="num">1×30s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr><tr>
+                <td class="ord">2</td>
+                <td class="ex">Seated Hamstring Stretch</td>
+                <td class="num">1×60s/side</td>
+                <td class="num load-cell"><span class="muted">BW</span></td>
+              </tr></tbody>
+          </table>
+        </div></div>
+    </section>
+</section>
+
+<div class="callout">
+  <h3>Before I build this into the app</h3>
+  <ul>
+    <li><strong>Exercise picks</strong> — day templates are built from what you actually did most recently (weeks 6–9: bench/incline/rows for Upper A, squat/RDL/leg press for Lower A, Arnold press/decline/rear-pulldown for Upper B). Swap anything that's not working for you.</li>
+    <li><strong>Full Body placement</strong> — I put them at week 13 Day 3 and week 16 Day 3 (end of each 3-week block). Fine, or would you rather they replace a different day / land elsewhere?</li>
+    <li><strong>Progression rate</strong> — +2.5 lb/week on bench &amp; squat means squat goes 82.5 → 95 lb and bench 77.5 → 90 lb over the 6 weeks. That roughly matches your actual pace in weeks 6–9. Too aggressive, too easy, or right?</li>
+    <li><strong>Chin Up / Pull Up progression</strong> — 1–2 reps → 4–5 reps over 6 weeks, 3 sets each time. If a rep is missed some weeks, fine to hold flat rather than push the number — just flag it and I'll adjust.</li>
+    <li><strong>App changes</strong> — once the numbers look right I'll: add a <code>phase_group</code> field to the plan model (backend + frontend), seed these 18 sessions into Firestore, put "Reintroduction" / "Maintenance Building" as a title on the Workouts tab, and add a segmented toggle for phase group on the Progress tab. Want all of that in one pass, or the data first and UI after?</li>
+  </ul>
+</div>
+
+<footer>Draft only — nothing has been written to Firestore or the app yet.</footer>
+</body></html>

@@ -379,8 +379,9 @@ def post_workout_session(req: WorkoutSessionLogRequest, uid: str = Depends(curre
 
 
 @router.get("/workout/progress", response_model=WorkoutProgress)
-def workout_progress(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
-    return store.get_workout_progress(uid)
+def workout_progress(week_min: int | None = None, week_max: int | None = None,
+                     uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return store.get_workout_progress(uid, week_min=week_min, week_max=week_max)
 
 
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------
