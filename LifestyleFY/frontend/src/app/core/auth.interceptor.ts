@@ -1,6 +1,6 @@
 import { HttpInterceptorFn } from '@angular/common/http';
 import { inject } from '@angular/core';
-import { from, switchMap } from 'rxjs';
+import { from, switchMap, timeout } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { AuthService } from './auth.service';
 
@@ -15,7 +15,11 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
       const authReq = token
         ? req.clone({ setHeaders: { Authorization: `Bearer ${token}` } })
         : req;
-      return next(authReq);
+      // fetch() has no built-in timeout, so a request started right before/
+      // during a network change (WiFi switch, DNS hiccup) can hang forever
+      // instead of erroring — which otherwise leaves the UI stuck loading
+      // indefinitely. Fail it after 20s so callers' error handlers can run.
+      return next(authReq).pipe(timeout(20000));
     }),
   );
 };

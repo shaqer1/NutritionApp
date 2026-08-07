@@ -2,6 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
+import { SwUpdateService } from './core/sw-update.service';
 import { environment } from '../environments/environment';
 
 @Component({
@@ -46,6 +47,10 @@ import { environment } from '../environments/environment';
 export class AppComponent {
   auth = inject(AuthService);
   useAuth = environment.useAuth;
+
+  constructor() {
+    inject(SwUpdateService).init();
+  }
 
   signIn(): void {
     this.auth.signInWithGoogle();
