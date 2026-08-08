@@ -1,7 +1,8 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpContext } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { REQUEST_TIMEOUT_MS } from './auth.interceptor';
 import {
   AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest, CoachMessage,
   CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
@@ -16,6 +17,8 @@ import {
 export class ApiService {
   private http = inject(HttpClient);
   private base = environment.apiBase;
+  /** Gemini's "smart" model (recipe/grocery generation) can take 30-45s+. */
+  private aiContext = new HttpContext().set(REQUEST_TIMEOUT_MS, 90000);
 
   // --- scanning / search ---
   scan(barcode: string): Observable<{ item: FoodItem; source: string }> {
@@ -86,7 +89,8 @@ export class ApiService {
   // --- Recipes ---
   suggestRecipe(mealPeriod: string, message = ''): Observable<{ recipe: Recipe }> {
     return this.http.post<{ recipe: Recipe }>(
-      `${this.base}/recipes/suggest`, { meal_period: mealPeriod, message });
+      `${this.base}/recipes/suggest`, { meal_period: mealPeriod, message },
+      { context: this.aiContext });
   }
   suggestRecipePreview(mealPeriod: string): Observable<AiPromptPreview> {
     return this.http.post<AiPromptPreview>(
@@ -104,7 +108,8 @@ export class ApiService {
 
   // --- AI ---
   grocery(days = 7, day?: string, message = ''): Observable<{ grocery_list: GroceryList }> {
-    return this.http.post<{ grocery_list: GroceryList }>(`${this.base}/grocery`, { days, day, message });
+    return this.http.post<{ grocery_list: GroceryList }>(
+      `${this.base}/grocery`, { days, day, message }, { context: this.aiContext });
   }
   groceryPreview(days = 7, day?: string): Observable<AiPromptPreview> {
     return this.http.post<AiPromptPreview>(`${this.base}/grocery/preview`, { days, day });

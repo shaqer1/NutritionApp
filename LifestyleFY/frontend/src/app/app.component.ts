@@ -41,18 +41,57 @@ import { environment } from '../environments/environment';
         <p class="muted">Sign in to track your nutrition.</p>
         <button (click)="signIn()">Sign in with Google</button>
       </div>
+    } @else if (showRecovery) {
+      <div class="app login">
+        <img src="assets/logo/logo.svg" alt="Lifestyle4U" style="width:96px;height:96px;margin-bottom:8px" />
+        <h1>Having trouble loading</h1>
+        <p class="muted">This can happen after switching networks. Resetting clears
+          local app data and signs you out.</p>
+        <button (click)="hardReset()">Reset &amp; reload</button>
+      </div>
     }
   `,
 })
 export class AppComponent {
   auth = inject(AuthService);
   useAuth = environment.useAuth;
+  showRecovery = false;
 
   constructor() {
     inject(SwUpdateService).init();
+    if (this.useAuth) {
+      setTimeout(() => {
+        if (!this.auth.ready) this.showRecovery = true;
+      }, 8000);
+    }
   }
 
   signIn(): void {
     this.auth.signInWithGoogle();
+  }
+
+  /** Clears service workers, caches, and IndexedDB (Firebase Auth's persisted
+   * session lives there) for cases where that local state gets stuck and
+   * silently hangs every future auth check — the same fix as manually
+   * clearing site data, without leaving the app. */
+  async hardReset(): Promise<void> {
+    try {
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map((r) => r.unregister()));
+      }
+      if ('caches' in window) {
+        const keys = await caches.keys();
+        await Promise.all(keys.map((k) => caches.delete(k)));
+      }
+      if (indexedDB.databases) {
+        const dbs = await indexedDB.databases();
+        await Promise.all(
+          dbs.map((db) => db.name && indexedDB.deleteDatabase(db.name)),
+        );
+      }
+    } finally {
+      window.location.reload();
+    }
   }
 }
