@@ -191,6 +191,9 @@ export class ApiService {
     if (limit != null) params['limit'] = limit;
     return this.http.get<{ days: WorkoutDaySummary[] }>(`${this.base}/workout/day-summaries`, { params });
   }
+  workoutNudge(): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.base}/workout/nudge`, {});
+  }
 
   // --- workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---
   updateWorkoutPlanExercise(planId: string, req: WorkoutPlanUpdateRequest):

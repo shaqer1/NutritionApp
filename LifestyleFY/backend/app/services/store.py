@@ -1107,6 +1107,122 @@ class Store:
             g["sets"].sort(key=lambda s: (s.exercise, s.set_num))
         return [WorkoutDaySummary(**g) for g in groups]
 
+    @staticmethod
+    def _collapse_sets_to_max(sets: list[WorkoutSetSummary]) -> list[dict]:
+        """One entry per exercise with the max reps and max weight logged —
+        independently, not necessarily from the same set. Mirrors the
+        Overview tab's per-exercise collapsing (today.component.ts), done
+        here in Python since this feeds the AI context, not the UI."""
+        by_exercise: dict[str, list[WorkoutSetSummary]] = {}
+        for s in sets:
+            by_exercise.setdefault(s.exercise, []).append(s)
+
+        def max_of(values: list[str]) -> str:
+            best = values[0] if values else ""
+            best_num = _parse_load_number(best)
+            for v in values[1:]:
+                n = _parse_load_number(v)
+                if n is not None and (best_num is None or n > best_num):
+                    best, best_num = v, n
+            return best
+
+        return [
+            {"exercise": ex, "max_reps": max_of([s.reps for s in lst]),
+             "max_weight": max_of([s.weight for s in lst])}
+            for ex, lst in by_exercise.items()
+        ]
+
+    def _today_workout_status(self, uid: str, today: date) -> dict:
+        """Derives "what's happening with today's workout" purely from
+        log_date on set/session rows — the app has no other notion of which
+        planned (week, day) "is" today, since workouts aren't calendar-bound."""
+        today_iso = today.isoformat()
+        empty = {"day": None, "week": None, "status": "no_workout_today",
+                 "previous_exercise": None, "current_exercise": None, "next_exercise": None}
+
+        sets_today = [r for r in self._workout_set_rows(uid) if r.get("log_date") == today_iso]
+        sessions_today = [r for r in self._workout_session_rows(uid) if r.get("log_date") == today_iso]
+        if not sets_today and not sessions_today:
+            return empty
+
+        candidates = sessions_today or sets_today
+        week = int(candidates[0]["week"])
+        day = candidates[0].get("day_name") or candidates[0].get("day")
+
+        finished = any(int(r["week"]) == week and r.get("day_name") == day for r in sessions_today)
+        if finished:
+            return {"day": day, "week": week, "status": "completed",
+                    "previous_exercise": None, "current_exercise": None, "next_exercise": None}
+
+        logged_exercises = {r["exercise"] for r in sets_today
+                            if r["day"] == day and int(r["week"]) == week}
+        plan = self.get_workout_day(uid, week, day)
+        order = [e.exercise for e in (plan.warmup + plan.strength + plan.cooldown)]
+
+        current_idx = next((i for i, ex in enumerate(order) if ex not in logged_exercises), None)
+        if current_idx is None:
+            # every planned exercise has at least one set logged, but no finish yet
+            return {"day": day, "week": week, "status": "in_progress",
+                    "previous_exercise": order[-2] if len(order) > 1 else None,
+                    "current_exercise": order[-1] if order else None, "next_exercise": None}
+        return {
+            "day": day, "week": week, "status": "in_progress",
+            "previous_exercise": order[current_idx - 1] if current_idx > 0 else None,
+            "current_exercise": order[current_idx],
+            "next_exercise": order[current_idx + 1] if current_idx + 1 < len(order) else None,
+        }
+
+    def _upcoming_workouts(self, uid: str, current_week: int, limit: int = 6) -> list[dict]:
+        """Next N planned (week, day) slots, in plan order, that have no
+        session or set logged yet — each with its full exercise list."""
+        plan_rows = self._workout_plan_rows(uid)
+        seen_pairs: list[tuple[int, str]] = []
+        seen_set: set[tuple[int, str]] = set()
+        for r in sorted(plan_rows, key=lambda r: int(r["week"])):
+            key = (int(r["week"]), r["day"])
+            if key not in seen_set:
+                seen_set.add(key)
+                seen_pairs.append(key)
+
+        done = {(int(r["week"]), r.get("day_name")) for r in self._workout_session_rows(uid)}
+        done |= {(int(r["week"]), r["day"]) for r in self._workout_set_rows(uid)}
+
+        upcoming_pairs = [(w, d) for (w, d) in seen_pairs
+                          if w >= current_week and (w, d) not in done][:limit]
+
+        result = []
+        for week, day in upcoming_pairs:
+            plan = self.get_workout_day(uid, week, day)
+            exercises = [
+                {"exercise": e.exercise, "sets": e.sets, "reps": e.reps}
+                for e in (plan.warmup + plan.strength + plan.cooldown)
+            ]
+            result.append({"week": week, "day": day, "exercises": exercises})
+        return result
+
+    def get_workout_coach_context(self, uid: str, today: date) -> dict:
+        """Everything the Workout Coach nudge needs, computed server-side so
+        the frontend just triggers the request — no context assembly there."""
+        week = self.get_workout_config(uid).current_week
+        overview = self.get_week_overview(uid, week)
+        current_week_remaining = [d for d in overview.days if d not in overview.completed_days]
+
+        recent = self.get_workout_day_summaries(uid, limit=6)
+        recent_workouts = [
+            {"date": d.date, "week": d.week, "day": d.day, "felt": d.energy_level or "not rated",
+             "exercises": self._collapse_sets_to_max(d.sets)}
+            for d in recent
+        ]
+
+        return {
+            "current_week": week,
+            "current_week_completed": overview.completed_days,
+            "current_week_remaining": current_week_remaining,
+            "today_workout": self._today_workout_status(uid, today),
+            "recent_workouts": recent_workouts,
+            "upcoming_workouts": self._upcoming_workouts(uid, week, limit=6),
+        }
+
     # ---------- Workout-app summary sync (Sheets) ----------
     def sync_summary_to_sheet(self, uid: str) -> bool:
         """Write today's summary as a row in the workout spreadsheet's

@@ -410,6 +410,16 @@ def workout_day_summaries(date: date_type | None = None, limit: int | None = Non
         uid, date_filter=date.isoformat() if date else None, limit=limit)}
 
 
+@router.post("/workout/nudge")
+def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                  coach: Coach = Depends(coach_dep)):
+    """One-way encouragement/feedback for the floating Workout Coach button —
+    no custom note, no preview, context built entirely server-side."""
+    today = datetime.now(timezone.utc).date()
+    context = store.get_workout_coach_context(uid, today)
+    return {"message": coach.workout_nudge(context)}
+
+
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------
 
 async def _ensure_exercise_cached(store: Store, exercisedb: ExerciseDbClient,

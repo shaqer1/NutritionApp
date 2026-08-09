@@ -1,6 +1,7 @@
 import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import {
   CustomExerciseRequest, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails,
@@ -71,7 +72,7 @@ const PHASE_GROUPS: PhaseGroup[] = [
           [style.left.px]="coachSide === 'left' ? 16 : null"
           [style.right.px]="coachSide === 'right' ? 16 : null">
           <button class="coach-bubble-close" (click)="dismissCoach()" aria-label="Dismiss">✕</button>
-          <p style="margin:0">{{ coachMessage }}</p>
+          <p style="margin:0">{{ coachLoading ? 'Thinking…' : coachMessage }}</p>
         </div>
       }
     }
@@ -782,17 +783,11 @@ export class WorkoutComponent implements OnInit, OnDestroy {
 
   status = '';
 
-  // ---------- Workout Coach (fake nudge UI — backend wiring comes later) ----------
+  // ---------- Workout Coach ----------
   showCoachBubble = false;
+  coachLoading = false;
   coachMessage = '';
-  private coachTimer?: ReturnType<typeof setTimeout>;
-  private readonly coachMessages = [
-    "💪 Solid session! That's how you build muscle — consistency beats intensity.",
-    "🔥 Nice work in here. Rest up and refuel with some protein.",
-    "👊 Don't skip leg day tomorrow, champ!",
-    "🏆 Progress isn't always visible day-to-day — trust the process.",
-    "🥩 Great effort. Make sure you're hitting your protein target today.",
-  ];
+  private coachSub?: Subscription;
 
   // Drag-to-reposition: dragLeftPx is the live px position while actively
   // dragging (null when settled, so the anchored side takes over). Snaps to
@@ -852,19 +847,28 @@ export class WorkoutComponent implements OnInit, OnDestroy {
   }
 
   triggerCoach(): void {
-    this.coachMessage = this.coachMessages[Math.floor(Math.random() * this.coachMessages.length)];
+    this.coachSub?.unsubscribe();
     this.showCoachBubble = true;
-    clearTimeout(this.coachTimer);
-    this.coachTimer = setTimeout(() => (this.showCoachBubble = false), 5000);
+    this.coachLoading = true;
+    this.coachSub = this.api.workoutNudge().subscribe({
+      next: (r) => {
+        this.coachLoading = false;
+        this.coachMessage = r.message;
+      },
+      error: () => {
+        this.coachLoading = false;
+        this.coachMessage = "Couldn't reach the coach — try again in a bit.";
+      },
+    });
   }
 
   dismissCoach(): void {
     this.showCoachBubble = false;
-    clearTimeout(this.coachTimer);
+    this.coachSub?.unsubscribe();
   }
 
   ngOnDestroy(): void {
-    clearTimeout(this.coachTimer);
+    this.coachSub?.unsubscribe();
   }
 
   // --- Phase 2: edit exercise fields ---

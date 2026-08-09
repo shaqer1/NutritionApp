@@ -334,3 +334,22 @@ class Coach:
             raise ValueError(f"AI returned malformed grocery list JSON: {e}") from e
         data["source"] = "ai"
         return GroceryList(**data)
+
+    # ---------- Workout coach (floating-button nudge — one-way, no custom note) ----------
+    def workout_nudge(self, context: dict) -> str:
+        """Short reaction to the workout context JSON built by
+        Store.get_workout_coach_context(). Unlike nudge/suggest_recipe/grocery,
+        this has no custom note or preview — just a fresh take each tap."""
+        if self.s.use_stubs or not self.s.gemini_api_key:
+            return "[stubbed] Keep it up — set GEMINI_API_KEY for real coaching."
+        generic = (
+            "You are an encouraging workout coach for a muscle-gain app. Based on "
+            "the JSON context, write ONE short message reacting to whichever is "
+            "most relevant: an in-progress workout, this week's progress, or "
+            "what's coming up next. Mostly encouraging, but include light "
+            "constructive feedback if the data calls for it (e.g. skipped days, "
+            "dropping reps/weight). 1-2 casual sentences, speak directly to the "
+            "user (\"you\"), no markdown, no preamble."
+        )
+        prompt = f"{generic}\n\nContext (JSON): {json.dumps(context)}"
+        return self._generate(prompt, smart=False)
