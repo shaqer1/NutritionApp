@@ -8,8 +8,8 @@ import {
   CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
   ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals, GroceryList, InventoryItem,
   LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
-  WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest,
-  WorkoutSetEntry, WorkoutSetLogRequest, WorkoutWeekOverview,
+  WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress,
+  WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutWeekOverview,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -184,6 +184,12 @@ export class ApiService {
     if (weekMin != null) params['week_min'] = weekMin;
     if (weekMax != null) params['week_max'] = weekMax;
     return this.http.get<WorkoutProgress>(`${this.base}/workout/progress`, { params });
+  }
+  getWorkoutDaySummaries(date?: string, limit?: number): Observable<{ days: WorkoutDaySummary[] }> {
+    const params: Record<string, string | number> = {};
+    if (date) params['date'] = date;
+    if (limit != null) params['limit'] = limit;
+    return this.http.get<{ days: WorkoutDaySummary[] }>(`${this.base}/workout/day-summaries`, { params });
   }
 
   // --- workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---

@@ -2,8 +2,9 @@ import { Component, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
-import { LogEntry, LogRequest, TodaySummary } from '../core/models';
+import { LogEntry, LogRequest, TodaySummary, WorkoutDaySummary, WorkoutSetSummary } from '../core/models';
 import { MEAL_TYPES, mealLabel as sharedMealLabel } from '../core/meal-picker';
+import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
 
 @Component({
   selector: 'app-today',
@@ -166,6 +167,37 @@ import { MEAL_TYPES, mealLabel as sharedMealLabel } from '../core/meal-picker';
           </table>
         }
       </div>
+
+      <div class="card">
+        <h3>Workouts logged today</h3>
+        @if (!workoutDays.length) {
+          <p class="muted">No workouts logged today.</p>
+        } @else {
+          @for (w of workoutDays; track w.date + w.week + w.day) {
+            <div style="padding:8px 0;border-top:1px solid var(--border)">
+              <div class="row spread">
+                <div style="font-weight:700">{{ w.day || 'Workout' }} <span class="muted">· Week {{ w.week }}</span></div>
+                <div style="font-size:20px">{{ energyIcon(w.energy_level) }}</div>
+              </div>
+              @if (w.notes) {
+                <div class="muted" style="margin-top:2px">{{ w.notes }}</div>
+              }
+              @if (w.sets.length) {
+                <table style="width:100%;border-collapse:collapse;margin-top:6px">
+                  <tbody>
+                    @for (m of maxSetsByExercise(w.sets); track m.exercise) {
+                      <tr>
+                        <td class="muted" style="padding:2px 6px 2px 0">{{ m.exercise }}</td>
+                        <td style="padding:2px 0;text-align:right">{{ m.reps }} reps &#64; {{ m.weight }} (max)</td>
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              }
+            </div>
+          }
+        }
+      </div>
     } @else if (error) {
       <div class="card"><p class="muted">Couldn't reach the API. Is the backend running?</p></div>
     } @else {
@@ -177,6 +209,7 @@ export class TodayComponent implements OnInit {
   private api = inject(ApiService);
   summary?: TodaySummary;
   logEntries: LogEntry[] = [];
+  workoutDays: WorkoutDaySummary[] = [];
   error = false;
   loading = false;
   mealTypes = MEAL_TYPES;
@@ -234,10 +267,48 @@ export class TodayComponent implements OnInit {
       error: () => { this.error = true; this.loading = false; },
     });
     this.api.getLog(date).subscribe((r) => (this.logEntries = r.entries));
+    this.api.getWorkoutDaySummaries(date).subscribe((r) => (this.workoutDays = r.days));
   }
 
   mealLabel(mealType: string, instance: number): string {
     return sharedMealLabel(mealType, instance);
+  }
+
+  energyIcon(level: string): string {
+    return sharedEnergyIcon(level);
+  }
+
+  /** Collapses a workout's individual sets down to one row per exercise,
+   * showing the max reps and max weight logged (independently — not
+   * necessarily from the same set). */
+  maxSetsByExercise(sets: WorkoutSetSummary[]): { exercise: string; reps: string; weight: string }[] {
+    const byExercise = new Map<string, WorkoutSetSummary[]>();
+    for (const s of sets) {
+      if (!byExercise.has(s.exercise)) byExercise.set(s.exercise, []);
+      byExercise.get(s.exercise)!.push(s);
+    }
+    const maxOf = (values: string[]): string => {
+      let best = values[0] ?? '';
+      let bestNum = this.parseLeadingNumber(best);
+      for (const v of values.slice(1)) {
+        const n = this.parseLeadingNumber(v);
+        if (n != null && (bestNum == null || n > bestNum)) {
+          best = v;
+          bestNum = n;
+        }
+      }
+      return best;
+    };
+    return [...byExercise.entries()].map(([exercise, list]) => ({
+      exercise,
+      reps: maxOf(list.map((s) => s.reps)),
+      weight: maxOf(list.map((s) => s.weight)),
+    }));
+  }
+
+  private parseLeadingNumber(s: string): number | null {
+    const m = /-?\d+(?:\.\d+)?/.exec(s || '');
+    return m ? parseFloat(m[0]) : null;
   }
 
   pct(v: number, goal: number): number {

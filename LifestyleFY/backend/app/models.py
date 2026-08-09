@@ -293,6 +293,26 @@ class WorkoutProgress(BaseModel):
     recent: list[WorkoutSession] = Field(default_factory=list)
 
 
+class WorkoutSetSummary(BaseModel):
+    """One logged set, as shown within a WorkoutDaySummary."""
+    exercise: str
+    set_num: int
+    reps: str = ""
+    weight: str = ""
+
+
+class WorkoutDaySummary(BaseModel):
+    """One completed workout day (session + its logged sets), grouped by
+    (date, week, day) — used for the Overview "today's workouts" section and
+    as AI prompt context (recent workouts)."""
+    date: str
+    week: str
+    day: str
+    energy_level: str = ""
+    notes: str = ""
+    sets: list[WorkoutSetSummary] = Field(default_factory=list)
+
+
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------
 
 class WorkoutPlanUpdateRequest(BaseModel):

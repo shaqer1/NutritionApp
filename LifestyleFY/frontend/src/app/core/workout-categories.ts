@@ -7,6 +7,14 @@ export interface ExerciseCategoryMeta {
   emoji: string;
 }
 
+/** Icon for a logged session's energy_level ("high" | "medium" | "low") —
+ * shared between the workout progress card and the Overview summary. */
+export function energyIcon(level: string): string {
+  if (level === 'high') return '🔥';
+  if (level === 'low') return '😔';
+  return '💪';
+}
+
 export const EXERCISE_CATEGORIES: ExerciseCategoryMeta[] = [
   { id: 'push', label: 'Push', emoji: '💪' },
   { id: 'pull', label: 'Pull', emoji: '🎣' },

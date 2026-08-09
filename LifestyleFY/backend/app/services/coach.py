@@ -16,11 +16,12 @@ Gemini key.
 from __future__ import annotations
 
 import json
+from datetime import date
 
 from ..config import Settings
 from ..models import (
     Goals, GroceryItem, GroceryList, GrocerySwap, InventoryItem, LogEntry, Macros, Profile,
-    Recipe, RecipeIngredient, TodaySummary,
+    Recipe, RecipeIngredient, TodaySummary, WorkoutDaySummary,
 )
 from .categories import APP_CATEGORIES
 
@@ -88,6 +89,21 @@ class Coach:
         return (resp.text or "").strip()
 
     @staticmethod
+    def _recent_workouts_text(days: list[WorkoutDaySummary]) -> str:
+        if not days:
+            return "no recent workouts logged"
+        parts = []
+        for d in days:
+            sets_text = "; ".join(
+                f"{s.exercise} set {s.set_num}: {s.reps} reps @ {s.weight}" for s in d.sets
+            ) or "no sets logged"
+            parts.append(
+                f"{d.date} ({d.day or 'workout'}, week {d.week}, felt: "
+                f"{d.energy_level or 'not rated'}) — {sets_text}"
+            )
+        return " | ".join(parts)
+
+    @staticmethod
     def _assemble_prompt(generic: str, context: str, custom_note: str, message: str = "") -> str:
         parts = [generic, context]
         if custom_note.strip():
@@ -99,7 +115,7 @@ class Coach:
     # ---------- Meal-time nudge ----------
     def nudge_prompt_parts(self, summary: TodaySummary, inventory: list[InventoryItem],
                            log_entries: list[LogEntry], meal: str,
-                           time_label: str) -> tuple[str, str]:
+                           time_label: str, today: date) -> tuple[str, str]:
         g = summary.goals
         generic = (
             "You are a nutrition coach for a muscle-gain app. Suggest ONE realistic, "
@@ -118,7 +134,11 @@ class Coach:
             f"{g.carbs_g}g carbs / {g.fat_g}g fat."
             if g else "No macro goals set yet."
         )
+        # {Recent_workouts} is a display placeholder, not sent to Gemini as-is
+        # — nudge() substitutes the real recent-workout summary right before
+        # generating, same pattern as {Pantry_items} below.
         context = (
+            f"Today's date: {today.isoformat()}.\n"
             f"It's {time_label} ({meal} time).\n{goal_line}\n"
             f"Consumed so far: {round(summary.consumed.cal)} kcal / "
             f"{round(summary.consumed.protein)}g P / {round(summary.consumed.carbs)}g C / "
@@ -127,25 +147,28 @@ class Coach:
             f"{round(summary.remaining.protein)}g P / {round(summary.remaining.carbs)}g C / "
             f"{round(summary.remaining.fat)}g F.\n"
             f"Meals/items already eaten today: {eaten}.\n"
-            f"Pantry on hand: {on_hand}."
+            f"Pantry on hand: {on_hand}.\n"
+            "Recent workouts (up to 3, most recent first): {Recent_workouts}"
         )
         return generic, context
 
     def nudge(self, summary: TodaySummary, inventory: list[InventoryItem],
-              log_entries: list[LogEntry], meal: str, time_label: str,
+              log_entries: list[LogEntry], meal: str, time_label: str, today: date,
+              recent_workouts: list[WorkoutDaySummary] | None = None,
               custom_note: str = "", message: str = "") -> str | None:
         # Always generates on request (button click or direct question) — no
         # "only nudge if behind on macros" gate. Only skips if there's no goal
         # to nudge against at all.
         if not summary.goals:
             return None
-        generic, context = self.nudge_prompt_parts(summary, inventory, log_entries, meal, time_label)
+        generic, context = self.nudge_prompt_parts(summary, inventory, log_entries, meal, time_label, today)
+        context = context.replace("{Recent_workouts}", self._recent_workouts_text(recent_workouts or []))
         return self._generate(self._assemble_prompt(generic, context, custom_note, message))
 
     # ---------- Recipes ----------
     def recipe_prompt_parts(self, inventory: list[InventoryItem], prefs: list[str],
                             allergies: list[str], meal_period: str,
-                            remaining: Macros) -> tuple[str, str]:
+                            remaining: Macros, today: date) -> tuple[str, str]:
         generic = (
             "You are a recipe assistant for a muscle-gain nutrition app. Using ONLY "
             "(or as much as possible) the ingredients listed below from the user's "
@@ -177,12 +200,14 @@ class Coach:
         # the (potentially long) raw JSON dump never needs to be shown to the
         # user, even though it's exactly what gets sent for real.
         context = (
+            f"Today's date: {today.isoformat()}.\n"
             f"Meal period: {meal_period}.\n"
             f"Remaining macro budget for today: {round(remaining.cal)} kcal / "
             f"{round(remaining.protein)}g protein / {round(remaining.carbs)}g carbs / "
             f"{round(remaining.fat)}g fat.\n"
             f"Dietary prefs: {', '.join(prefs) or 'none'}. "
-            f"Allergies: {', '.join(allergies) or 'none'} (must avoid).\n\n"
+            f"Allergies: {', '.join(allergies) or 'none'} (must avoid).\n"
+            "Recent workouts (up to 3, most recent first): {Recent_workouts}\n\n"
             "Pantry ingredients (JSON): {Pantry_items}"
         )
         return generic, context
@@ -200,7 +225,8 @@ class Coach:
         return json.dumps(on_hand)
 
     def suggest_recipe(self, inventory: list[InventoryItem], prefs: list[str],
-                       allergies: list[str], meal_period: str, remaining: Macros,
+                       allergies: list[str], meal_period: str, remaining: Macros, today: date,
+                       recent_workouts: list[WorkoutDaySummary] | None = None,
                        custom_note: str = "", message: str = "") -> Recipe:
         """A structured (not free-text) recipe draft, built preferentially from
         real pantry ingredients so it's directly editable/saveable and its
@@ -222,8 +248,9 @@ class Coach:
                 source="ai",
             )
 
-        generic, context = self.recipe_prompt_parts(inventory, prefs, allergies, meal_period, remaining)
+        generic, context = self.recipe_prompt_parts(inventory, prefs, allergies, meal_period, remaining, today)
         context = context.replace("{Pantry_items}", self._pantry_json(inventory))
+        context = context.replace("{Recent_workouts}", self._recent_workouts_text(recent_workouts or []))
         text = self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)
         cleaned = text.strip()
         if cleaned.startswith("```"):
@@ -240,7 +267,7 @@ class Coach:
     # ---------- Grocery list ----------
     def grocery_prompt_parts(self, inventory: list[InventoryItem], goals: Goals,
                              prefs: list[str], days: int,
-                             weekly_history: list[dict]) -> tuple[str, str]:
+                             weekly_history: list[dict], today: date) -> tuple[str, str]:
         generic = (
             f"Plan a {days}-day muscle-gain grocery list. Include only the items to "
             "BUY (not what's on hand), with quantities. Prioritize cheap, "
@@ -263,16 +290,19 @@ class Coach:
             for h in weekly_history
         ) or "no history yet"
         context = (
+            f"Today's date: {today.isoformat()}.\n"
             f"Daily target: {goals.calories} kcal / {goals.protein_g}g protein / "
             f"{goals.carbs_g}g carbs / {goals.fat_g}g fat.\n"
             f"Already have: {on_hand}.\nPrefs: {', '.join(prefs) or 'none'}.\n"
-            f"Last 7 days consumed-vs-target: {history_lines}."
+            f"Last 7 days consumed-vs-target: {history_lines}.\n"
+            "Recent workouts (up to 3, most recent first): {Recent_workouts}"
         )
         return generic, context
 
     def grocery(self, inventory: list[InventoryItem], goals: Goals, prefs: list[str],
-                days: int, weekly_history: list[dict], custom_note: str = "",
-                message: str = "") -> GroceryList:
+                days: int, weekly_history: list[dict], today: date,
+                recent_workouts: list[WorkoutDaySummary] | None = None,
+                custom_note: str = "", message: str = "") -> GroceryList:
         """A structured (not free-text) grocery list draft, so it can be saved,
         edited, and archived like a Recipe rather than living only as prose."""
         if self.s.use_stubs or not self.s.gemini_api_key:
@@ -290,7 +320,8 @@ class Coach:
                 source="ai",
             )
 
-        generic, context = self.grocery_prompt_parts(inventory, goals, prefs, days, weekly_history)
+        generic, context = self.grocery_prompt_parts(inventory, goals, prefs, days, weekly_history, today)
+        context = context.replace("{Recent_workouts}", self._recent_workouts_text(recent_workouts or []))
         text = self._generate(self._assemble_prompt(generic, context, custom_note, message), smart=True)
         cleaned = text.strip()
         if cleaned.startswith("```"):

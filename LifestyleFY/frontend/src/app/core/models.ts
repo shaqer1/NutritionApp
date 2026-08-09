@@ -274,6 +274,22 @@ export interface WorkoutProgress {
   recent: WorkoutSession[];
 }
 
+export interface WorkoutSetSummary {
+  exercise: string;
+  set_num: number;
+  reps: string;
+  weight: string;
+}
+
+export interface WorkoutDaySummary {
+  date: string;
+  week: string;
+  day: string;
+  energy_level: string;
+  notes: string;
+  sets: WorkoutSetSummary[];
+}
+
 // --- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---
 
 export interface WorkoutPlanUpdateRequest {

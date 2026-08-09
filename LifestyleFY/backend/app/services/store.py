@@ -16,9 +16,9 @@ from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, Goals,
     GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay, OverviewExercise,
-    PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
+    PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay, WorkoutDaySummary,
     WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
-    WorkoutSetLogRequest, WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
+    WorkoutSetLogRequest, WorkoutSetSummary, WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
 )
 
 
@@ -1070,6 +1070,42 @@ class Store:
                 for r in recent[:5]
             ],
         )
+
+    def get_workout_day_summaries(self, uid: str, date_filter: str | None = None,
+                                  limit: int | None = None) -> list[WorkoutDaySummary]:
+        """Groups session + set rows by (log_date, week, day) — used for the
+        Overview "today's workouts" section (date_filter=today) and as AI
+        prompt context (limit=3, most recent first)."""
+        sessions = self._workout_session_rows(uid)
+        sets = self._workout_set_rows(uid)
+
+        by_key: dict[str, dict] = {}
+        for r in sessions:
+            key = f"{r.get('log_date', '')}|{r['week']}|{r['day_name']}"
+            g = by_key.setdefault(key, {"date": r.get("log_date", ""), "week": str(r["week"]),
+                                        "day": r["day_name"], "energy_level": "", "notes": "",
+                                        "sets": []})
+            g["energy_level"] = r.get("energy_level", "") or g["energy_level"]
+            g["notes"] = r.get("notes", "") or g["notes"]
+        for r in sets:
+            key = f"{r.get('log_date', '')}|{r['week']}|{r['day']}"
+            g = by_key.setdefault(key, {"date": r.get("log_date", ""), "week": str(r["week"]),
+                                        "day": r["day"], "energy_level": "", "notes": "", "sets": []})
+            g["sets"].append(WorkoutSetSummary(
+                exercise=r["exercise"], set_num=int(r["set_num"]),
+                reps=r.get("actual_reps") or r.get("planned_reps") or "",
+                weight=r.get("weight") or "",
+            ))
+
+        groups = list(by_key.values())
+        if date_filter is not None:
+            groups = [g for g in groups if g["date"] == date_filter]
+        groups.sort(key=lambda g: g["date"], reverse=True)
+        if limit is not None:
+            groups = groups[:limit]
+        for g in groups:
+            g["sets"].sort(key=lambda s: (s.exercise, s.set_num))
+        return [WorkoutDaySummary(**g) for g in groups]
 
     # ---------- Workout-app summary sync (Sheets) ----------
     def sync_summary_to_sheet(self, uid: str) -> bool:

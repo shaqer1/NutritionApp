@@ -10,8 +10,9 @@ from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
     ExerciseSwapRequest, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
-    ScanRequest, TodaySummary, WorkoutDay, WorkoutOverview, WorkoutPlanUpdateRequest,
-    WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest, WorkoutWeekOverview,
+    ScanRequest, TodaySummary, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
+    WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
+    WorkoutWeekOverview,
 )
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.exercisedb import ExerciseDbClient
@@ -176,12 +177,15 @@ def suggest_recipe(uid: str = Depends(current_uid), store: Store = Depends(store
     profile = store.get_profile(uid)
     summary = store.get_today_summary(uid)
     prompts = store.get_ai_prompts(uid)
+    today = datetime.now(timezone.utc).date()
+    recent_workouts = store.get_workout_day_summaries(uid, limit=3)
     try:
         recipe = coach.suggest_recipe(
             store.list_inventory(uid),
             profile.dietary_prefs if profile else [],
             profile.allergies if profile else [],
-            meal_period, summary.remaining, custom_note=prompts.recipe, message=message)
+            meal_period, summary.remaining, today, recent_workouts=recent_workouts,
+            custom_note=prompts.recipe, message=message)
     except ValueError as e:
         raise HTTPException(502, f"Recipe generation failed: {e}") from e
     return {"recipe": recipe}
@@ -193,11 +197,12 @@ def suggest_recipe_preview(uid: str = Depends(current_uid), store: Store = Depen
                            meal_period: str = Body("lunch", embed=True)):
     profile = store.get_profile(uid)
     summary = store.get_today_summary(uid)
+    today = datetime.now(timezone.utc).date()
     generic, context = coach.recipe_prompt_parts(
         store.list_inventory(uid),
         profile.dietary_prefs if profile else [],
         profile.allergies if profile else [],
-        meal_period, summary.remaining)
+        meal_period, summary.remaining, today)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).recipe}
 
 
@@ -232,10 +237,13 @@ def grocery(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
     if not goals:
         raise HTTPException(400, "Set goals first")
     prompts = store.get_ai_prompts(uid)
-    history = store.weekly_macro_history(uid, day or datetime.now(timezone.utc).date())
+    today = day or datetime.now(timezone.utc).date()
+    history = store.weekly_macro_history(uid, today)
+    recent_workouts = store.get_workout_day_summaries(uid, limit=3)
     try:
         grocery_list = coach.grocery(store.list_inventory(uid), goals,
-                             profile.dietary_prefs if profile else [], days, history,
+                             profile.dietary_prefs if profile else [], days, history, today,
+                             recent_workouts=recent_workouts,
                              custom_note=prompts.grocery, message=message)
     except ValueError as e:
         raise HTTPException(502, f"Grocery list generation failed: {e}") from e
@@ -268,9 +276,10 @@ def grocery_preview(uid: str = Depends(current_uid), store: Store = Depends(stor
     profile = store.get_profile(uid)
     if not goals:
         raise HTTPException(400, "Set goals first")
-    history = store.weekly_macro_history(uid, day or datetime.now(timezone.utc).date())
+    today = day or datetime.now(timezone.utc).date()
+    history = store.weekly_macro_history(uid, today)
     generic, context = coach.grocery_prompt_parts(
-        store.list_inventory(uid), goals, profile.dietary_prefs if profile else [], days, history)
+        store.list_inventory(uid), goals, profile.dietary_prefs if profile else [], days, history, today)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).grocery}
 
 
@@ -286,8 +295,9 @@ def run_coach(uid: str = Depends(current_uid), store: Store = Depends(store_dep)
     summary = store.get_today_summary(uid, day)
     log_entries = store.list_log(uid, day)
     prompts = store.get_ai_prompts(uid)
-    tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label,
-                      custom_note=prompts.nudge, message=message)
+    recent_workouts = store.get_workout_day_summaries(uid, limit=3)
+    tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label, day,
+                      recent_workouts=recent_workouts, custom_note=prompts.nudge, message=message)
     if tip:
         store.add_coach_message(uid, tip, "nudge")
         store.sync_summary_to_sheet(uid)
@@ -304,7 +314,7 @@ def coach_preview(uid: str = Depends(current_uid), store: Store = Depends(store_
     summary = store.get_today_summary(uid, day)
     log_entries = store.list_log(uid, day)
     generic, context = coach.nudge_prompt_parts(summary, store.list_inventory(uid),
-                                                log_entries, meal, time_label)
+                                                log_entries, meal, time_label, day)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).nudge}
 
 
@@ -388,6 +398,16 @@ def post_workout_session(req: WorkoutSessionLogRequest, uid: str = Depends(curre
 def workout_progress(week_min: int | None = None, week_max: int | None = None,
                      uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return store.get_workout_progress(uid, week_min=week_min, week_max=week_max)
+
+
+@router.get("/workout/day-summaries")
+def workout_day_summaries(date: date_type | None = None, limit: int | None = None,
+                          uid: str = Depends(current_uid), store: Store = Depends(store_dep)
+                          ) -> dict[str, list[WorkoutDaySummary]]:
+    """Session + set rows grouped by day — date filters to one day (Overview's
+    "today's workouts" section), limit caps most-recent-first (AI context)."""
+    return {"days": store.get_workout_day_summaries(
+        uid, date_filter=date.isoformat() if date else None, limit=limit)}
 
 
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------

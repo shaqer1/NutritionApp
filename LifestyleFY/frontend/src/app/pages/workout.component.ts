@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, OnDestroy, OnInit, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
@@ -7,7 +7,7 @@ import {
   ExerciseSearchResultItem, OverviewDay, PlanExercise, WorkoutDay, WorkoutOverview,
   WorkoutPlanUpdateRequest, WorkoutProgress,
 } from '../core/models';
-import { EXERCISE_CATEGORIES, exerciseCategoryMeta } from '../core/workout-categories';
+import { energyIcon as sharedEnergyIcon, EXERCISE_CATEGORIES, exerciseCategoryMeta } from '../core/workout-categories';
 
 interface SetDraft {
   set_num: number;
@@ -54,6 +54,27 @@ const PHASE_GROUPS: PhaseGroup[] = [
   imports: [CommonModule, FormsModule],
   template: `
     <h1>Workout</h1>
+
+    @if (viewMode === 'workout') {
+      <button class="coach-fab" [class.dragging]="dragging"
+        [style.top.px]="coachTop"
+        [style.left.px]="dragLeftPx !== null ? dragLeftPx : (coachSide === 'left' ? 16 : null)"
+        [style.right.px]="dragLeftPx === null && coachSide === 'right' ? 16 : null"
+        (pointerdown)="onFabPointerDown($event)"
+        (pointermove)="onFabPointerMove($event)"
+        (pointerup)="onFabPointerUp($event)"
+        (pointercancel)="onFabPointerUp($event)"
+        aria-label="Workout Coach">💪</button>
+      @if (showCoachBubble) {
+        <div class="coach-bubble" [class.anchor-left]="coachSide === 'left'"
+          [style.top.px]="coachTop + 60"
+          [style.left.px]="coachSide === 'left' ? 16 : null"
+          [style.right.px]="coachSide === 'right' ? 16 : null">
+          <button class="coach-bubble-close" (click)="dismissCoach()" aria-label="Dismiss">✕</button>
+          <p style="margin:0">{{ coachMessage }}</p>
+        </div>
+      }
+    }
 
     <div class="seg">
       <button [class.active]="viewMode === 'overview'" (click)="switchView('overview')">Overview</button>
@@ -639,8 +660,92 @@ const PHASE_GROUPS: PhaseGroup[] = [
       }
     }
   `,
+  styles: [`
+    .coach-fab {
+      position: fixed;
+      z-index: 40;
+      width: 52px;
+      height: 52px;
+      border-radius: 50%;
+      border: none;
+      background: var(--accent, #ff4d6d);
+      font-size: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+      cursor: grab;
+      touch-action: none;
+      animation: coach-fab-pulse 2s ease-in-out infinite;
+    }
+    .coach-fab.dragging {
+      animation: none;
+      cursor: grabbing;
+    }
+    @keyframes coach-fab-pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.08); }
+    }
+    .coach-bubble {
+      position: fixed;
+      z-index: 41;
+      max-width: 220px;
+      background: #fff;
+      color: #111;
+      border: 3px solid #111;
+      border-radius: 18px;
+      padding: 12px 30px 12px 14px;
+      font-weight: 600;
+      font-size: 14px;
+      line-height: 1.35;
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    }
+    .coach-bubble::before {
+      content: '';
+      position: absolute;
+      top: -17px;
+      right: 22px;
+      width: 0;
+      height: 0;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 14px solid #111;
+    }
+    .coach-bubble::after {
+      content: '';
+      position: absolute;
+      top: -13px;
+      right: 24px;
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 12px solid #fff;
+    }
+    .coach-bubble.anchor-left::before {
+      right: auto;
+      left: 22px;
+    }
+    .coach-bubble.anchor-left::after {
+      right: auto;
+      left: 24px;
+    }
+    .coach-bubble-close {
+      position: absolute;
+      top: 4px;
+      right: 6px;
+      background: none;
+      border: none;
+      font-size: 14px;
+      font-weight: 800;
+      color: #111;
+      cursor: pointer;
+      line-height: 1;
+      padding: 2px 4px;
+    }
+  `],
 })
-export class WorkoutComponent implements OnInit {
+export class WorkoutComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
 
   viewMode: 'overview' | 'workout' | 'progress' = 'workout';
@@ -676,6 +781,91 @@ export class WorkoutComponent implements OnInit {
   progressPhaseGroupKey = PHASE_GROUPS[0].key;
 
   status = '';
+
+  // ---------- Workout Coach (fake nudge UI — backend wiring comes later) ----------
+  showCoachBubble = false;
+  coachMessage = '';
+  private coachTimer?: ReturnType<typeof setTimeout>;
+  private readonly coachMessages = [
+    "💪 Solid session! That's how you build muscle — consistency beats intensity.",
+    "🔥 Nice work in here. Rest up and refuel with some protein.",
+    "👊 Don't skip leg day tomorrow, champ!",
+    "🏆 Progress isn't always visible day-to-day — trust the process.",
+    "🥩 Great effort. Make sure you're hitting your protein target today.",
+  ];
+
+  // Drag-to-reposition: dragLeftPx is the live px position while actively
+  // dragging (null when settled, so the anchored side takes over). Snaps to
+  // whichever screen edge is nearer on release, like a chat-head bubble.
+  coachTop = 68;
+  coachSide: 'left' | 'right' = 'right';
+  dragging = false;
+  dragLeftPx: number | null = null;
+  private dragMoved = false;
+  private pointerId: number | null = null;
+  private grabOffsetX = 0;
+  private grabOffsetY = 0;
+  private downClientX = 0;
+  private downClientY = 0;
+  private static readonly FAB_SIZE = 52;
+  private static readonly DRAG_THRESHOLD = 6;
+
+  onFabPointerDown(ev: PointerEvent): void {
+    const btn = ev.currentTarget as HTMLElement;
+    const rect = btn.getBoundingClientRect();
+    this.grabOffsetX = ev.clientX - rect.left;
+    this.grabOffsetY = ev.clientY - rect.top;
+    this.downClientX = ev.clientX;
+    this.downClientY = ev.clientY;
+    this.dragging = true;
+    this.dragMoved = false;
+    this.pointerId = ev.pointerId;
+    btn.setPointerCapture(ev.pointerId);
+  }
+
+  onFabPointerMove(ev: PointerEvent): void {
+    if (!this.dragging || ev.pointerId !== this.pointerId) return;
+    if (!this.dragMoved) {
+      const dist = Math.hypot(ev.clientX - this.downClientX, ev.clientY - this.downClientY);
+      if (dist < WorkoutComponent.DRAG_THRESHOLD) return;
+      this.dragMoved = true;
+    }
+    const size = WorkoutComponent.FAB_SIZE;
+    const margin = 4;
+    const left = Math.min(Math.max(ev.clientX - this.grabOffsetX, margin), window.innerWidth - size - margin);
+    const top = Math.min(Math.max(ev.clientY - this.grabOffsetY, margin), window.innerHeight - size - margin);
+    this.dragLeftPx = left;
+    this.coachTop = top;
+  }
+
+  onFabPointerUp(ev: PointerEvent): void {
+    if (!this.dragging || ev.pointerId !== this.pointerId) return;
+    this.dragging = false;
+    this.pointerId = null;
+    if (this.dragMoved) {
+      const centerX = (this.dragLeftPx ?? 16) + WorkoutComponent.FAB_SIZE / 2;
+      this.coachSide = centerX < window.innerWidth / 2 ? 'left' : 'right';
+      this.dragLeftPx = null;
+    } else {
+      this.triggerCoach();
+    }
+  }
+
+  triggerCoach(): void {
+    this.coachMessage = this.coachMessages[Math.floor(Math.random() * this.coachMessages.length)];
+    this.showCoachBubble = true;
+    clearTimeout(this.coachTimer);
+    this.coachTimer = setTimeout(() => (this.showCoachBubble = false), 5000);
+  }
+
+  dismissCoach(): void {
+    this.showCoachBubble = false;
+    clearTimeout(this.coachTimer);
+  }
+
+  ngOnDestroy(): void {
+    clearTimeout(this.coachTimer);
+  }
 
   // --- Phase 2: edit exercise fields ---
   editingPlanId: string | null = null;
@@ -943,9 +1133,7 @@ export class WorkoutComponent implements OnInit {
   }
 
   energyIcon(level: string): string {
-    if (level === 'high') return '🔥';
-    if (level === 'low') return '😔';
-    return '💪';
+    return sharedEnergyIcon(level);
   }
 
   getPhaseLabel(week: number): string {
