@@ -1,4 +1,4 @@
-import { Component, OnInit, inject } from '@angular/core';
+import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
@@ -13,9 +13,11 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
   template: `
     <div class="row spread">
       <button class="ghost" (click)="changeDay(-1)">←</button>
-      <h1 style="margin:0">{{ dateLabel() }}</h1>
+      <h1 style="margin:0;cursor:pointer" (click)="openDatePicker()">{{ dateLabel() }}</h1>
       <button class="ghost" (click)="changeDay(1)">→</button>
     </div>
+    <input #dateInput type="date" [value]="dateStr(selectedDate)" (change)="onDatePicked($event)"
+      style="position:absolute;opacity:0;pointer-events:none;width:0;height:0" />
     <div class="row spread" style="margin-top:4px">
       @if (!isToday()) {
         <button class="ghost" (click)="goToday()">Today</button>
@@ -207,6 +209,7 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
 })
 export class TodayComponent implements OnInit {
   private api = inject(ApiService);
+  @ViewChild('dateInput') dateInputRef!: ElementRef<HTMLInputElement>;
   summary?: TodaySummary;
   logEntries: LogEntry[] = [];
   workoutDays: WorkoutDaySummary[] = [];
@@ -231,8 +234,25 @@ export class TodayComponent implements OnInit {
     this.load();
   }
 
-  private dateStr(d: Date): string {
+  dateStr(d: Date): string {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  }
+
+  openDatePicker(): void {
+    const el = this.dateInputRef.nativeElement;
+    if (typeof el.showPicker === 'function') {
+      el.showPicker();
+    } else {
+      el.click();
+    }
+  }
+
+  onDatePicked(ev: Event): void {
+    const value = (ev.target as HTMLInputElement).value;
+    if (!value) return;
+    const [y, m, d] = value.split('-').map(Number);
+    this.selectedDate = new Date(y, m - 1, d);
+    this.load();
   }
 
   changeDay(delta: number): void {

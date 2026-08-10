@@ -54,8 +54,6 @@ const PHASE_GROUPS: PhaseGroup[] = [
   standalone: true,
   imports: [CommonModule, FormsModule],
   template: `
-    <h1>Workout</h1>
-
     @if (viewMode === 'workout') {
       <button class="coach-fab" [class.dragging]="dragging"
         [style.top.px]="coachTop"
@@ -792,7 +790,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
   // Drag-to-reposition: dragLeftPx is the live px position while actively
   // dragging (null when settled, so the anchored side takes over). Snaps to
   // whichever screen edge is nearer on release, like a chat-head bubble.
-  coachTop = 68;
+  coachTop = 160;
   coachSide: 'left' | 'right' = 'right';
   dragging = false;
   dragLeftPx: number | null = null;
@@ -804,6 +802,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
   private downClientY = 0;
   private static readonly FAB_SIZE = 52;
   private static readonly DRAG_THRESHOLD = 6;
+  private static readonly TOPBAR_HEIGHT = 52;
 
   onFabPointerDown(ev: PointerEvent): void {
     const btn = ev.currentTarget as HTMLElement;
@@ -828,7 +827,10 @@ export class WorkoutComponent implements OnInit, OnDestroy {
     const size = WorkoutComponent.FAB_SIZE;
     const margin = 4;
     const left = Math.min(Math.max(ev.clientX - this.grabOffsetX, margin), window.innerWidth - size - margin);
-    const top = Math.min(Math.max(ev.clientY - this.grabOffsetY, margin), window.innerHeight - size - margin);
+    const top = Math.min(
+      Math.max(ev.clientY - this.grabOffsetY, WorkoutComponent.TOPBAR_HEIGHT + margin),
+      window.innerHeight - size - margin,
+    );
     this.dragLeftPx = left;
     this.coachTop = top;
   }

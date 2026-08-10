@@ -132,6 +132,7 @@ export interface Recipe {
   image_url?: string | null;
   is_active?: boolean;
   created_at?: string | null;
+  meal?: string; // breakfast | lunch | dinner | snack | '' (unset)
 }
 
 export interface GroceryItem {

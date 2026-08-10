@@ -61,8 +61,6 @@ const LOCATION_EMOJI: Record<Location, string> = {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink],
   template: `
-    <h1>Inventory</h1>
-
     <div class="card">
       <div class="row spread" style="cursor:pointer" (click)="addOpen = !addOpen">
         <h3>Add / Scan</h3>

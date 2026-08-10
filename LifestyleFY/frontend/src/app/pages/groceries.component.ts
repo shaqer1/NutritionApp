@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
 import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
+import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { GroceryItem, GroceryList } from '../core/models';
 import { APP_CATEGORIES } from '../core/categories';
 import { todayStr } from '../core/meal-picker';
@@ -12,8 +13,6 @@ import { todayStr } from '../core/meal-picker';
   standalone: true,
   imports: [CommonModule, FormsModule, AiPromptPanelComponent],
   template: `
-    <h1>Groceries</h1>
-
     <div class="card blue">
       <h3>Generate a grocery list</h3>
       <label>Days to shop for</label>
@@ -29,7 +28,13 @@ import { todayStr } from '../core/meal-picker';
       <p class="muted">{{ status }}</p>
     </div>
 
-    <app-ai-prompt-panel category="grocery" [fetchPreview]="previewGrocery" />
+    @if (hamburger.open()) {
+      <div class="slide-panel-backdrop" (click)="hamburger.close()"></div>
+      <div class="slide-panel">
+        <button class="slide-panel-close" (click)="hamburger.close()" aria-label="Close">✕</button>
+        <app-ai-prompt-panel category="grocery" [fetchPreview]="previewGrocery" />
+      </div>
+    }
 
     @if (draft) {
       <div class="card">
@@ -137,6 +142,7 @@ import { todayStr } from '../core/meal-picker';
 })
 export class GroceriesComponent implements OnInit {
   private api = inject(ApiService);
+  hamburger = inject(HamburgerMenuService);
   days = 7;
   status = '';
   message = '';

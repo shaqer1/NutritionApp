@@ -140,6 +140,7 @@ class Recipe(BaseModel):
     image_url: str | None = None
     is_active: bool = True
     created_at: datetime | None = None
+    meal: str = ""  # breakfast | lunch | dinner | snack | "" (unset, incl. older recipes)
 
 
 class GroceryItem(BaseModel):

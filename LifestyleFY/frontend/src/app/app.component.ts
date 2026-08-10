@@ -2,15 +2,31 @@ import { CommonModule } from '@angular/common';
 import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
+import { HamburgerMenuService } from './core/hamburger-menu.service';
+import { ProfilePanelComponent } from './core/profile-panel.component';
 import { SwUpdateService } from './core/sw-update.service';
 import { environment } from '../environments/environment';
 
 @Component({
   selector: 'app-root',
   standalone: true,
-  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive],
+  imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ProfilePanelComponent],
   template: `
     @if (!useAuth || (auth.user$ | async)) {
+      <header class="topbar">
+        <button class="icon-btn" (click)="hamburger.toggle()" aria-label="Menu">☰</button>
+        <div class="topbar-title">Lifestyle4U</div>
+        <button class="icon-btn" (click)="showProfilePanel = !showProfilePanel" aria-label="Profile">
+          @if (auth.currentUser?.photoURL) {
+            <img [src]="auth.currentUser?.photoURL" alt="" />
+          } @else {
+            <span>👤</span>
+          }
+        </button>
+      </header>
+      @if (showProfilePanel) {
+        <app-profile-panel (closed)="showProfilePanel = false" />
+      }
       <div class="app">
         <router-outlet />
       </div>
@@ -54,8 +70,10 @@ import { environment } from '../environments/environment';
 })
 export class AppComponent {
   auth = inject(AuthService);
+  hamburger = inject(HamburgerMenuService);
   useAuth = environment.useAuth;
   showRecovery = false;
+  showProfilePanel = false;
 
   constructor() {
     inject(SwUpdateService).init();

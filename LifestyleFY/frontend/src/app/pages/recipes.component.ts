@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { Observable, forkJoin } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
+import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { InventoryItem, LogEntry, Macros, Recipe, RecipeIngredient } from '../core/models';
 import {
   MEAL_TYPES, mealLabel as sharedMealLabel, existingInstances as sharedExistingInstances,
@@ -15,8 +16,6 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule, AiPromptPanelComponent],
   template: `
-    <h1>Recipes</h1>
-
     <div class="card blue">
       <h3>Generate a recipe</h3>
       <p class="muted">Suggests something using what's actually in your pantry, sized
@@ -38,7 +37,13 @@ import {
       <p class="muted">{{ status }}</p>
     </div>
 
-    <app-ai-prompt-panel category="recipe" [fetchPreview]="previewRecipe" />
+    @if (hamburger.open()) {
+      <div class="slide-panel-backdrop" (click)="hamburger.close()"></div>
+      <div class="slide-panel">
+        <button class="slide-panel-close" (click)="hamburger.close()" aria-label="Close">✕</button>
+        <app-ai-prompt-panel category="recipe" [fetchPreview]="previewRecipe" />
+      </div>
+    }
 
     <div class="row" style="margin-top:10px">
       <button class="ghost" (click)="newRecipe()">+ New recipe (manual)</button>
@@ -49,8 +54,17 @@ import {
         <h3>{{ draft.recipe_id ? 'Edit recipe' : 'New recipe (unsaved)' }}</h3>
         <label>Name</label>
         <input [(ngModel)]="draft.name" placeholder="e.g. Chicken & rice bowl" />
-        <label>Servings</label>
-        <input type="number" [(ngModel)]="draft.servings" min="1" style="max-width:90px" />
+        <div class="row">
+          <div style="flex:1"><label>Servings</label>
+            <input type="number" [(ngModel)]="draft.servings" min="1" /></div>
+          <div style="flex:1"><label>Meal</label>
+            <select [(ngModel)]="draft.meal">
+              <option value="">Unset</option>
+              @for (mt of mealTypes; track mt) {
+                <option [value]="mt">{{ mt }}</option>
+              }
+            </select></div>
+        </div>
         <label>Image URL</label>
         <input [(ngModel)]="draft.image_url" placeholder="https://..." />
         <label>Instructions</label>
@@ -70,13 +84,21 @@ import {
 
         <p class="muted" style="margin-bottom:4px">Add an ingredient from your pantry
           <span class="muted">(quantity = servings of that item)</span></p>
-        <div class="row" style="margin-bottom:8px">
-          <select [(ngModel)]="pickerItemId" style="flex:2">
-            <option [ngValue]="null">Pick a pantry item…</option>
-            @for (p of pantryItems; track p.item_id) {
-              <option [ngValue]="p.item_id">{{ p.name }} ({{ p.qty }} {{ p.unit }} left)</option>
+        <div class="row" style="margin-bottom:8px;align-items:flex-start">
+          <div class="searchable-dropdown" style="flex:2">
+            <input [(ngModel)]="pantrySearchQuery" (ngModelChange)="onPantryQueryChange()"
+              (focus)="pantryDropdownOpen = true" (blur)="closePantryDropdownSoon()"
+              placeholder="Search pantry…" />
+            @if (pantryDropdownOpen && filteredPantryItems.length) {
+              <div class="searchable-dropdown-list">
+                @for (p of filteredPantryItems; track p.item_id) {
+                  <div (mousedown)="$event.preventDefault(); selectPantryItem(p)">
+                    {{ p.name }} <span class="muted">({{ p.qty }} {{ p.unit }} left)</span>
+                  </div>
+                }
+              </div>
             }
-          </select>
+          </div>
           <input type="number" [(ngModel)]="pickerQty" min="0.25" step="0.25"
             placeholder="Servings" style="flex:1;max-width:90px" />
           <button class="ghost" [disabled]="!pickerItemId" (click)="addIngredientFromPantry()">+ Add</button>
@@ -105,10 +127,19 @@ import {
           <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
           <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
         </div>
-        <input [(ngModel)]="searchQuery" placeholder="Search recipes…" style="margin-bottom:10px" />
+        <div class="row" style="margin-bottom:10px">
+          <input [(ngModel)]="searchQuery" placeholder="Search recipes…" style="flex:2" />
+          <select [(ngModel)]="mealFilter" style="flex:1">
+            <option value="all">All meals</option>
+            @for (mt of mealTypes; track mt) {
+              <option [value]="mt">{{ mt }}</option>
+            }
+            <option value="unset">Unset</option>
+          </select>
+        </div>
         @if (!filteredRecipes.length) {
           <p class="muted">
-            {{ searchQuery ? 'No recipes match your search.' : (showArchived ? 'No archived recipes.' : 'No active recipes yet.') }}
+            {{ searchQuery || mealFilter !== 'all' ? 'No recipes match your search.' : (showArchived ? 'No archived recipes.' : 'No active recipes yet.') }}
           </p>
         }
         @for (r of filteredRecipes; track r.recipe_id) {
@@ -118,10 +149,12 @@ import {
                 <img [src]="r.image_url" alt="" style="width:40px;height:40px;border-radius:8px;object-fit:cover" />
               }
               <div>
-                <div>{{ r.name }}</div>
+                <div style="cursor:pointer;text-decoration:underline;text-decoration-color:var(--border)"
+                  (click)="openView(r)">{{ r.name }}</div>
                 <div class="muted">
                   {{ r.servings }} serving{{ r.servings === 1 ? '' : 's' }} ·
                   {{ r.ingredients.length }} ingredient{{ r.ingredients.length === 1 ? '' : 's' }}
+                  @if (r.meal) { · {{ r.meal }} }
                 </div>
               </div>
             </div>
@@ -165,10 +198,41 @@ import {
         }
       </div>
     }
+
+    @if (viewingRecipe) {
+      <div class="modal-backdrop" (click)="closeView()">
+        <div class="modal-card" (click)="$event.stopPropagation()">
+          <button class="slide-panel-close" (click)="closeView()" aria-label="Close">✕</button>
+          <h2>{{ viewingRecipe.name }}</h2>
+          @if (viewingRecipe.image_url) {
+            <img [src]="viewingRecipe.image_url" alt=""
+              style="width:100%;border-radius:10px;margin-bottom:10px;max-height:200px;object-fit:cover" />
+          }
+          <p class="muted">
+            {{ viewingRecipe.servings }} serving{{ viewingRecipe.servings === 1 ? '' : 's' }}
+            @if (viewingRecipe.meal) { · {{ viewingRecipe.meal }} }
+          </p>
+          @if (viewingRecipe.instructions) {
+            <h3 style="margin-top:14px">Instructions</h3>
+            <p style="white-space:pre-wrap;margin:0">{{ viewingRecipe.instructions }}</p>
+          }
+          @if (viewingRecipe.ingredients.length) {
+            <h3 style="margin-top:14px">Ingredients</h3>
+            @for (ing of viewingRecipe.ingredients; track $index) {
+              <div class="row spread" style="padding:4px 0">
+                <span>{{ ing.name }}</span>
+                <span class="muted">{{ ing.quantity }} {{ ing.unit }}</span>
+              </div>
+            }
+          }
+        </div>
+      </div>
+    }
   `,
 })
 export class RecipesComponent implements OnInit {
   private api = inject(ApiService);
+  hamburger = inject(HamburgerMenuService);
   status = '';
   draft?: Recipe;
   isCookedRecipe = false;
@@ -191,6 +255,13 @@ export class RecipesComponent implements OnInit {
   pickerItemId: string | null = null;
   pickerQty = 1;
   searchQuery = '';
+  mealFilter = 'all';
+
+  // Searchable pantry-item dropdown (draft ingredient picker)
+  pantrySearchQuery = '';
+  pantryDropdownOpen = false;
+
+  viewingRecipe?: Recipe;
 
   ngOnInit(): void {
     this.reload();
@@ -201,7 +272,14 @@ export class RecipesComponent implements OnInit {
     const q = this.searchQuery.trim().toLowerCase();
     return this.recipes
       .filter((r) => (r.is_active ?? true) === !this.showArchived)
-      .filter((r) => !q || r.name.toLowerCase().includes(q));
+      .filter((r) => !q || r.name.toLowerCase().includes(q))
+      .filter((r) => this.mealFilter === 'all'
+        || (this.mealFilter === 'unset' ? !r.meal : r.meal === this.mealFilter));
+  }
+
+  get filteredPantryItems(): InventoryItem[] {
+    const q = this.pantrySearchQuery.trim().toLowerCase();
+    return this.pantryItems.filter((p) => !q || p.name.toLowerCase().includes(q));
   }
 
   reload(): void {
@@ -211,14 +289,39 @@ export class RecipesComponent implements OnInit {
   generate(): void {
     this.status = 'Thinking up a recipe using your pantry…';
     this.api.suggestRecipe(this.mealPeriod, this.message).subscribe({
-      next: (r) => { this.draft = r.recipe; this.status = ''; this.message = ''; },
+      next: (r) => { this.draft = { ...r.recipe, meal: this.mealPeriod }; this.status = ''; this.message = ''; },
       error: () => (this.status = 'Could not generate a recipe.'),
     });
   }
 
+  onPantryQueryChange(): void {
+    // Typing over a previously-selected item's name invalidates that
+    // selection until a fresh pick is made from the (now re-filtered) list.
+    const selected = this.pantryItems.find((p) => p.item_id === this.pickerItemId);
+    if (selected && selected.name !== this.pantrySearchQuery) this.pickerItemId = null;
+  }
+
+  selectPantryItem(p: InventoryItem): void {
+    this.pickerItemId = p.item_id ?? null;
+    this.pantrySearchQuery = p.name;
+    this.pantryDropdownOpen = false;
+  }
+
+  closePantryDropdownSoon(): void {
+    setTimeout(() => (this.pantryDropdownOpen = false), 150);
+  }
+
+  openView(r: Recipe): void {
+    this.viewingRecipe = r;
+  }
+
+  closeView(): void {
+    this.viewingRecipe = undefined;
+  }
+
   newRecipe(): void {
     this.draft = {
-      name: '', servings: 1, instructions: '', ingredients: [],
+      name: '', servings: 1, instructions: '', ingredients: [], meal: this.mealPeriod,
       source: 'manual', image_url: null,
     };
     this.isCookedRecipe = false;
@@ -240,6 +343,7 @@ export class RecipesComponent implements OnInit {
     });
     this.pickerItemId = null;
     this.pickerQty = 1;
+    this.pantrySearchQuery = '';
   }
 
   removeIngredient(i: number): void {
