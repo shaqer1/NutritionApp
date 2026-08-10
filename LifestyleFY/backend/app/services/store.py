@@ -59,6 +59,7 @@ class Store:
             self._exercise_cache: dict[str, dict] = {}
             self._workout_sets: list[dict] = []
             self._workout_sessions: list[dict] = []
+            self._workout_plan_template: dict[str, dict] = {}
         else:
             from google.cloud import bigquery, firestore
 
@@ -584,6 +585,50 @@ class Store:
             self._workout_plan.setdefault(uid, {})[plan_id] = data
             return
         self._user_doc(uid).collection("workout_plan").document(plan_id).set(data)
+
+    def _workout_plan_template_rows(self) -> list[dict]:
+        """Shared (not per-user) starter plan — seeded once from an existing
+        user's workout_plan — that initialize_workout_plan() copies into a
+        brand-new user's own collection."""
+        if self.stub:
+            return [{**row, "plan_id": plan_id}
+                    for plan_id, row in self._workout_plan_template.items()]
+        docs = self._fs.collection("workout_plan_template").stream()
+        return [{**d.to_dict(), "plan_id": d.id} for d in docs]
+
+    def has_workout_plan(self, uid: str) -> bool:
+        return bool(self._workout_plan_rows(uid))
+
+    def initialize_workout_plan(self, uid: str) -> bool:
+        """Copies the shared template plan into uid's own workout_plan
+        collection — only if they don't already have one, so an existing
+        plan (including a partially-customized one) is never overwritten.
+        Batched (a full program is ~650 rows) — one .set() per row would take
+        minutes given per-call network latency; Firestore batches commit in
+        one round-trip per chunk of up to 500 writes."""
+        if self.has_workout_plan(uid):
+            return False
+        template_rows = self._workout_plan_template_rows()
+        if self.stub:
+            for row in template_rows:
+                plan_id = row.pop("plan_id")
+                self._save_workout_plan_row(uid, plan_id, row)
+            return True
+
+        collection = self._user_doc(uid).collection("workout_plan")
+        batch = self._fs.batch()
+        pending = 0
+        for row in template_rows:
+            plan_id = row.pop("plan_id")
+            batch.set(collection.document(plan_id), row)
+            pending += 1
+            if pending == 400:  # stay well under Firestore's 500-write batch limit
+                batch.commit()
+                batch = self._fs.batch()
+                pending = 0
+        if pending:
+            batch.commit()
+        return True
 
     def _plan_exercise_from_row(self, r: dict, cache_entry: dict | None = None) -> PlanExercise:
         eid = r.get("exercise_id")

@@ -349,6 +349,14 @@ def set_workout_config(current_week: int = Body(..., embed=True),
     return {"ok": True}
 
 
+@router.post("/workout/plan/initialize")
+def initialize_workout_plan(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    """Copies the shared starter plan into a brand-new user's own workout_plan
+    collection. No-ops (returns initialized: false) if they already have one,
+    so this is always safe to call — never overwrites existing data."""
+    return {"initialized": store.initialize_workout_plan(uid)}
+
+
 @router.get("/workout/weeks/{week}/overview", response_model=WorkoutWeekOverview)
 def workout_week_overview(week: int, uid: str = Depends(current_uid),
                           store: Store = Depends(store_dep)):

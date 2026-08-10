@@ -19,6 +19,8 @@ export class ApiService {
   private base = environment.apiBase;
   /** Gemini's "smart" model (recipe/grocery generation) can take 30-45s+. */
   private aiContext = new HttpContext().set(REQUEST_TIMEOUT_MS, 90000);
+  /** Copies a full ~650-row workout plan in a couple of batched writes. */
+  private planInitContext = new HttpContext().set(REQUEST_TIMEOUT_MS, 40000);
 
   // --- scanning / search ---
   scan(barcode: string): Observable<{ item: FoodItem; source: string }> {
@@ -153,6 +155,10 @@ export class ApiService {
   setWorkoutConfig(currentWeek: number): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(
       `${this.base}/workout/config`, { current_week: currentWeek });
+  }
+  initializeWorkoutPlan(): Observable<{ initialized: boolean }> {
+    return this.http.post<{ initialized: boolean }>(
+      `${this.base}/workout/plan/initialize`, {}, { context: this.planInitContext });
   }
   getWorkoutWeekOverview(week: number): Observable<WorkoutWeekOverview> {
     return this.http.get<WorkoutWeekOverview>(`${this.base}/workout/weeks/${week}/overview`);

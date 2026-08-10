@@ -190,6 +190,16 @@ const PHASE_GROUPS: PhaseGroup[] = [
 
       @if (weekLoading) {
         <p class="muted">Loading week…</p>
+      } @else if (!days.length) {
+        <div class="card">
+          <p class="muted">You don't have a workout plan yet.</p>
+          <button (click)="initializePlan()" [disabled]="initializing">
+            {{ initializing ? 'Setting up…' : 'Set up my workout plan' }}
+          </button>
+          @if (initStatus) {
+            <p class="muted" style="margin-top:8px">{{ initStatus }}</p>
+          }
+        </div>
       } @else {
         <div class="grid-cards">
           @for (day of days; track day) {
@@ -762,6 +772,8 @@ export class WorkoutComponent implements OnInit, OnDestroy {
   completedDays: string[] = [];
   weekLoading = false;
   weekOptions = Array.from({ length: 52 }, (_, i) => i + 1);
+  initializing = false;
+  initStatus = '';
 
   currentDay: string | null = null;
   dayData: WorkoutDay | null = null;
@@ -982,6 +994,26 @@ export class WorkoutComponent implements OnInit, OnDestroy {
       error: () => {
         this.weekLoading = false;
         this.status = 'Could not load this week. Try Initialize / migrate first.';
+      },
+    });
+  }
+
+  initializePlan(): void {
+    this.initializing = true;
+    this.initStatus = '';
+    this.api.initializeWorkoutPlan().subscribe({
+      next: (r) => {
+        this.initializing = false;
+        if (r.initialized) {
+          this.initStatus = '';
+          this.loadWeek(this.currentWeek);
+        } else {
+          this.initStatus = 'You already have a workout plan.';
+        }
+      },
+      error: () => {
+        this.initializing = false;
+        this.initStatus = 'Could not set up your plan — try again.';
       },
     });
   }
