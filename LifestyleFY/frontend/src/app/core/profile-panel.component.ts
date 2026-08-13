@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
+import { clearLocalAppData } from './local-data';
 import { Profile } from './models';
 
 /** Header's profile slide panel: signed-in user identity + the profile form
@@ -25,10 +26,11 @@ import { Profile } from './models';
         } @else {
           <div class="thumb" style="width:48px;height:48px;border-radius:50%;font-size:22px">👤</div>
         }
-        <div>
+        <div style="flex:1">
           <div style="font-weight:700">{{ auth.currentUser?.displayName || 'You' }}</div>
           <div class="muted">{{ auth.currentUser?.email }}</div>
         </div>
+        <button class="ghost" style="padding:8px 12px;font-size:13px" (click)="signOut()">Sign out</button>
       </div>
 
       <h3>Your profile</h3>
@@ -99,5 +101,17 @@ export class ProfilePanelComponent implements OnInit {
   saveProfile(): void {
     this.syncProfileFromText();
     this.api.setProfile(this.profile).subscribe(() => (this.profileStatus = 'Profile saved.'));
+  }
+
+  /** Full sign-out: Firebase session + service worker/caches/IndexedDB, so a
+   * later sign-in (same account or a different one) starts from a clean
+   * slate rather than picking up any stale local state. */
+  async signOut(): Promise<void> {
+    try {
+      await this.auth.signOut();
+      await clearLocalAppData();
+    } finally {
+      window.location.reload();
+    }
   }
 }

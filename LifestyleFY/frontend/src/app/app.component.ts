@@ -3,6 +3,7 @@ import { Component, inject } from '@angular/core';
 import { RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
 import { AuthService } from './core/auth.service';
 import { HamburgerMenuService } from './core/hamburger-menu.service';
+import { clearLocalAppData } from './core/local-data';
 import { ProfilePanelComponent } from './core/profile-panel.component';
 import { SwUpdateService } from './core/sw-update.service';
 import { environment } from '../environments/environment';
@@ -88,26 +89,9 @@ export class AppComponent {
     this.auth.signInWithGoogle();
   }
 
-  /** Clears service workers, caches, and IndexedDB (Firebase Auth's persisted
-   * session lives there) for cases where that local state gets stuck and
-   * silently hangs every future auth check — the same fix as manually
-   * clearing site data, without leaving the app. */
   async hardReset(): Promise<void> {
     try {
-      if ('serviceWorker' in navigator) {
-        const regs = await navigator.serviceWorker.getRegistrations();
-        await Promise.all(regs.map((r) => r.unregister()));
-      }
-      if ('caches' in window) {
-        const keys = await caches.keys();
-        await Promise.all(keys.map((k) => caches.delete(k)));
-      }
-      if (indexedDB.databases) {
-        const dbs = await indexedDB.databases();
-        await Promise.all(
-          dbs.map((db) => db.name && indexedDB.deleteDatabase(db.name)),
-        );
-      }
+      await clearLocalAppData();
     } finally {
       window.location.reload();
     }
