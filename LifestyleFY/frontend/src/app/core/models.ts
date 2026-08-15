@@ -73,6 +73,7 @@ export interface AiPrompts {
   nudge: string;
   recipe: string;
   grocery: string;
+  workout: string;
 }
 
 export interface AiPromptPreview {
@@ -240,6 +241,7 @@ export interface WorkoutSetLogRequest {
   actual_reps?: string;
   weight?: string;
   notes?: string;
+  log_date?: string;
 }
 
 export interface WorkoutSetEntry {
@@ -257,6 +259,7 @@ export interface WorkoutSessionLogRequest {
   energy_level: string; // high | medium | low
   notes?: string;
   total_exercises?: number;
+  log_date?: string;
 }
 
 export interface WorkoutSession {

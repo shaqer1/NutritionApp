@@ -5,10 +5,10 @@ import { Observable } from 'rxjs';
 import { ApiService } from './api.service';
 import { AiPromptPreview, AiPrompts } from './models';
 
-export type AiPromptCategory = 'nudge' | 'recipe' | 'grocery';
+export type AiPromptCategory = 'nudge' | 'recipe' | 'grocery' | 'workout';
 
 /** "What's actually being sent to the AI" content, reused across Coach
- * (nudge), Recipes and Groceries — shown inside each page's hamburger-menu
+ * (nudge), Recipes, Groceries and Workout — shown inside each page's hamburger-menu
  * slide panel. Show/hide is the parent's job (gated on HamburgerMenuService);
  * this component just fetches a fresh preview whenever it's instantiated,
  * i.e. every time the panel opens, matching the transparency purpose of the

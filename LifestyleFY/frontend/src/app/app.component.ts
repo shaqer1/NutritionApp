@@ -15,7 +15,8 @@ import { environment } from '../environments/environment';
   template: `
     @if (!useAuth || (auth.user$ | async)) {
       <header class="topbar">
-        <button class="icon-btn" (click)="hamburger.toggle()" aria-label="Menu">☰</button>
+        <button class="icon-btn" (click)="hamburger.toggle()"
+          [attr.aria-label]="hamburger.override()?.label ?? 'Menu'">{{ hamburger.override()?.icon ?? '☰' }}</button>
         <div class="topbar-title">Lifestyle4U</div>
         <button class="icon-btn" (click)="showProfilePanel = !showProfilePanel" aria-label="Profile">
           @if (auth.currentUser?.photoURL) {

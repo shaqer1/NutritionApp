@@ -1,7 +1,8 @@
-import { Component, ElementRef, OnInit, ViewChild, inject } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ApiService } from '../core/api.service';
+import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { LogEntry, LogRequest, TodaySummary, WorkoutDaySummary, WorkoutSetSummary } from '../core/models';
 import { MEAL_TYPES, mealLabel as sharedMealLabel } from '../core/meal-picker';
 import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
@@ -13,7 +14,7 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
   template: `
     <div class="row spread">
       <button class="ghost" (click)="changeDay(-1)">←</button>
-      <h1 style="margin:0;cursor:pointer" (click)="openDatePicker()">{{ dateLabel() }}</h1>
+      <h1 style="margin:0">{{ dateLabel() }}</h1>
       <button class="ghost" (click)="changeDay(1)">→</button>
     </div>
     <input #dateInput type="date" [value]="dateStr(selectedDate)" (change)="onDatePicked($event)"
@@ -207,8 +208,9 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
     }
   `,
 })
-export class TodayComponent implements OnInit {
+export class TodayComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
+  private hamburger = inject(HamburgerMenuService);
   @ViewChild('dateInput') dateInputRef!: ElementRef<HTMLInputElement>;
   summary?: TodaySummary;
   logEntries: LogEntry[] = [];
@@ -232,6 +234,13 @@ export class TodayComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+    this.hamburger.override.set({
+      icon: '📅', label: 'Pick date', action: () => this.openDatePicker(),
+    });
+  }
+
+  ngOnDestroy(): void {
+    this.hamburger.override.set(null);
   }
 
   dateStr(d: Date): string {

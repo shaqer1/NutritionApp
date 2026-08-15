@@ -104,6 +104,7 @@ class AiPrompts(BaseModel):
     nudge: str = ""
     recipe: str = ""
     grocery: str = ""
+    workout: str = ""
 
 
 class TodaySummary(BaseModel):

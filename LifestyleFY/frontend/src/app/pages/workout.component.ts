@@ -3,6 +3,8 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
+import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import {
   CustomExerciseRequest, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails,
@@ -10,6 +12,7 @@ import {
   WorkoutPlanUpdateRequest, WorkoutProgress,
 } from '../core/models';
 import { energyIcon as sharedEnergyIcon, EXERCISE_CATEGORIES, exerciseCategoryMeta } from '../core/workout-categories';
+import { todayStr } from '../core/meal-picker';
 
 interface SetDraft {
   set_num: number;
@@ -53,8 +56,16 @@ const PHASE_GROUPS: PhaseGroup[] = [
 @Component({
   selector: 'app-workout',
   standalone: true,
-  imports: [CommonModule, FormsModule, ImageUrlFieldComponent],
+  imports: [CommonModule, FormsModule, ImageUrlFieldComponent, AiPromptPanelComponent],
   template: `
+    @if (hamburger.open()) {
+      <div class="slide-panel-backdrop" (click)="hamburger.close()"></div>
+      <div class="slide-panel">
+        <button class="slide-panel-close" (click)="hamburger.close()" aria-label="Close">✕</button>
+        <app-ai-prompt-panel category="workout" [fetchPreview]="previewWorkout" />
+      </div>
+    }
+
     @if (viewMode === 'workout') {
       <button class="coach-fab" [class.dragging]="dragging"
         [style.top.px]="coachTop"
@@ -757,6 +768,8 @@ const PHASE_GROUPS: PhaseGroup[] = [
 })
 export class WorkoutComponent implements OnInit, OnDestroy {
   private api = inject(ApiService);
+  hamburger = inject(HamburgerMenuService);
+  previewWorkout = () => this.api.workoutNudgePreview();
 
   viewMode: 'overview' | 'workout' | 'progress' = 'workout';
   categoryMeta = exerciseCategoryMeta;
@@ -1107,6 +1120,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
         planned_reps: ex.reps,
         actual_reps: draft.actual_reps != null ? String(draft.actual_reps) : '',
         weight: draft.weight != null ? String(draft.weight) : '',
+        log_date: todayStr(),
       }).subscribe({
         error: () => {
           draft.done = false;
@@ -1132,6 +1146,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
     this.api.logWorkoutSession({
       week: this.currentWeek, day: this.currentDay, energy_level: this.energyLevel,
       notes: this.workoutNotes, total_exercises: total,
+      log_date: todayStr(),
     }).subscribe(() => {
       this.finishOpen = false;
       this.workoutNotes = '';

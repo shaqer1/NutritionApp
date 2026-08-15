@@ -438,15 +438,23 @@ def workout_day_summaries(date: date_type | None = None, limit: int | None = Non
 @router.post("/workout/nudge")
 def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
                   coach: Coach = Depends(coach_dep)):
-    """One-way encouragement/feedback for the floating Workout Coach button —
-    no custom note, no preview, context built entirely server-side."""
+    """Encouragement/feedback for the floating Workout Coach button — context
+    built entirely server-side, tunable via the user's standing note."""
     today = datetime.now(timezone.utc).date()
     context = store.get_workout_coach_context(uid, today)
+    custom_note = store.get_ai_prompts(uid).workout
     try:
-        message = coach.workout_nudge(context)
+        message = coach.workout_nudge(context, custom_note=custom_note)
     except ValueError as e:
         raise HTTPException(502, f"Workout nudge failed: {e}") from e
     return {"message": message}
+
+
+@router.post("/workout/nudge/preview")
+def workout_nudge_preview(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                          coach: Coach = Depends(coach_dep)):
+    generic, ctx = coach.workout_nudge_prompt_parts()
+    return {"generic": generic, "context": ctx, "custom_note": store.get_ai_prompts(uid).workout}
 
 
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------

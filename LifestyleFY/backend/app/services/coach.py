@@ -533,13 +533,8 @@ class Coach:
         data["image_url"] = self._resolve_grounding_image(research_resp)
         return FoodItem(**data)
 
-    # ---------- Workout coach (floating-button nudge — one-way, no custom note) ----------
-    def workout_nudge(self, context: dict) -> str:
-        """Short reaction to the workout context JSON built by
-        Store.get_workout_coach_context(). Unlike nudge/suggest_recipe/grocery,
-        this has no custom note or preview — just a fresh take each tap."""
-        if self.s.use_stubs or not self.s.gemini_api_key:
-            return "[stubbed] Keep it up — set GEMINI_API_KEY for real coaching."
+    # ---------- Workout coach (floating-button nudge) ----------
+    def workout_nudge_prompt_parts(self) -> tuple[str, str]:
         generic = (
             "You are an encouraging workout coach for a muscle-gain app. Based on "
             "the JSON context, write ONE short message reacting to whichever is "
@@ -549,5 +544,18 @@ class Coach:
             "dropping reps/weight). 1-2 casual sentences, speak directly to the "
             "user (\"you\"), no markdown, no preamble."
         )
-        prompt = f"{generic}\n\nContext (JSON): {json.dumps(context)}"
-        return self._generate(prompt, smart=False)
+        # {Workout_context} is a display placeholder, not sent to Gemini as-is —
+        # workout_nudge() substitutes the real context JSON in right before
+        # generating, same pattern as {Recent_workouts}/{Pantry_items} above.
+        # The preview route shows the placeholder untouched, so the (potentially
+        # long) raw JSON dump never needs to be shown to the user.
+        return generic, "Context (JSON): {Workout_context}"
+
+    def workout_nudge(self, context: dict, custom_note: str = "") -> str:
+        """Short reaction to the workout context JSON built by
+        Store.get_workout_coach_context()."""
+        if self.s.use_stubs or not self.s.gemini_api_key:
+            return "[stubbed] Keep it up — set GEMINI_API_KEY for real coaching."
+        generic, ctx = self.workout_nudge_prompt_parts()
+        ctx = ctx.replace("{Workout_context}", json.dumps(context))
+        return self._generate(self._assemble_prompt(generic, ctx, custom_note))

@@ -204,6 +204,9 @@ export class ApiService {
   workoutNudge(): Observable<{ message: string }> {
     return this.http.post<{ message: string }>(`${this.base}/workout/nudge`, {});
   }
+  workoutNudgePreview(): Observable<AiPromptPreview> {
+    return this.http.post<AiPromptPreview>(`${this.base}/workout/nudge/preview`, {});
+  }
 
   // --- workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ---
   updateWorkoutPlanExercise(planId: string, req: WorkoutPlanUpdateRequest):

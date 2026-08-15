@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { ApiService } from '../core/api.service';
+import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import { FoodItem, InventoryItem, LogEntry } from '../core/models';
 import {
@@ -62,17 +63,13 @@ const LOCATION_EMOJI: Record<Location, string> = {
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, ImageUrlFieldComponent],
   template: `
-    <div class="card">
-      <div class="row spread" style="cursor:pointer" (click)="addOpen = !addOpen">
-        <h3>Add / Scan</h3>
-        <span class="muted">{{ addOpen ? '▲' : '▼' }}</span>
-      </div>
-      @if (addOpen) {
+    @if (addOpen) {
+      <div class="card">
+        <div class="seg">
+          <button [class.active]="addMode === 'scan'" (click)="addMode = 'scan'">Scan</button>
+          <button [class.active]="addMode === 'search'" (click)="addMode = 'search'">Search</button>
+        </div>
         <div style="margin-top:10px">
-          <div class="seg">
-            <button [class.active]="addMode === 'scan'" (click)="addMode = 'scan'">Scan</button>
-            <button [class.active]="addMode === 'search'" (click)="addMode = 'search'">Search</button>
-          </div>
 
           @if (addMode === 'scan') {
             <div style="margin-top:10px">
@@ -214,8 +211,8 @@ const LOCATION_EMOJI: Record<Location, string> = {
             </div>
           }
         </div>
-      }
-    </div>
+      </div>
+    }
 
     <div class="seg">
       <button [class.active]="viewMode === 'log'" (click)="setViewMode('log')">Log</button>
@@ -408,12 +405,13 @@ const LOCATION_EMOJI: Record<Location, string> = {
 export class InventoryComponent implements OnInit, OnDestroy {
   @ViewChild('video') videoRef?: ElementRef<HTMLVideoElement>;
   private api = inject(ApiService);
+  private hamburger = inject(HamburgerMenuService);
   private reader = new BrowserMultiFormatReader();
   private controls?: IScannerControls;
 
   // ---------- Add / Scan section ----------
   addOpen = false;
-  addMode: 'scan' | 'search' = 'search';
+  addMode: 'scan' | 'search' = 'scan';
   scanning = false;
   scanStatus = 'Point the camera at a barcode, or type one below.';
   manualQuery = '';
@@ -495,10 +493,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.reloadInventory();
     this.reloadLog();
+    this.hamburger.override.set({
+      icon: '➕', label: 'Add item', action: () => (this.addOpen = !this.addOpen),
+    });
   }
 
   ngOnDestroy(): void {
     this.controls?.stop();
+    this.hamburger.override.set(null);
   }
 
   setViewMode(mode: 'log' | 'pantry'): void {
