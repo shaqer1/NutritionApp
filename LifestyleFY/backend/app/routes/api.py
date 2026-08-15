@@ -9,7 +9,7 @@ from ..deps import coach_dep, exercisedb_dep, resolver_dep, store_dep
 from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
-    ExerciseSwapRequest, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
+    ExerciseSwapRequest, FoodItem, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
     ScanRequest, TodaySummary, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
     WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
     WorkoutWeekOverview,
@@ -51,6 +51,20 @@ async def search(q: str, uid: str = Depends(current_uid),
 async def raw_product(barcode: str, uid: str = Depends(current_uid),
                       resolver: FoodResolver = Depends(resolver_dep)):
     return {"product": await resolver.raw_product(barcode)}
+
+
+@router.post("/food/ai-search")
+def ai_food_search(query: str = Body(..., embed=True), uid: str = Depends(current_uid),
+                   coach: Coach = Depends(coach_dep)) -> dict[str, FoodItem]:
+    if not query.strip():
+        raise HTTPException(400, "Query is required")
+    try:
+        item = coach.ai_food_lookup(query)
+    except ValueError as e:
+        raise HTTPException(502, f"AI lookup failed: {e}") from e
+    if item is None:
+        raise HTTPException(404, {"message": "AI couldn't confidently identify that item", "query": query})
+    return {"item": item}
 
 
 # ---------- Inventory ----------
@@ -296,8 +310,11 @@ def run_coach(uid: str = Depends(current_uid), store: Store = Depends(store_dep)
     log_entries = store.list_log(uid, day)
     prompts = store.get_ai_prompts(uid)
     recent_workouts = store.get_workout_day_summaries(uid, limit=3)
-    tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label, day,
-                      recent_workouts=recent_workouts, custom_note=prompts.nudge, message=message)
+    try:
+        tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label, day,
+                          recent_workouts=recent_workouts, custom_note=prompts.nudge, message=message)
+    except ValueError as e:
+        raise HTTPException(502, f"Coach nudge failed: {e}") from e
     if tip:
         store.add_coach_message(uid, tip, "nudge")
         store.sync_summary_to_sheet(uid)
@@ -425,7 +442,11 @@ def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_
     no custom note, no preview, context built entirely server-side."""
     today = datetime.now(timezone.utc).date()
     context = store.get_workout_coach_context(uid, today)
-    return {"message": coach.workout_nudge(context)}
+    try:
+        message = coach.workout_nudge(context)
+    except ValueError as e:
+        raise HTTPException(502, f"Workout nudge failed: {e}") from e
+    return {"message": message}
 
 
 # ---------- Workout: Phase 2 (plan editing, cache browsing, ExerciseDB) ----------

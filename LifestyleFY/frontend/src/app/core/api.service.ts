@@ -34,6 +34,10 @@ export class ApiService {
   getRawProduct(barcode: string): Observable<{ product: any }> {
     return this.http.get<{ product: any }>(`${this.base}/product/${barcode}/raw`);
   }
+  aiSearchFood(query: string): Observable<{ item: FoodItem }> {
+    return this.http.post<{ item: FoodItem }>(
+      `${this.base}/food/ai-search`, { query }, { context: this.aiContext });
+  }
 
   // --- inventory ---
   listInventory(): Observable<{ items: InventoryItem[] }> {

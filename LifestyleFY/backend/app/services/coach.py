@@ -16,16 +16,57 @@ Gemini key.
 from __future__ import annotations
 
 import json
+import re
 from datetime import date
 
 from ..config import Settings
 from ..models import (
-    Goals, GroceryItem, GroceryList, GrocerySwap, InventoryItem, LogEntry, Macros, Profile,
-    Recipe, RecipeIngredient, TodaySummary, WorkoutDaySummary,
+    FoodItem, Goals, GroceryItem, GroceryList, GrocerySwap, InventoryItem, LogEntry, Macros,
+    Profile, Recipe, RecipeIngredient, TodaySummary, WorkoutDaySummary,
 )
 from .categories import APP_CATEGORIES
 
 _CATEGORY_IDS = ", ".join(c["id"] for c in APP_CATEGORIES)
+
+# Matches <meta property="og:image" content="..."> in either attribute order.
+_OG_IMAGE_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)["\']', re.IGNORECASE)
+_OG_IMAGE_ALT_RE = re.compile(
+    r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']', re.IGNORECASE)
+_OG_WIDTH_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image:width["\'][^>]+content=["\'](\d+)["\']', re.IGNORECASE)
+_OG_HEIGHT_RE = re.compile(
+    r'<meta[^>]+property=["\']og:image:height["\'][^>]+content=["\'](\d+)["\']', re.IGNORECASE)
+# Confirmed live against real false positives: generic site-wide branding/
+# share images are named things like "calory-og.png" or "opengraph-image.png"
+# — a real uploaded content photo (e.g. a WordPress "20231007_192437-scaled
+# .jpg") essentially never matches these tokens as a whole delimited segment.
+_GENERIC_IMAGE_HINT_RE = re.compile(
+    r'(?:[/_-]|^)(og|opengraph|logo|favicon|placeholder|default)(?:[/_.-]|$)', re.IGNORECASE)
+
+
+def _extract_og_image(html: str, min_dimension: int = 200) -> str | None:
+    """Pulls a page's Open Graph image — the same mechanism link-preview
+    unfurls (Slack/iMessage/Twitter) use. Two-tier trust: if the page
+    declares og:image:width/height, trust it iff both are >= min_dimension
+    (a real photo vs. a tiny icon). If it doesn't declare dimensions — very
+    common even for genuine content photos, confirmed live (a real food-blog
+    review photo had none) — fall back to rejecting only filenames that look
+    like generic site branding/share-card assets, accepting everything else.
+    Never downloads the image itself, just reads page HTML already fetched."""
+    m = _OG_IMAGE_RE.search(html) or _OG_IMAGE_ALT_RE.search(html)
+    if not m:
+        return None
+    url = m.group(1)
+    w = _OG_WIDTH_RE.search(html)
+    h = _OG_HEIGHT_RE.search(html)
+    if w and h:
+        if int(w.group(1)) < min_dimension or int(h.group(1)) < min_dimension:
+            return None
+        return url
+    if _GENERIC_IMAGE_HINT_RE.search(url):
+        return None
+    return url
 
 ACTIVITY = {
     "sedentary": 1.2, "light": 1.375, "moderate": 1.55,
@@ -81,12 +122,64 @@ class Coach:
             self._client = genai.Client(api_key=self.s.gemini_api_key)
         return self._client
 
-    def _generate(self, prompt: str, smart: bool = False) -> str:
+    def _generate_response(self, prompt: str, smart: bool = False, grounded: bool = False):
+        """Raw Gemini response (only call directly when a caller needs more
+        than the text, e.g. grounding_metadata for source URLs — otherwise
+        use _generate()). Caller is responsible for the use_stubs/no-key
+        check; this always makes a real API call."""
+        model = self.s.gemini_model_smart if smart else self.s.gemini_model_fast
+        config = None
+        if grounded:
+            from google.genai import types
+            config = types.GenerateContentConfig(
+                tools=[types.Tool(google_search=types.GoogleSearch())],
+            )
+        from google.genai import errors
+        try:
+            return self._gemini().models.generate_content(model=model, contents=prompt, config=config)
+        except errors.APIError as e:
+            raise ValueError(f"Gemini API error: {e}") from e
+
+    def _generate(self, prompt: str, smart: bool = False, grounded: bool = False) -> str:
         if self.s.use_stubs or not self.s.gemini_api_key:
             return f"[stubbed coach reply] {prompt[:120]}..."
-        model = self.s.gemini_model_smart if smart else self.s.gemini_model_fast
-        resp = self._gemini().models.generate_content(model=model, contents=prompt)
+        resp = self._generate_response(prompt, smart=smart, grounded=grounded)
         return (resp.text or "").strip()
+
+    def _resolve_grounding_image(self, response) -> str | None:
+        """Best-effort real photo for an AI food lookup: follows the actual
+        web pages Gemini's Google Search grounding visited (not the model's
+        own guess — LLMs hallucinate URLs with total confidence) and takes
+        the first one with a real Open Graph image. Tries several sources
+        (not just the first) since delivery/ordering platforms (Toast, Uber
+        Eats) commonly block non-browser requests with 403/429 — confirmed
+        live, ~40% of sources for one query were blocked this way — so a
+        single-source attempt would miss otherwise-fetchable images. Fails
+        silently either way; this is a nice-to-have the lookup must work
+        fine without."""
+        try:
+            metadata = response.candidates[0].grounding_metadata
+            chunks = metadata.grounding_chunks or [] if metadata else []
+        except (AttributeError, IndexError):
+            return None
+
+        import httpx
+        with httpx.Client(timeout=4.0, follow_redirects=True,
+                          headers={"User-Agent": "Mozilla/5.0 (compatible; personal-nutrition-app/1.0)"}) as client:
+            for chunk in chunks[:5]:
+                uri = getattr(getattr(chunk, "web", None), "uri", None)
+                if not uri:
+                    continue
+                try:
+                    resp = client.get(uri)
+                    if resp.status_code != 200:
+                        continue
+                    image_url = _extract_og_image(resp.text)
+                    if image_url:
+                        return image_url
+                except httpx.HTTPError:
+                    continue
+        return None
 
     @staticmethod
     def _recent_workouts_text(days: list[WorkoutDaySummary]) -> str:
@@ -334,6 +427,111 @@ class Coach:
             raise ValueError(f"AI returned malformed grocery list JSON: {e}") from e
         data["source"] = "ai"
         return GroceryList(**data)
+
+    # ---------- AI food lookup ("Ask AI" in Inventory add/scan) ----------
+    #
+    # Two-step by necessity, confirmed live: a single call asking Gemini to
+    # both search AND return strict JSON almost never actually invokes
+    # Google Search grounding (grounding_metadata came back None repeatedly)
+    # — the tight output-format instructions suppress tool use even with the
+    # search tool enabled. A plain natural-language research question
+    # reliably grounds (5-7 real sources every time in testing). So: step 1
+    # asks a simple grounded question and keeps the raw response (for both
+    # the text and its grounding sources); step 2 is a small non-grounded
+    # call that reformats step 1's answer into the exact JSON shape the app
+    # needs — reformatting never needs search, so nothing is lost by
+    # dropping the tool for that call.
+    @staticmethod
+    def _food_research_prompt(query: str) -> str:
+        return (
+            "You are a nutrition-lookup assistant. Search for accurate, "
+            f'currently-published nutrition facts for this specific item: "{query.strip()}". '
+            "If it names a whole multi-serving item with no portion specified "
+            "(e.g. \"Domino's pepperoni pizza\" with no \"slice\"/\"whole\" "
+            "qualifier), use ONE standard single serving as that food is "
+            "normally eaten or reported (e.g. one slice of a pizza) — never "
+            "the entire multi-serving item — and state exactly what serving "
+            "you're reporting. Give me: the item's precise name, brand (if "
+            "any), the exact serving you're reporting, full nutrition facts "
+            "for that serving (calories, protein, carbs, fat, sugar, fiber, "
+            "saturated fat, sodium), and its typical ingredients. If you "
+            "cannot find or confidently identify this item at all (too "
+            "vague, misspelled beyond recognition, or not a real food), say "
+            "so plainly instead of guessing."
+        )
+
+    @staticmethod
+    def _food_format_prompt(research_text: str) -> str:
+        return (
+            "Convert the nutrition research below into JSON. If the research "
+            "says the item couldn't be found/identified, respond with ONLY "
+            'this JSON: {"error": "short reason"}. Otherwise respond with '
+            "ONLY valid JSON (no markdown fences, no commentary) matching "
+            "exactly this shape:\n"
+            '{"name": "string", "brand": "string or null", '
+            '"serving_size": "string", "serving_size_qty": "number or null", '
+            '"serving_size_unit": "string or null", "serving_qty": "number or '
+            'null", "serving_unit": "string or null, e.g. \\"g\\"", '
+            '"serving_qty_g": "number or null, grams, set only when '
+            'serving_unit is \\"g\\"", "macros_basis": "serving", '
+            '"per_serving": {"cal": "number", "protein": "number", "carbs": '
+            '"number", "fat": "number", "sugar_g": "number", "fiber_g": '
+            '"number", "sat_fat_g": "number", "sodium_mg": "number"}, '
+            '"category": "string", "ingredients_text": "string or null"}\n\n'
+            "RULES:\n"
+            "- Every field inside \"per_serving\" is a required number — "
+            "never null. If the research wasn't precise on a figure, give a "
+            "realistic estimate. Only use 0 if the true value really is ~0 — "
+            "not as a placeholder for \"unknown\".\n"
+            "- Leave \"brand\" null unless a specific brand/chain is clearly "
+            "identified.\n"
+            "- Set \"macros_basis\" to exactly \"serving\" (never \"100g\").\n"
+            f"- \"category\" must be one of exactly these ids: {_CATEGORY_IDS}.\n\n"
+            f"Research:\n{research_text}"
+        )
+
+    def ai_food_lookup(self, query: str) -> FoodItem | None:
+        """Grounded Gemini lookup for a free-text restaurant/menu/brand query —
+        the same workflow the user does manually via Gemini "AI mode" search
+        today. Returns None when the model can't confidently identify the
+        item — caller treats that like resolve_barcode() returning None (a
+        404, not an error)."""
+        if self.s.use_stubs or not self.s.gemini_api_key:
+            return FoodItem(
+                name=f"Stubbed AI result for '{query}' (no Gemini key)",
+                per_serving=Macros(cal=350, protein=20, carbs=30, fat=15,
+                                   sugar_g=5, fiber_g=3, sat_fat_g=4, sodium_mg=600),
+                source="ai", serving_size="1 serving (estimate)",
+                macros_basis="serving", category="prepared",
+            )
+        research_resp = self._generate_response(self._food_research_prompt(query), grounded=True)
+        research_text = (research_resp.text or "").strip()
+
+        text = self._generate(self._food_format_prompt(research_text), smart=False, grounded=False)
+        cleaned = text.strip()
+        if cleaned.startswith("```"):
+            cleaned = cleaned.strip("`")
+            if cleaned.lower().startswith("json"):
+                cleaned = cleaned[4:]
+        try:
+            data = json.loads(cleaned)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AI returned malformed food JSON: {e}") from e
+        if "error" in data:
+            return None
+        # Defensive: never trust the model for these — force regardless of
+        # what it returned, since a wrong value here breaks downstream UI
+        # (e.g. an invalid category silently hides the item from Pantry).
+        data["source"] = "ai"
+        data["barcode"] = None
+        data["macros_basis"] = "serving"
+        if data.get("category") not in _CATEGORY_IDS.split(", "):
+            data["category"] = "other"
+        # Never let the model write its own image URL (hallucination-prone) —
+        # derive it deterministically from the real pages step 1's grounding
+        # actually visited.
+        data["image_url"] = self._resolve_grounding_image(research_resp)
+        return FoodItem(**data)
 
     # ---------- Workout coach (floating-button nudge — one-way, no custom note) ----------
     def workout_nudge(self, context: dict) -> str:

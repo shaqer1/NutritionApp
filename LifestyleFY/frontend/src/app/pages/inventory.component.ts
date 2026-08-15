@@ -69,12 +69,11 @@ const LOCATION_EMOJI: Record<Location, string> = {
       @if (addOpen) {
         <div style="margin-top:10px">
           <div class="seg">
-            <button [class.active]="addMode === 'camera'" (click)="addMode = 'camera'">Camera</button>
+            <button [class.active]="addMode === 'scan'" (click)="addMode = 'scan'">Scan</button>
             <button [class.active]="addMode === 'search'" (click)="addMode = 'search'">Search</button>
-            <button [class.active]="addMode === 'manual'" (click)="addMode = 'manual'">Manual entry</button>
           </div>
 
-          @if (addMode === 'camera') {
+          @if (addMode === 'scan') {
             <div style="margin-top:10px">
               <video #video playsinline></video>
               <div class="row" style="margin-top:10px">
@@ -86,7 +85,7 @@ const LOCATION_EMOJI: Record<Location, string> = {
               </div>
               <p class="muted">{{ scanStatus }}</p>
             </div>
-          } @else if (addMode === 'search') {
+          } @else {
             <div style="margin-top:10px">
               <label>Barcode or product name</label>
               <div class="row">
@@ -95,10 +94,14 @@ const LOCATION_EMOJI: Record<Location, string> = {
               </div>
               <p class="muted">{{ scanStatus }}</p>
             </div>
-          } @else {
-            <div style="margin-top:10px">
+
+            <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+              <h3>Manual entry</h3>
               <label>Name</label>
-              <input [(ngModel)]="manualEntry.name" placeholder="e.g. Homemade chili" />
+              <div class="row">
+                <input [(ngModel)]="manualEntry.name" placeholder="e.g. Homemade chili, or a restaurant item" style="flex:1" />
+                <button class="ghost" (click)="aiLookup()">✨ Ask AI</button>
+              </div>
               <div class="row">
                 <div style="flex:1"><label>Category</label>
                   <select [(ngModel)]="manualEntry.category">
@@ -164,49 +167,33 @@ const LOCATION_EMOJI: Record<Location, string> = {
                 placeholder="e.g. Chicken, rice, onion, garlic, salt"
                 style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
                        border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
-              <div style="margin-top:10px">
+              <div style="margin-top:10px" class="row">
                 <button class="green" [disabled]="!manualEntry.name" (click)="submitManualEntry()">
                   Add to pantry
                 </button>
-              </div>
-              <p class="muted">{{ scanStatus }}</p>
-            </div>
-          }
-
-          @if (showManualMacros) {
-            <div class="card" style="margin-top:10px">
-              <h3>No match — enter macros manually</h3>
-              <label>Name</label>
-              <input [(ngModel)]="manualMacros.name" placeholder="e.g. Homemade chili" />
-              <div class="row">
-                <div style="flex:1"><label>Calories</label>
-                  <input type="number" [(ngModel)]="manualMacros.cal" /></div>
-                <div style="flex:1"><label>Protein</label>
-                  <input type="number" [(ngModel)]="manualMacros.protein" /></div>
-              </div>
-              <div class="row">
-                <div style="flex:1"><label>Carbs</label>
-                  <input type="number" [(ngModel)]="manualMacros.carbs" /></div>
-                <div style="flex:1"><label>Fat</label>
-                  <input type="number" [(ngModel)]="manualMacros.fat" /></div>
-              </div>
-              <label>Serving size <span class="muted">(informational, e.g. "1 bar")</span></label>
-              <div class="row">
-                <div style="flex:1"><input type="number" [(ngModel)]="manualMacros.servingSizeQty" placeholder="1" /></div>
-                <div style="flex:1"><input [(ngModel)]="manualMacros.servingSizeUnit" placeholder="bar" /></div>
-              </div>
-              <label>Quantity per serving <span class="muted">(used for grams tracking)</span></label>
-              <div class="row">
-                <div style="flex:1"><label>Amount</label>
-                  <input type="number" [(ngModel)]="manualMacros.servingQty" /></div>
-                <div style="flex:1"><label>Unit</label>
-                  <input [(ngModel)]="manualMacros.servingUnit" placeholder="g" /></div>
-              </div>
-              <div style="margin-top:10px">
-                <button class="green" [disabled]="!manualMacros.name" (click)="useManualMacros()">
-                  Use these macros
+                <button class="ghost" [disabled]="!manualEntry.name" (click)="openMealPicker()">
+                  Log as eaten
                 </button>
               </div>
+              @if (mealPickerOpen) {
+                <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
+                  <p class="muted">Which meal?</p>
+                  @for (mt of mealTypes; track mt) {
+                    <div style="margin-bottom:8px">
+                      <div class="muted" style="text-transform:capitalize">{{ mt }}</div>
+                      <div class="row" style="flex-wrap:wrap;gap:8px">
+                        @for (inst of existingInstances(mt); track inst) {
+                          <button class="ghost" (click)="logManualEntry(mt, inst)">{{ mealLabel(mt, inst) }}</button>
+                        }
+                        <button class="ghost" (click)="logManualEntry(mt, nextInstance(mt))">
+                          + New {{ mt }}
+                        </button>
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+              <p class="muted">{{ scanStatus }}</p>
             </div>
           }
 
@@ -221,69 +208,6 @@ const LOCATION_EMOJI: Record<Location, string> = {
                       {{ r.per_serving.protein | number:'1.0-0' }}g protein</div>
                   </div>
                   <button class="ghost" (click)="pick(r)">Pick</button>
-                </div>
-              }
-            </div>
-          }
-
-          @if (found) {
-            <div class="card green" style="margin-top:10px">
-              <h3>{{ found.name }}</h3>
-              <p class="muted">
-                {{ found.per_serving.cal | number:'1.0-0' }} kcal ·
-                {{ found.per_serving.protein | number:'1.0-0' }}p ·
-                {{ found.per_serving.carbs | number:'1.0-0' }}c ·
-                {{ found.per_serving.fat | number:'1.0-0' }}f
-                · via {{ found.source }}
-              </p>
-              @if (found.macros_basis === '100g') {
-                <p style="color:var(--accent);font-size:13px;margin:-4px 0 8px">
-                  ⚠ source only gave per-100g data — these numbers may not match the
-                  actual serving size below. Double-check before logging.
-                </p>
-              }
-
-              <label>Serving size <span class="muted">(informational, e.g. "1 bar")</span></label>
-              <div class="row">
-                <div style="flex:1"><input type="number" [(ngModel)]="found.serving_size_qty" placeholder="1" /></div>
-                <div style="flex:1"><input [(ngModel)]="found.serving_size_unit" placeholder="bar" /></div>
-              </div>
-              <label>Quantity per serving <span class="muted">(used for grams tracking)</span></label>
-              <div class="row">
-                <div style="flex:1"><label>Amount</label>
-                  <input type="number" [(ngModel)]="found.serving_qty" (ngModelChange)="onFoundServingChange()" /></div>
-                <div style="flex:1"><label>Unit</label>
-                  <input [(ngModel)]="found.serving_unit" placeholder="g" (ngModelChange)="onFoundServingChange()" /></div>
-              </div>
-
-              <label>Servings in container</label>
-              <div class="row">
-                <input type="number" [(ngModel)]="foundQty" min="1" style="max-width:90px" />
-                <button class="green" (click)="addFoundToPantry()">Add to pantry</button>
-                <button class="ghost" (click)="openMealPicker()">Log as eaten</button>
-              </div>
-              @if (found.serving_qty) {
-                <p class="muted" style="margin-top:6px">
-                  Total in container: ≈{{ foundQty * found.serving_qty | number:'1.0-1' }} {{ found.serving_unit }}
-                </p>
-              }
-
-              @if (mealPickerOpen) {
-                <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-                  <p class="muted">Which meal?</p>
-                  @for (mt of mealTypes; track mt) {
-                    <div style="margin-bottom:8px">
-                      <div class="muted" style="text-transform:capitalize">{{ mt }}</div>
-                      <div class="row" style="flex-wrap:wrap;gap:8px">
-                        @for (inst of existingInstances(mt); track inst) {
-                          <button class="ghost" (click)="logFound(mt, inst)">{{ mealLabel(mt, inst) }}</button>
-                        }
-                        <button class="ghost" (click)="logFound(mt, nextInstance(mt))">
-                          + New {{ mt }}
-                        </button>
-                      </div>
-                    </div>
-                  }
                 </div>
               }
             </div>
@@ -488,19 +412,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // ---------- Add / Scan section ----------
   addOpen = false;
-  addMode: 'camera' | 'search' | 'manual' = 'search';
+  addMode: 'scan' | 'search' = 'search';
   scanning = false;
   scanStatus = 'Point the camera at a barcode, or type one below.';
   manualQuery = '';
   results: FoodItem[] = [];
-  showManualMacros = false;
-  manualMacros = {
-    name: '', cal: 0, protein: 0, carbs: 0, fat: 0,
-    servingSizeQty: null as number | null, servingSizeUnit: '',
-    servingQty: null as number | null, servingUnit: '',
-  };
 
-  // ---------- Manual entry (3rd Add/Scan tab): full ingredient form ----------
+  // ---------- Manual entry: full ingredient form (Search tab, always visible) ----------
   manualEntry = this.blankManualEntry();
 
   private blankManualEntry() {
@@ -541,8 +459,6 @@ export class InventoryComponent implements OnInit, OnDestroy {
       this.reloadInventory();
     });
   }
-  found?: FoodItem;
-  foundQty = 1;
   mealPickerOpen = false;
   mealTypes = MEAL_TYPES;
   private pickerEntries: LogEntry[] = [];
@@ -617,17 +533,13 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   private onBarcode(code: string): void {
     this.scanStatus = `Looking up ${code}…`;
-    this.showManualMacros = false;
     this.api.scan(code).subscribe({
-      next: (r) => { this.found = r.item; this.scanStatus = `Found via ${r.source}.`; },
+      next: (r) => {
+        this.applyFoodToManualEntry(r.item);
+        this.scanStatus = `Found via ${r.source} — double-check the numbers before saving.`;
+      },
       error: () => {
-        this.scanStatus = `No match for ${code}. Enter macros below.`;
-        this.showManualMacros = true;
-        this.manualMacros = {
-          name: '', cal: 0, protein: 0, carbs: 0, fat: 0,
-          servingSizeQty: null, servingSizeUnit: '',
-          servingQty: null, servingUnit: '',
-        };
+        this.scanStatus = `No match for ${code}. Fill in the form below, or try Ask AI.`;
       },
     });
   }
@@ -635,64 +547,69 @@ export class InventoryComponent implements OnInit, OnDestroy {
   lookupManual(): void {
     const v = this.manualQuery.trim();
     if (!v) return;
-    this.showManualMacros = false;
     if (/^\d{6,}$/.test(v)) { this.onBarcode(v); return; }
     this.api.search(v).subscribe({
       next: (r) => {
         this.results = r.results;
-        this.scanStatus = r.results.length ? '' : 'No results — enter macros below.';
-        this.showManualMacros = !r.results.length;
-        if (this.showManualMacros) this.manualMacros.name = v;
+        if (r.results.length) {
+          this.scanStatus = '';
+        } else {
+          this.scanStatus = 'No results — fill in the form below, or try Ask AI.';
+          this.manualEntry.name = v;
+        }
       },
       error: () => (this.scanStatus = 'Search failed.'),
     });
   }
 
-  pick(item: FoodItem): void { this.found = item; this.results = []; }
-
-  useManualMacros(): void {
-    const unit = this.manualMacros.servingUnit.toLowerCase() || null;
-    const { servingSizeQty, servingSizeUnit } = this.manualMacros;
-    this.found = {
-      name: this.manualMacros.name, source: 'manual',
-      per_serving: {
-        cal: this.manualMacros.cal, protein: this.manualMacros.protein,
-        carbs: this.manualMacros.carbs, fat: this.manualMacros.fat,
-        sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0,
+  /** Lives on the manual-entry form itself, keyed off manualEntry.name, so
+   * the user reviews/edits right there before hitting "Add to pantry". */
+  aiLookup(): void {
+    const v = this.manualEntry.name.trim();
+    if (!v) return;
+    this.scanStatus = `Asking AI about "${v}"… (can take 10-30s)`;
+    this.api.aiSearchFood(v).subscribe({
+      next: (r) => {
+        this.applyFoodToManualEntry(r.item);
+        this.scanStatus = 'Filled in via AI — double-check the numbers before saving.';
       },
-      serving_size: servingSizeQty && servingSizeUnit ? `${servingSizeQty} ${servingSizeUnit}` : null,
-      serving_size_qty: servingSizeQty,
-      serving_size_unit: servingSizeUnit || null,
-      serving_qty: this.manualMacros.servingQty,
-      serving_unit: unit,
-      serving_qty_g: unit === 'g' ? this.manualMacros.servingQty : null,
-    };
-    this.showManualMacros = false;
-    this.results = [];
-  }
-
-  onFoundServingChange(): void {
-    if (!this.found) return;
-    const unit = this.found.serving_unit?.toLowerCase() || null;
-    this.found.serving_unit = unit;
-    this.found.serving_qty_g = unit === 'g' ? (this.found.serving_qty ?? null) : null;
-  }
-
-  addFoundToPantry(): void {
-    if (!this.found) return;
-    const item: InventoryItem = {
-      // Use the product's own serving-size label ("bar", "cup", "can" — the
-      // editable field above) as this item's unit, instead of the generic
-      // "unit" placeholder — that's what recipe ingredients/AI prompts show,
-      // so a real label here makes those far more readable.
-      ...this.found, qty: this.foundQty, unit: this.found.serving_size_unit || 'unit',
-      item_id: null, location: defaultLocation(this.found.category),
-    };
-    this.api.addInventory(item).subscribe(() => {
-      this.scanStatus = `Added ${this.found!.name} to pantry.`;
-      this.found = undefined;
-      this.reloadInventory();
+      error: (err) => {
+        this.scanStatus = err?.status === 404
+          ? `AI couldn't confidently identify "${v}" — try being more specific, or fill in the fields manually.`
+          : 'AI lookup failed. Try again, or fill in the fields manually.';
+      },
     });
+  }
+
+  /** Single fill target for all three lookup paths (barcode scan, OFF/Chomp
+   * search pick, AI search) — one table, reviewed/edited in the same place
+   * regardless of where the data came from. */
+  private applyFoodToManualEntry(item: FoodItem): void {
+    const m = this.manualEntry;
+    m.name = item.name;
+    m.category = item.category || 'other';
+    m.location = defaultLocation(item.category);
+    m.unit = item.serving_size_unit || 'unit';
+    m.servingSizeQty = item.serving_size_qty ?? null;
+    m.servingSizeUnit = item.serving_size_unit || '';
+    m.servingQty = item.serving_qty ?? null;
+    m.servingUnit = item.serving_unit || '';
+    m.cal = item.per_serving.cal;
+    m.protein = item.per_serving.protein;
+    m.carbs = item.per_serving.carbs;
+    m.fat = item.per_serving.fat;
+    m.sugar_g = item.per_serving.sugar_g;
+    m.fiber_g = item.per_serving.fiber_g;
+    m.sat_fat_g = item.per_serving.sat_fat_g;
+    m.sodium_mg = item.per_serving.sodium_mg;
+    m.image_url = item.image_url || '';
+    m.ingredients_text = item.ingredients_text || '';
+  }
+
+  pick(item: FoodItem): void {
+    this.applyFoodToManualEntry(item);
+    this.results = [];
+    this.scanStatus = `Found via ${item.source} — double-check the numbers before saving.`;
   }
 
   // ---------- Meal-instance picker ----------
@@ -713,19 +630,23 @@ export class InventoryComponent implements OnInit, OnDestroy {
     return sharedMealLabel(mealType, instance);
   }
 
-  logFound(mealType: string, instance: number): void {
-    if (!this.found) return;
-    const grams = this.found.serving_qty_g != null
-      ? this.foundQty * this.found.serving_qty_g : null;
+  logManualEntry(mealType: string, instance: number): void {
+    const m = this.manualEntry;
+    const unit = m.servingUnit.toLowerCase() || null;
+    const grams = unit === 'g' && m.servingQty != null ? m.qty * m.servingQty : null;
     this.api.log({
-      meal: mealType, meal_instance: instance, item_name: this.found.name,
-      barcode: this.found.barcode ?? null, source: this.found.source,
-      servings: this.foundQty, macros: this.found.per_serving, grams,
-      log_date: todayStr(),
+      meal: mealType, meal_instance: instance, item_name: m.name,
+      source: 'manual',
+      servings: m.qty,
+      macros: {
+        cal: m.cal, protein: m.protein, carbs: m.carbs, fat: m.fat,
+        sugar_g: m.sugar_g, fiber_g: m.fiber_g, sat_fat_g: m.sat_fat_g, sodium_mg: m.sodium_mg,
+      },
+      grams, log_date: todayStr(),
     }).subscribe(() => {
       this.mealPickerOpen = false;
-      this.found = undefined;
       this.scanStatus = `Logged ${this.mealLabel(mealType, instance)}.`;
+      this.manualEntry = this.blankManualEntry();
       if (this.viewMode === 'log') this.reloadLog();
     });
   }
