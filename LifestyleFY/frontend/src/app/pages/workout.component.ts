@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Subscription } from 'rxjs';
 import { ApiService } from '../core/api.service';
+import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import {
   CustomExerciseRequest, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails,
   ExerciseSearchResultItem, OverviewDay, PlanExercise, WorkoutDay, WorkoutOverview,
@@ -52,7 +53,7 @@ const PHASE_GROUPS: PhaseGroup[] = [
 @Component({
   selector: 'app-workout',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, ImageUrlFieldComponent],
   template: `
     @if (viewMode === 'workout') {
       <button class="coach-fab" [class.dragging]="dragging"
@@ -512,7 +513,7 @@ const PHASE_GROUPS: PhaseGroup[] = [
                   <label>Name</label>
                   <input [(ngModel)]="customDraft.name" placeholder="Exercise name" />
                   <label>Image URL</label>
-                  <input [(ngModel)]="customDraft.image_url" placeholder="https://…" />
+                  <app-image-url-field [(value)]="customDraft.image_url" />
                   <label>Video URL</label>
                   <input [(ngModel)]="customDraft.video_url" placeholder="https://…" />
                   <label>Overview</label>

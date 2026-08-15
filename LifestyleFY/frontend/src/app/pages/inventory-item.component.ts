@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
+import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import { InventoryItem, LogEntry } from '../core/models';
 import { APP_CATEGORIES, LOCATIONS, categoryMeta } from '../core/categories';
 import {
@@ -16,7 +17,7 @@ type EditDraft = Pick<InventoryItem,
 @Component({
   selector: 'app-inventory-item',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ImageUrlFieldComponent],
   template: `
     <a routerLink="/inventory" class="muted" style="text-decoration:none">← Back to Inventory</a>
 
@@ -143,7 +144,7 @@ type EditDraft = Pick<InventoryItem,
             <input type="number" [(ngModel)]="editDraft.initial_qty" min="0" /></div>
         </div>
         <label>Image URL</label>
-        <input [(ngModel)]="editDraft.image_url" placeholder="https://..." />
+        <app-image-url-field [(value)]="editDraft.image_url" />
         <label>Ingredients</label>
         <textarea [(ngModel)]="editDraft.ingredients_text" rows="3"
           placeholder="e.g. Chicken, rice, onion, garlic, salt"

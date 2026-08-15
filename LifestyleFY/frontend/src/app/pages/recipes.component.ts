@@ -5,6 +5,7 @@ import { Observable, forkJoin } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { AiPromptPanelComponent } from '../core/ai-prompt-panel.component';
 import { HamburgerMenuService } from '../core/hamburger-menu.service';
+import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import { InventoryItem, LogEntry, Macros, Recipe, RecipeIngredient } from '../core/models';
 import {
   MEAL_TYPES, mealLabel as sharedMealLabel, existingInstances as sharedExistingInstances,
@@ -14,7 +15,7 @@ import {
 @Component({
   selector: 'app-recipes',
   standalone: true,
-  imports: [CommonModule, FormsModule, AiPromptPanelComponent],
+  imports: [CommonModule, FormsModule, AiPromptPanelComponent, ImageUrlFieldComponent],
   template: `
     <div class="card blue">
       <h3>Generate a recipe</h3>
@@ -66,7 +67,7 @@ import {
             </select></div>
         </div>
         <label>Image URL</label>
-        <input [(ngModel)]="draft.image_url" placeholder="https://..." />
+        <app-image-url-field [(value)]="draft.image_url" />
         <label>Instructions</label>
         <textarea [(ngModel)]="draft.instructions" rows="4"
           style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);

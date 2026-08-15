@@ -6,6 +6,7 @@ import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
 import { ApiService } from '../core/api.service';
+import { ImageUrlFieldComponent } from '../core/image-url-field.component';
 import { FoodItem, InventoryItem, LogEntry } from '../core/models';
 import {
   APP_CATEGORIES, LOCATIONS, Location, CategoryMeta, defaultLocation,
@@ -59,7 +60,7 @@ const LOCATION_EMOJI: Record<Location, string> = {
 @Component({
   selector: 'app-inventory',
   standalone: true,
-  imports: [CommonModule, FormsModule, RouterLink],
+  imports: [CommonModule, FormsModule, RouterLink, ImageUrlFieldComponent],
   template: `
     <div class="card">
       <div class="row spread" style="cursor:pointer" (click)="addOpen = !addOpen">
@@ -161,7 +162,7 @@ const LOCATION_EMOJI: Record<Location, string> = {
                   <input type="number" [(ngModel)]="manualEntry.sodium_mg" /></div>
               </div>
               <label>Image URL</label>
-              <input [(ngModel)]="manualEntry.image_url" placeholder="https://..." />
+              <app-image-url-field [(value)]="manualEntry.image_url" />
               <label>Ingredients</label>
               <textarea [(ngModel)]="manualEntry.ingredients_text" rows="3"
                 placeholder="e.g. Chicken, rice, onion, garlic, salt"
