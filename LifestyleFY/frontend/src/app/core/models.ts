@@ -94,6 +94,12 @@ export interface SystemPrompts {
   workout: string;
 }
 
+export interface AdminUser {
+  email: string;
+  isAiAdmin: boolean;
+  isAppAdmin: boolean;
+}
+
 export interface LogRequest {
   meal: string;
   meal_instance?: number; // distinguishes separate sittings, e.g. "Lunch 2"

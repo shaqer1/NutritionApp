@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from ..auth import current_roles, current_uid, require_ai_prompt_admin
+from ..auth import current_roles, current_uid, require_ai_prompt_admin, require_app_admin
 from ..deps import coach_dep, exercisedb_dep, resolver_dep, store_dep
 from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
@@ -373,6 +373,35 @@ def set_ai_system_prompts(prompts: SystemPrompts, store: Store = Depends(store_d
                           _admin: None = Depends(require_ai_prompt_admin)):
     store.set_system_prompts(prompts)
     return {"ok": True}
+
+
+@router.get("/me/roles")
+def get_my_roles(roles: dict = Depends(current_roles)):
+    return {"roles": roles}
+
+
+# ---------- Admin: allowed-users + roles (isAppAdmin only, not isAiAdmin) ----------
+@router.get("/admin/users")
+def admin_list_users(store: Store = Depends(store_dep),
+                     _admin: None = Depends(require_app_admin)):
+    return {"users": store.list_allowed_users()}
+
+
+@router.post("/admin/users")
+def admin_add_user(email: str = Body(..., embed=True), store: Store = Depends(store_dep),
+                   _admin: None = Depends(require_app_admin)):
+    store.add_allowed_user(email.strip().lower())
+    return {"users": store.list_allowed_users()}
+
+
+@router.put("/admin/users/roles")
+def admin_set_user_roles(email: str = Body(..., embed=True),
+                         isAiAdmin: bool = Body(False, embed=True),
+                         isAppAdmin: bool = Body(False, embed=True),
+                         store: Store = Depends(store_dep),
+                         _admin: None = Depends(require_app_admin)):
+    store.set_user_roles(email, isAiAdmin, isAppAdmin)
+    return {"users": store.list_allowed_users()}
 
 
 # ---------- Workout ----------

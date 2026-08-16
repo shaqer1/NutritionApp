@@ -13,13 +13,13 @@ from datetime import date, datetime, timedelta, timezone
 
 from ..config import Settings
 from ..models import (
-    AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
-    ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, Goals,
-    GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay, OverviewExercise,
-    PlanExercise, Profile, Recipe, SystemPrompts, TodaySummary, WorkoutConfig, WorkoutDay,
-    WorkoutDaySummary, WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest,
-    WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSetSummary, WorkoutSession, WorkoutWeekOverview,
-    WorkoutOverview,
+    AdminUser, AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest,
+    ExerciseCacheFilters, ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult,
+    ExerciseDetails, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay,
+    OverviewExercise, PlanExercise, Profile, Recipe, SystemPrompts, TodaySummary, WorkoutConfig,
+    WorkoutDay, WorkoutDaySummary, WorkoutPlanUpdateRequest, WorkoutProgress,
+    WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSetSummary,
+    WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
 )
 
 
@@ -47,6 +47,7 @@ class Store:
             self._profiles: dict[str, dict] = {}
             self._ai_prompts: dict[str, dict] = {}
             self._system_prompts: dict = {}
+            self._access: dict = {"allowed_emails": [], "roles": {}}
             self._goals: dict[str, dict] = {}
             self._inventory: dict[str, dict[str, dict]] = {}
             self._recipes: dict[str, dict[str, dict]] = {}
@@ -118,6 +119,46 @@ class Store:
             self._system_prompts = data
             return
         self._fs.collection("config").document("ai_system_prompts").set(data)
+
+    # ---------- Admin: allowed-users + roles (config/access doc) ----------
+    # Same doc auth.py's allowlist cache reads (60s TTL there) — a write here
+    # can take up to a minute to affect sign-in/role checks, same as editing
+    # the doc directly via the Firebase Console.
+    def _access_doc_data(self) -> dict:
+        if self.stub:
+            return self._access
+        snap = self._fs.collection("config").document("access").get()
+        return snap.to_dict() or {}
+
+    def list_allowed_users(self) -> list[AdminUser]:
+        data = self._access_doc_data()
+        emails = data.get("allowed_emails", [])
+        roles = data.get("roles", {})
+        return [
+            AdminUser(email=e, isAiAdmin=roles.get(e, {}).get("isAiAdmin", False),
+                     isAppAdmin=roles.get(e, {}).get("isAppAdmin", False))
+            for e in emails
+        ]
+
+    def add_allowed_user(self, email: str) -> None:
+        if self.stub:
+            emails = self._access.setdefault("allowed_emails", [])
+            if email not in emails:
+                emails.append(email)
+            return
+        from google.cloud import firestore
+
+        ref = self._fs.collection("config").document("access")
+        ref.set({"allowed_emails": firestore.ArrayUnion([email])}, merge=True)
+
+    def set_user_roles(self, email: str, is_ai_admin: bool, is_app_admin: bool) -> None:
+        if self.stub:
+            self._access.setdefault("roles", {})[email] = {
+                "isAiAdmin": is_ai_admin, "isAppAdmin": is_app_admin,
+            }
+            return
+        ref = self._fs.collection("config").document("access")
+        ref.set({"roles": {email: {"isAiAdmin": is_ai_admin, "isAppAdmin": is_app_admin}}}, merge=True)
 
     # ---------- Goals ----------
     def get_goals(self, uid: str) -> Goals | None:

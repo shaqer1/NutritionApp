@@ -126,3 +126,13 @@ def require_ai_prompt_admin(roles: dict = Depends(current_roles)) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires the AI Admin or App Admin role",
         )
+
+
+def require_app_admin(roles: dict = Depends(current_roles)) -> None:
+    """Gates user/role management specifically — isAiAdmin alone is not
+    enough (that flag only covers AI system-prompt editing)."""
+    if not roles.get("isAppAdmin"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Requires the App Admin role",
+        )

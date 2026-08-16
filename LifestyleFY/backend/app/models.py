@@ -127,6 +127,14 @@ class SystemPrompts(BaseModel):
     workout: str = ""
 
 
+class AdminUser(BaseModel):
+    """One row of the App-Admin user/role management screen — merges
+    `config/access`'s allowed_emails + roles into a single view."""
+    email: str
+    isAiAdmin: bool = False
+    isAppAdmin: bool = False
+
+
 class TodaySummary(BaseModel):
     date: date
     consumed: Macros

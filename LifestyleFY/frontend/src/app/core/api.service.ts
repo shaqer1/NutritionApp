@@ -4,13 +4,13 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { REQUEST_TIMEOUT_MS } from './auth.interceptor';
 import {
-  AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest, CoachMessage, Roles,
-  CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
-  ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals, GroceryList, InventoryItem,
-  LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
-  WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress,
-  WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutWeekOverview,
-  SystemPrompts,
+  AdminUser, AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest,
+  CoachMessage, Roles, CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions,
+  ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals,
+  GroceryList, InventoryItem, LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary,
+  WorkoutConfig, WorkoutDay, WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest,
+  WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest,
+  WorkoutWeekOverview, SystemPrompts,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -159,6 +159,22 @@ export class ApiService {
   }
   setAiSystemPrompts(prompts: SystemPrompts): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${this.base}/ai-system-prompts`, prompts);
+  }
+
+  getMyRoles(): Observable<{ roles: Roles }> {
+    return this.http.get<{ roles: Roles }>(`${this.base}/me/roles`);
+  }
+
+  // --- Admin: allowed-users + roles (isAppAdmin only) ---
+  listAdminUsers(): Observable<{ users: AdminUser[] }> {
+    return this.http.get<{ users: AdminUser[] }>(`${this.base}/admin/users`);
+  }
+  addAdminUser(email: string): Observable<{ users: AdminUser[] }> {
+    return this.http.post<{ users: AdminUser[] }>(`${this.base}/admin/users`, { email });
+  }
+  setAdminUserRoles(email: string, isAiAdmin: boolean, isAppAdmin: boolean): Observable<{ users: AdminUser[] }> {
+    return this.http.put<{ users: AdminUser[] }>(
+      `${this.base}/admin/users/roles`, { email, isAiAdmin, isAppAdmin });
   }
 
   // --- workout ---

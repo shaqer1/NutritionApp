@@ -1,6 +1,7 @@
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { AdminUsersPanelComponent } from './admin-users-panel.component';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
 import { clearLocalAppData } from './local-data';
@@ -13,7 +14,7 @@ import { Profile } from './models';
 @Component({
   selector: 'app-profile-panel',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, AdminUsersPanelComponent],
   template: `
     <div class="slide-panel-backdrop" (click)="closed.emit()"></div>
     <div class="slide-panel">
@@ -30,7 +31,6 @@ import { Profile } from './models';
           <div style="font-weight:700">{{ auth.currentUser?.displayName || 'You' }}</div>
           <div class="muted">{{ auth.currentUser?.email }}</div>
         </div>
-        <button class="ghost" style="padding:8px 12px;font-size:13px" (click)="signOut()">Sign out</button>
       </div>
 
       <h3>Your profile</h3>
@@ -59,11 +59,21 @@ import { Profile } from './models';
       <input [(ngModel)]="dietaryPrefsText" placeholder="e.g. high-protein, low-carb" />
       <label>Allergies <span class="muted">(comma-separated — the AI will avoid these)</span></label>
       <input [(ngModel)]="allergiesText" placeholder="e.g. peanuts, shellfish" />
-      <div style="margin-top:12px" class="row">
-        <button (click)="saveProfile()">Save profile</button>
+      <div style="margin-top:12px" class="row spread">
+        <div class="row" style="gap:8px">
+          <button (click)="saveProfile()">Save profile</button>
+          @if (isAppAdmin) {
+            <button class="ghost" (click)="showAdmin = true">Admin</button>
+          }
+        </div>
+        <button class="ghost" (click)="signOut()">Sign out</button>
       </div>
       <p class="muted">{{ profileStatus }}</p>
     </div>
+
+    @if (showAdmin) {
+      <app-admin-users-panel (closed)="showAdmin = false" />
+    }
   `,
 })
 export class ProfilePanelComponent implements OnInit {
@@ -85,12 +95,16 @@ export class ProfilePanelComponent implements OnInit {
   dietaryPrefsText = '';
   allergiesText = '';
 
+  isAppAdmin = false;
+  showAdmin = false;
+
   ngOnInit(): void {
     this.api.getProfile().subscribe((r) => {
       if (r.profile) this.profile = r.profile;
       this.dietaryPrefsText = this.profile.dietary_prefs.join(', ');
       this.allergiesText = this.profile.allergies.join(', ');
     });
+    this.api.getMyRoles().subscribe((r) => (this.isAppAdmin = r.roles.isAppAdmin));
   }
 
   private syncProfileFromText(): void {
