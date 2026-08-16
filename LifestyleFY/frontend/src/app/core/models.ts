@@ -82,6 +82,18 @@ export interface AiPromptPreview {
   custom_note: string;
 }
 
+export interface Roles {
+  isAiAdmin: boolean;
+  isAppAdmin: boolean;
+}
+
+export interface SystemPrompts {
+  nudge: string;
+  recipe: string;
+  grocery: string;
+  workout: string;
+}
+
 export interface LogRequest {
   meal: string;
   meal_instance?: number; // distinguishes separate sittings, e.g. "Lunch 2"

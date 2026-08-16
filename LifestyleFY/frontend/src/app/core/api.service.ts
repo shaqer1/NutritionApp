@@ -4,12 +4,13 @@ import { Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
 import { REQUEST_TIMEOUT_MS } from './auth.interceptor';
 import {
-  AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest, CoachMessage,
+  AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest, CoachMessage, Roles,
   CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions, ExerciseCacheSearchResult,
   ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals, GroceryList, InventoryItem,
   LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay,
   WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress,
   WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutWeekOverview,
+  SystemPrompts,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -144,12 +145,20 @@ export class ApiService {
     return this.http.get<{ messages: CoachMessage[] }>(`${this.base}/coach/messages`);
   }
 
-  // --- AI prompts: per-category standing note ---
+  // --- AI prompts: per-category standing note (editable by anyone) ---
   getAiPrompts(): Observable<{ prompts: AiPrompts }> {
     return this.http.get<{ prompts: AiPrompts }>(`${this.base}/ai-prompts`);
   }
   setAiPrompts(prompts: AiPrompts): Observable<{ ok: boolean }> {
     return this.http.put<{ ok: boolean }>(`${this.base}/ai-prompts`, prompts);
+  }
+
+  // --- AI system prompts: shared "generic" instructions (admin-editable) ---
+  getAiSystemPrompts(): Observable<{ prompts: SystemPrompts; roles: Roles }> {
+    return this.http.get<{ prompts: SystemPrompts; roles: Roles }>(`${this.base}/ai-system-prompts`);
+  }
+  setAiSystemPrompts(prompts: SystemPrompts): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${this.base}/ai-system-prompts`, prompts);
   }
 
   // --- workout ---

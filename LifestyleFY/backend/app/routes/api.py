@@ -4,13 +4,13 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from ..auth import current_uid
+from ..auth import current_roles, current_uid, require_ai_prompt_admin
 from ..deps import coach_dep, exercisedb_dep, resolver_dep, store_dep
 from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
     ExerciseSwapRequest, FoodItem, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
-    ScanRequest, TodaySummary, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
+    ScanRequest, SystemPrompts, TodaySummary, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
     WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
     WorkoutWeekOverview,
 )
@@ -191,6 +191,7 @@ def suggest_recipe(uid: str = Depends(current_uid), store: Store = Depends(store
     profile = store.get_profile(uid)
     summary = store.get_today_summary(uid)
     prompts = store.get_ai_prompts(uid)
+    sys_prompts = store.get_system_prompts()
     today = datetime.now(timezone.utc).date()
     recent_workouts = store.get_workout_day_summaries(uid, limit=3)
     try:
@@ -199,7 +200,7 @@ def suggest_recipe(uid: str = Depends(current_uid), store: Store = Depends(store
             profile.dietary_prefs if profile else [],
             profile.allergies if profile else [],
             meal_period, summary.remaining, today, recent_workouts=recent_workouts,
-            custom_note=prompts.recipe, message=message)
+            custom_note=prompts.recipe, message=message, generic_override=sys_prompts.recipe)
     except ValueError as e:
         raise HTTPException(502, f"Recipe generation failed: {e}") from e
     return {"recipe": recipe}
@@ -216,7 +217,8 @@ def suggest_recipe_preview(uid: str = Depends(current_uid), store: Store = Depen
         store.list_inventory(uid),
         profile.dietary_prefs if profile else [],
         profile.allergies if profile else [],
-        meal_period, summary.remaining, today)
+        meal_period, summary.remaining, today,
+        generic_override=store.get_system_prompts().recipe)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).recipe}
 
 
@@ -258,7 +260,8 @@ def grocery(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
         grocery_list = coach.grocery(store.list_inventory(uid), goals,
                              profile.dietary_prefs if profile else [], days, history, today,
                              recent_workouts=recent_workouts,
-                             custom_note=prompts.grocery, message=message)
+                             custom_note=prompts.grocery, message=message,
+                             generic_override=store.get_system_prompts().grocery)
     except ValueError as e:
         raise HTTPException(502, f"Grocery list generation failed: {e}") from e
     return {"grocery_list": grocery_list}
@@ -293,7 +296,8 @@ def grocery_preview(uid: str = Depends(current_uid), store: Store = Depends(stor
     today = day or datetime.now(timezone.utc).date()
     history = store.weekly_macro_history(uid, today)
     generic, context = coach.grocery_prompt_parts(
-        store.list_inventory(uid), goals, profile.dietary_prefs if profile else [], days, history, today)
+        store.list_inventory(uid), goals, profile.dietary_prefs if profile else [], days, history, today,
+        generic_override=store.get_system_prompts().grocery)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).grocery}
 
 
@@ -312,7 +316,8 @@ def run_coach(uid: str = Depends(current_uid), store: Store = Depends(store_dep)
     recent_workouts = store.get_workout_day_summaries(uid, limit=3)
     try:
         tip = coach.nudge(summary, store.list_inventory(uid), log_entries, meal, time_label, day,
-                          recent_workouts=recent_workouts, custom_note=prompts.nudge, message=message)
+                          recent_workouts=recent_workouts, custom_note=prompts.nudge, message=message,
+                          generic_override=store.get_system_prompts().nudge)
     except ValueError as e:
         raise HTTPException(502, f"Coach nudge failed: {e}") from e
     if tip:
@@ -331,7 +336,8 @@ def coach_preview(uid: str = Depends(current_uid), store: Store = Depends(store_
     summary = store.get_today_summary(uid, day)
     log_entries = store.list_log(uid, day)
     generic, context = coach.nudge_prompt_parts(summary, store.list_inventory(uid),
-                                                log_entries, meal, time_label, day)
+                                                log_entries, meal, time_label, day,
+                                                generic_override=store.get_system_prompts().nudge)
     return {"generic": generic, "context": context, "custom_note": store.get_ai_prompts(uid).nudge}
 
 
@@ -340,7 +346,7 @@ def coach_messages(uid: str = Depends(current_uid), store: Store = Depends(store
     return {"messages": store.list_coach_messages(uid)}
 
 
-# ---------- AI prompts: per-category standing note ----------
+# ---------- AI prompts: per-category standing note (editable by anyone) ----------
 @router.get("/ai-prompts")
 def get_ai_prompts(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return {"prompts": store.get_ai_prompts(uid)}
@@ -350,6 +356,22 @@ def get_ai_prompts(uid: str = Depends(current_uid), store: Store = Depends(store
 def set_ai_prompts(prompts: AiPrompts, uid: str = Depends(current_uid),
                    store: Store = Depends(store_dep)):
     store.set_ai_prompts(uid, prompts)
+    return {"ok": True}
+
+
+# ---------- AI system prompts: shared "generic" instructions (admin-editable) ----------
+# Global, not per-user — this is the base instruction template every user's
+# calls build on, distinct from AiPrompts' per-user standing note above.
+@router.get("/ai-system-prompts")
+def get_ai_system_prompts(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
+                          roles: dict = Depends(current_roles)):
+    return {"prompts": store.get_system_prompts(), "roles": roles}
+
+
+@router.put("/ai-system-prompts")
+def set_ai_system_prompts(prompts: SystemPrompts, store: Store = Depends(store_dep),
+                          _admin: None = Depends(require_ai_prompt_admin)):
+    store.set_system_prompts(prompts)
     return {"ok": True}
 
 
@@ -444,7 +466,8 @@ def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_
     context = store.get_workout_coach_context(uid, today)
     custom_note = store.get_ai_prompts(uid).workout
     try:
-        message = coach.workout_nudge(context, custom_note=custom_note)
+        message = coach.workout_nudge(context, custom_note=custom_note,
+                                      generic_override=store.get_system_prompts().workout)
     except ValueError as e:
         raise HTTPException(502, f"Workout nudge failed: {e}") from e
     return {"message": message}
@@ -453,7 +476,7 @@ def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_
 @router.post("/workout/nudge/preview")
 def workout_nudge_preview(uid: str = Depends(current_uid), store: Store = Depends(store_dep),
                           coach: Coach = Depends(coach_dep)):
-    generic, ctx = coach.workout_nudge_prompt_parts()
+    generic, ctx = coach.workout_nudge_prompt_parts(generic_override=store.get_system_prompts().workout)
     return {"generic": generic, "context": ctx, "custom_note": store.get_ai_prompts(uid).workout}
 
 

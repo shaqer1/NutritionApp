@@ -16,9 +16,10 @@ from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, Goals,
     GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay, OverviewExercise,
-    PlanExercise, Profile, Recipe, TodaySummary, WorkoutConfig, WorkoutDay, WorkoutDaySummary,
-    WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
-    WorkoutSetLogRequest, WorkoutSetSummary, WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
+    PlanExercise, Profile, Recipe, SystemPrompts, TodaySummary, WorkoutConfig, WorkoutDay,
+    WorkoutDaySummary, WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest,
+    WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSetSummary, WorkoutSession, WorkoutWeekOverview,
+    WorkoutOverview,
 )
 
 
@@ -45,6 +46,7 @@ class Store:
             # In-memory mirrors of Firestore docs + BigQuery rows.
             self._profiles: dict[str, dict] = {}
             self._ai_prompts: dict[str, dict] = {}
+            self._system_prompts: dict = {}
             self._goals: dict[str, dict] = {}
             self._inventory: dict[str, dict[str, dict]] = {}
             self._recipes: dict[str, dict[str, dict]] = {}
@@ -101,6 +103,21 @@ class Store:
             self._ai_prompts[uid] = data
             return
         self._user_doc(uid).collection("meta").document("ai_prompts").set(data)
+
+    # ---------- AI system prompts (global, admin-editable "generic" override) ----------
+    def get_system_prompts(self) -> SystemPrompts:
+        if self.stub:
+            return SystemPrompts(**self._system_prompts) if self._system_prompts else SystemPrompts()
+        snap = self._fs.collection("config").document("ai_system_prompts").get()
+        return SystemPrompts(**snap.to_dict()) if snap.exists else SystemPrompts()
+
+    def set_system_prompts(self, prompts: SystemPrompts) -> None:
+        data = prompts.model_dump()
+        data["updated_at"] = _now().isoformat()
+        if self.stub:
+            self._system_prompts = data
+            return
+        self._fs.collection("config").document("ai_system_prompts").set(data)
 
     # ---------- Goals ----------
     def get_goals(self, uid: str) -> Goals | None:

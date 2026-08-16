@@ -116,6 +116,7 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px;
 
 video { width: 100%; border-radius: 12px; background: #000; }
 pre.ai { white-space: pre-wrap; font-family: inherit; font-size: 14px; line-height: 1.5; margin: 0; }
+.prompt-placeholder { color: var(--green); font-weight: 700; }
 
 /* top header: hamburger (left) + title + profile icon (right) */
 .topbar {

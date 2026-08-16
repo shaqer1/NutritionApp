@@ -107,6 +107,26 @@ class AiPrompts(BaseModel):
     workout: str = ""
 
 
+class Roles(BaseModel):
+    """Caller's role flags from the `config/access` Firestore doc — either
+    flag grants system-prompt edit access (see auth.require_ai_prompt_admin).
+    Simple booleans for now, expandable later."""
+    isAiAdmin: bool = False
+    isAppAdmin: bool = False
+
+
+class SystemPrompts(BaseModel):
+    """Admin-editable override of each category's hardcoded 'generic' prompt
+    template. Empty string means "use the hardcoded default" (see each
+    Coach.*_prompt_parts()'s generic_override param). Global, not per-user —
+    unlike AiPrompts' standing note, this replaces the base instructions
+    every user's calls build on."""
+    nudge: str = ""
+    recipe: str = ""
+    grocery: str = ""
+    workout: str = ""
+
+
 class TodaySummary(BaseModel):
     date: date
     consumed: Macros
