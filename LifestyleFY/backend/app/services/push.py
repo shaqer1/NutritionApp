@@ -64,4 +64,4 @@ def _send(store: Store, uid: str, tokens: list[str], title: str, body: str,
         if code in _DEAD_TOKEN_CODES:
             store.remove_device_token(uid, token)
         else:
-            log.warning("FCM send failed for uid=%s token=%s: %s", uid, token, result.exception)
+            log.warning("FCM send failed for uid=%s: %s", uid, result.exception)

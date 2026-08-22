@@ -25,6 +25,7 @@ gcloud services enable \
   run.googleapis.com \
   firestore.googleapis.com \
   bigquery.googleapis.com \
+  fcm.googleapis.com \
   secretmanager.googleapis.com \
   cloudscheduler.googleapis.com \
   sheets.googleapis.com \
@@ -45,7 +46,7 @@ gcloud iam service-accounts create "$SA_NAME" \
   --display-name="Nutrition Cloud Run" 2>/dev/null || echo "   (SA may already exist)"
 
 for ROLE in roles/datastore.user roles/bigquery.dataEditor roles/bigquery.jobUser \
-            roles/secretmanager.secretAccessor; do
+            roles/secretmanager.secretAccessor roles/firebasecloudmessaging.admin; do
   gcloud projects add-iam-policy-binding "$PROJECT_ID" \
     --member="serviceAccount:${SA_EMAIL}" --role="$ROLE" >/dev/null
 done

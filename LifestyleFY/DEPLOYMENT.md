@@ -173,6 +173,21 @@ curl -X PATCH \
 
 ## Troubleshooting
 
+- **Cloud Scheduler reports `URL_UNREACHABLE-UNREACHABLE_5xx`** — Scheduler reached
+  Cloud Run, but the application returned a 5xx response. Read the matching Cloud Run
+  traceback (adjust the time window to the failed attempt):
+  ```bash
+  gcloud logging read \
+    'resource.type="cloud_run_revision" AND resource.labels.service_name="nutrition-api" AND severity>=ERROR' \
+    --project=YOUR_PROJECT_ID --freshness=30m --limit=50
+  ```
+  For notification jobs, run `bash infra/02_notifications_setup.sh indexes` to
+  provision the collection-group indexes without rotating the Scheduler secret. Wait until
+  `gcloud firestore operations list --database='(default)'` reports the operations as
+  `SUCCESSFUL`, then force-run the failed job from Cloud Scheduler. In each operation's
+  response, verify that an index has `queryScope: COLLECTION_GROUP` and `state: READY`;
+  a `COLLECTION` index alone does not support the backend's collection-group query. Index
+  creation is submitted asynchronously, so it is normal for readiness to take several minutes.
 - **`bad substitution` running `00_setup.sh`** — `PROJECT_ID` at the top must be a
   literal value or `"${PROJECT_ID:-default-value}"`, not `"${your-project-id:-...}"`
   (bash reads what's between `${` and `:-` as a variable *name*, not a value).

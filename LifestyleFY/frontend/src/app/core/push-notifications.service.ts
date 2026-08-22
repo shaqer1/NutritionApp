@@ -47,8 +47,16 @@ export class PushNotificationsService {
         serviceWorkerRegistration: registration,
       });
       if (!token) return false;
-      localStorage.setItem(TOKEN_STORAGE_KEY, token);
       await firstValueFrom(this.api.registerDeviceToken(token));
+      const previousToken = localStorage.getItem(TOKEN_STORAGE_KEY);
+      localStorage.setItem(TOKEN_STORAGE_KEY, token);
+      if (previousToken && previousToken !== token) {
+        try {
+          await firstValueFrom(this.api.unregisterDeviceToken(previousToken));
+        } catch {
+          // The current token is registered; stale-token cleanup is best-effort.
+        }
+      }
       return true;
     } catch {
       return false;

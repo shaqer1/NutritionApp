@@ -17,14 +17,14 @@ firebase.initializeApp({
 
 const messaging = firebase.messaging();
 
-// Fires when a push arrives while no app tab has focus (or is closed).
-messaging.onBackgroundMessage((payload) => {
-  const title = payload.notification?.title || 'Lifestyle4U';
-  const body = payload.notification?.body || '';
-  self.registration.showNotification(title, { body, icon: 'assets/logo/logo.svg', data: payload.data });
+self.addEventListener('push', (event) => {
+  // Firebase Messaging registered first and owns FCM display. Do not let the
+  // Angular worker imported below display the same notification a second time.
+  event.stopImmediatePropagation();
 });
 
 self.addEventListener('notificationclick', (event) => {
+  event.stopImmediatePropagation();
   event.notification.close();
   event.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {

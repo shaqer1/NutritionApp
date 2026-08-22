@@ -12,8 +12,39 @@ REGION="${REGION:-us-central1}"
 SERVICE_NAME="${SERVICE_NAME:-nutrition-api}"
 # IANA name (not a fixed UTC offset) so CST/CDT daylight-saving shift is handled automatically.
 TIME_ZONE="${TIME_ZONE:-America/Chicago}"
+TARGET="${1:-all}"
 
 gcloud config set project "$PROJECT_ID" >/dev/null
+
+echo "==> Firestore indexes for notification preference collection-group queries"
+ACCESS_TOKEN="$(gcloud auth print-access-token)"
+create_notification_index () {
+  local field_path="$1"
+  curl --fail --silent --show-error -X PATCH \
+    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
+    -H "Content-Type: application/json" \
+    "https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/collectionGroups/notification_prefs/fields/${field_path}?updateMask=indexConfig" \
+    --data-binary @- <<JSON
+{"indexConfig":{"indexes":[
+  {"queryScope":"COLLECTION","fields":[{"fieldPath":"${field_path}","order":"ASCENDING"}]},
+  {"queryScope":"COLLECTION_GROUP","fields":[{"fieldPath":"${field_path}","order":"ASCENDING"}]}
+]}}
+JSON
+}
+create_notification_index coach_nudges
+create_notification_index meals.breakfast
+create_notification_index meals.lunch
+create_notification_index meals.snack
+create_notification_index meals.dinner
+
+if [[ "$TARGET" == "indexes" ]]; then
+  echo "==> DONE. Firestore collection-group indexes are building and may take a few minutes to become ready."
+  exit 0
+fi
+if [[ "$TARGET" != "all" ]]; then
+  echo "Usage: $0 [all|indexes]" >&2
+  exit 1
+fi
 
 echo "==> Scheduler shared-secret (compared against SCHEDULER_SECRET env var on the backend)"
 if gcloud secrets describe SCHEDULER_SECRET >/dev/null 2>&1; then
@@ -56,4 +87,4 @@ echo "==> Coach nudge jobs (AI-generated, twice a day)"
 create_job coach-nudge-afternoon "/internal/notifications/coach-nudge" "0 17 * * *"
 create_job coach-nudge-night     "/internal/notifications/coach-nudge" "0 22 * * *"
 
-echo "==> DONE. 6 Cloud Scheduler jobs created in ${REGION} (times are project default timezone — use --time-zone if needed)."
+echo "==> DONE. 6 Cloud Scheduler jobs created in ${REGION}; Firestore indexes may take a few minutes to become ready."
