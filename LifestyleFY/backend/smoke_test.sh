@@ -38,3 +38,25 @@ curl -s -X POST "$BASE/coach" -H 'content-type: application/json' \
 
 echo "== recipes from remaining macros =="
 curl -s -X POST "$BASE/recipes" | j
+
+echo "== push notifications: register token, set prefs, test send =="
+curl -s -X POST "$BASE/device-tokens" -H 'content-type: application/json' \
+  -d '{"token":"smoke-test-token","platform":"web"}' | j
+curl -s -X PUT "$BASE/notification-prefs" -H 'content-type: application/json' -d '{
+  "coach_nudges": true,
+  "meals": {"breakfast": true, "lunch": false, "snack": false, "dinner": false}
+}' | j
+curl -s -X POST "$BASE/notifications/test" | j
+curl -s -X DELETE "$BASE/device-tokens/smoke-test-token" | j
+
+# Scheduled (Cloud Scheduler) endpoints — needs SCHEDULER_SECRET set on both
+# the running server and this shell to the same value; skipped otherwise.
+if [ -n "${SCHEDULER_SECRET:-}" ]; then
+  echo "== push notifications: scheduled meal-check + coach-nudge =="
+  curl -s -X POST "$BASE/internal/notifications/meal-check?meal=breakfast" \
+    -H "X-Scheduler-Secret: $SCHEDULER_SECRET" | j
+  curl -s -X POST "$BASE/internal/notifications/coach-nudge" \
+    -H "X-Scheduler-Secret: $SCHEDULER_SECRET" | j
+else
+  echo "== push notifications: scheduled endpoints skipped (set SCHEDULER_SECRET to test) =="
+fi

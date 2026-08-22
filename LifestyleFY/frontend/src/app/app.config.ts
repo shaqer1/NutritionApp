@@ -9,7 +9,7 @@ export const appConfig: ApplicationConfig = {
   providers: [
     provideRouter(routes),
     provideHttpClient(withFetch(), withInterceptors([authInterceptor])),
-    provideServiceWorker('ngsw-worker.js', {
+    provideServiceWorker('firebase-messaging-sw.js', {
       enabled: !isDevMode(),
       registrationStrategy: 'registerWhenStable:30000',
     }),

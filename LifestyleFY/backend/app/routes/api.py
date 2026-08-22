@@ -4,16 +4,19 @@ from datetime import datetime, timezone
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
-from ..auth import current_roles, current_uid, require_ai_prompt_admin, require_app_admin
+from ..auth import (
+    current_roles, current_uid, require_ai_prompt_admin, require_app_admin, require_scheduler_secret,
+)
 from ..deps import coach_dep, exercisedb_dep, resolver_dep, store_dep
 from ..models import (
     AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest, ExerciseCacheFilters,
     ExerciseCacheOptions, ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem,
-    ExerciseSwapRequest, FoodItem, Goals, GroceryList, InventoryItem, LogRequest, Profile, Recipe,
-    ScanRequest, SystemPrompts, TodaySummary, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
-    WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetLogRequest,
-    WorkoutWeekOverview,
+    ExerciseSwapRequest, FoodItem, Goals, GroceryList, InventoryItem, LogRequest,
+    NotificationPrefs, Profile, Recipe, ScanRequest, SystemPrompts, TodaySummary, WorkoutDay,
+    WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest, WorkoutProgress,
+    WorkoutSessionLogRequest, WorkoutSetLogRequest, WorkoutWeekOverview,
 )
+from ..services import push
 from ..services.coach import Coach, compute_goals, next_goal
 from ..services.exercisedb import ExerciseDbClient
 from ..services.food import FoodResolver
@@ -323,6 +326,8 @@ def run_coach(uid: str = Depends(current_uid), store: Store = Depends(store_dep)
     if tip:
         store.add_coach_message(uid, tip, "nudge")
         store.sync_summary_to_sheet(uid)
+        if store.get_notification_prefs(uid).coach_nudges:
+            push.send_to_user(store, uid, "Coach", tip)
     return {"nudge": tip, "on_track": tip is None}
 
 
@@ -344,6 +349,99 @@ def coach_preview(uid: str = Depends(current_uid), store: Store = Depends(store_
 @router.get("/coach/messages")
 def coach_messages(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
     return {"messages": store.list_coach_messages(uid)}
+
+
+# ---------- Push notifications ----------
+@router.post("/device-tokens")
+def register_device_token(token: str = Body(..., embed=True), platform: str = Body("web", embed=True),
+                          uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    store.add_device_token(uid, token, platform)
+    return {"ok": True}
+
+
+@router.delete("/device-tokens/{token}")
+def unregister_device_token(token: str, uid: str = Depends(current_uid),
+                            store: Store = Depends(store_dep)):
+    store.remove_device_token(uid, token)
+    return {"ok": True}
+
+
+@router.get("/notification-prefs")
+def get_notification_prefs(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    return {"prefs": store.get_notification_prefs(uid)}
+
+
+@router.put("/notification-prefs")
+def set_notification_prefs(prefs: NotificationPrefs, uid: str = Depends(current_uid),
+                           store: Store = Depends(store_dep)):
+    store.set_notification_prefs(uid, prefs)
+    return {"ok": True}
+
+
+@router.post("/notifications/test")
+def send_test_notification(uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    push.send_to_user(store, uid, "Lifestyle4U", "This is a test notification.")
+    return {"ok": True}
+
+
+@router.delete("/admin/users/{email}/device-tokens")
+def admin_revoke_device_tokens(email: str, store: Store = Depends(store_dep),
+                               _admin: None = Depends(require_app_admin)):
+    """Lets an App Admin revoke a user's push registrations without needing
+    that user to sign out — e.g. a leaked or stuck token."""
+    push.ensure_firebase_ready()
+    from firebase_admin import auth as fb_auth
+
+    try:
+        user = fb_auth.get_user_by_email(email.strip().lower())
+    except fb_auth.UserNotFoundError as e:
+        raise HTTPException(404, "No such user") from e
+    store.remove_all_device_tokens(user.uid)
+    return {"ok": True}
+
+
+_MEAL_REMINDER_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "snack": "Snack", "dinner": "Dinner"}
+
+
+@router.post("/internal/notifications/meal-check")
+def scheduled_meal_check(meal: str, store: Store = Depends(store_dep),
+                         _auth: None = Depends(require_scheduler_secret)):
+    """Cloud Scheduler hits this once per meal window — deterministic, no AI:
+    notify anyone opted into `meal` who hasn't logged it yet today."""
+    if meal not in _MEAL_REMINDER_LABELS:
+        raise HTTPException(400, "Unknown meal")
+    opted_in = set(store.list_opted_in_uids("meal", meal))
+    already_logged = store.uids_with_meal_logged_today(meal)
+    to_notify = list(opted_in - already_logged)
+    label = _MEAL_REMINDER_LABELS[meal]
+    push.send_to_users(store, to_notify, "Lifestyle4U",
+                       f"Still time to log your {label} — a quick log keeps today's tracking on point.")
+    return {"notified": len(to_notify)}
+
+
+@router.post("/internal/notifications/coach-nudge")
+def scheduled_coach_nudge(store: Store = Depends(store_dep), coach: Coach = Depends(coach_dep),
+                         _auth: None = Depends(require_scheduler_secret)):
+    """Cloud Scheduler hits this twice a day — same AI-generated nudge logic
+    as the in-app "Am I on track?" button, fanned out to opted-in users."""
+    today = datetime.now(timezone.utc).date()
+    notified = 0
+    for uid in store.list_opted_in_uids("coach"):
+        summary = store.get_today_summary(uid, today)
+        log_entries = store.list_log(uid, today)
+        prompts = store.get_ai_prompts(uid)
+        recent_workouts = store.get_workout_day_summaries(uid, limit=3)
+        try:
+            tip = coach.nudge(summary, store.list_inventory(uid), log_entries, "snack", "check-in", today,
+                              recent_workouts=recent_workouts, custom_note=prompts.nudge,
+                              generic_override=store.get_system_prompts().nudge)
+        except ValueError:
+            continue
+        if tip:
+            store.add_coach_message(uid, tip, "nudge")
+            push.send_to_user(store, uid, "Coach", tip)
+            notified += 1
+    return {"notified": notified}
 
 
 # ---------- AI prompts: per-category standing note (editable by anyone) ----------
@@ -499,6 +597,8 @@ def workout_nudge(uid: str = Depends(current_uid), store: Store = Depends(store_
                                       generic_override=store.get_system_prompts().workout)
     except ValueError as e:
         raise HTTPException(502, f"Workout nudge failed: {e}") from e
+    if message and store.get_notification_prefs(uid).coach_nudges:
+        push.send_to_user(store, uid, "Workout Coach", message)
     return {"message": message}
 
 

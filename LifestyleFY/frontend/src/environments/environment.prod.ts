@@ -11,4 +11,6 @@ export const environment = {
     messagingSenderId: '311101817139',
     appId: '1:311101817139:web:737cf1ba2b493655cebe46',
   },
+  // Cloud Messaging > Web configuration > "Web Push certificates" in the Firebase console.
+  vapidKey: 'BE0B8vcqrVkqIggYWWpV1gUtsEGVAsxEQQmfZkcX1diSrXvnPGjHsLjFKQ3msNwmhWlEaWQU5h_42N_elPt4QdQ',
 };

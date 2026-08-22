@@ -5,6 +5,7 @@ import { AuthService } from './core/auth.service';
 import { HamburgerMenuService } from './core/hamburger-menu.service';
 import { clearLocalAppData } from './core/local-data';
 import { ProfilePanelComponent } from './core/profile-panel.component';
+import { PushNotificationsService } from './core/push-notifications.service';
 import { SwUpdateService } from './core/sw-update.service';
 import { environment } from '../environments/environment';
 
@@ -13,6 +14,12 @@ import { environment } from '../environments/environment';
   standalone: true,
   imports: [CommonModule, RouterOutlet, RouterLink, RouterLinkActive, ProfilePanelComponent],
   template: `
+    @if (foregroundToast) {
+      <div style="position:fixed;top:8px;left:8px;right:8px;z-index:300;background:var(--card);
+        border:1px solid var(--border);border-radius:10px;padding:10px 14px;box-shadow:0 6px 16px rgba(0,0,0,.4)">
+        {{ foregroundToast }}
+      </div>
+    }
     @if (!useAuth || (auth.user$ | async)) {
       <header class="topbar">
         <button class="icon-btn" (click)="hamburger.toggle()"
@@ -76,9 +83,16 @@ export class AppComponent {
   useAuth = environment.useAuth;
   showRecovery = false;
   showProfilePanel = false;
+  foregroundToast: string | null = null;
 
   constructor() {
     inject(SwUpdateService).init();
+    const push = inject(PushNotificationsService);
+    push.selfHealRegistration();
+    push.onForegroundMessage((title, body) => {
+      this.foregroundToast = `${title}: ${body}`;
+      setTimeout(() => (this.foregroundToast = null), 6000);
+    });
     if (this.useAuth) {
       setTimeout(() => {
         if (!this.auth.ready) this.showRecovery = true;

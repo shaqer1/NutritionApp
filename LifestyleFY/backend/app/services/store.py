@@ -15,11 +15,11 @@ from ..config import Settings
 from ..models import (
     AdminUser, AiPrompts, CloneDayRequest, CloneWeekRequest, CustomExerciseRequest,
     ExerciseCacheFilters, ExerciseCacheItem, ExerciseCacheOptions, ExerciseCacheSearchResult,
-    ExerciseDetails, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros, OverviewDay,
-    OverviewExercise, PlanExercise, Profile, Recipe, SystemPrompts, TodaySummary, WorkoutConfig,
-    WorkoutDay, WorkoutDaySummary, WorkoutPlanUpdateRequest, WorkoutProgress,
-    WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest, WorkoutSetSummary,
-    WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
+    ExerciseDetails, Goals, GroceryList, InventoryItem, LogEntry, LogRequest, Macros,
+    NotificationPrefs, OverviewDay, OverviewExercise, PlanExercise, Profile, Recipe, SystemPrompts,
+    TodaySummary, WorkoutConfig, WorkoutDay, WorkoutDaySummary, WorkoutPlanUpdateRequest,
+    WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest,
+    WorkoutSetSummary, WorkoutSession, WorkoutWeekOverview, WorkoutOverview,
 )
 
 
@@ -63,6 +63,8 @@ class Store:
             self._workout_sets: list[dict] = []
             self._workout_sessions: list[dict] = []
             self._workout_plan_template: dict[str, dict] = {}
+            self._device_tokens: dict[str, dict[str, dict]] = {}
+            self._notification_prefs: dict[str, dict] = {}
         else:
             from google.cloud import bigquery, firestore
 
@@ -570,6 +572,87 @@ class Store:
         docs = (self._user_doc(uid).collection("coach_messages")
                 .order_by("created_at", direction="DESCENDING").limit(limit).stream())
         return [d.to_dict() for d in docs]
+
+    # ---------- Device tokens (web push) ----------
+    def add_device_token(self, uid: str, token: str, platform: str = "web") -> None:
+        data = {"token": token, "platform": platform, "updated_at": _now().isoformat()}
+        if self.stub:
+            self._device_tokens.setdefault(uid, {})[token] = data
+            return
+        self._user_doc(uid).collection("device_tokens").document(token).set(data)
+
+    def list_device_tokens(self, uid: str) -> list[str]:
+        if self.stub:
+            return list(self._device_tokens.get(uid, {}).keys())
+        docs = self._user_doc(uid).collection("device_tokens").stream()
+        return [d.id for d in docs]
+
+    def remove_device_token(self, uid: str, token: str) -> None:
+        if self.stub:
+            self._device_tokens.get(uid, {}).pop(token, None)
+            return
+        self._user_doc(uid).collection("device_tokens").document(token).delete()
+
+    def remove_all_device_tokens(self, uid: str) -> None:
+        if self.stub:
+            self._device_tokens.pop(uid, None)
+            return
+        for d in self._user_doc(uid).collection("device_tokens").stream():
+            d.reference.delete()
+
+    # ---------- Notification prefs (per-user opt-in, default all off) ----------
+    def get_notification_prefs(self, uid: str) -> NotificationPrefs:
+        if self.stub:
+            data = self._notification_prefs.get(uid)
+            return NotificationPrefs(**data) if data else NotificationPrefs()
+        snap = self._user_doc(uid).collection("notification_prefs").document("settings").get()
+        return NotificationPrefs(**snap.to_dict()) if snap.exists else NotificationPrefs()
+
+    def set_notification_prefs(self, uid: str, prefs: NotificationPrefs) -> None:
+        data = prefs.model_dump()
+        if self.stub:
+            self._notification_prefs[uid] = data
+            return
+        self._user_doc(uid).collection("notification_prefs").document("settings").set(data)
+
+    def list_opted_in_uids(self, kind: str, meal: str | None = None) -> list[str]:
+        """uids opted into `kind` ("coach" or "meal", with `meal` required for
+        the latter) — a single collection-group query across every user's
+        notification_prefs/settings doc, so scheduled push jobs don't need
+        one Firestore read per user."""
+        field = "coach_nudges" if kind == "coach" else f"meals.{meal}"
+        if self.stub:
+            out = []
+            for uid, data in self._notification_prefs.items():
+                prefs = NotificationPrefs(**data)
+                opted_in = prefs.coach_nudges if kind == "coach" else getattr(prefs.meals, meal or "", False)
+                if opted_in:
+                    out.append(uid)
+            return out
+        docs = (self._fs.collection_group("notification_prefs")
+                .where(field, "==", True).stream())
+        return [d.reference.parent.parent.id for d in docs]
+
+    def uids_with_meal_logged_today(self, meal: str, day: date | None = None) -> set[str]:
+        """uids that already have a `food_log` row for `meal` on `day` (default
+        today) — one batched BigQuery query, not one lookup per user."""
+        day = day or _now().date()
+        day_iso = day.isoformat()
+        if self.stub:
+            return {r["uid"] for r in self._food_log
+                    if r.get("log_date", r["ts"][:10]) == day_iso and r.get("meal") == meal}
+        q = f"""
+            SELECT DISTINCT uid
+            FROM `{self.s.gcp_project}.{self.s.bq_dataset}.food_log`
+            WHERE log_date=@day AND meal=@meal
+        """
+        from google.cloud import bigquery
+        job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
+            query_parameters=[
+                bigquery.ScalarQueryParameter("day", "STRING", day_iso),
+                bigquery.ScalarQueryParameter("meal", "STRING", meal),
+            ]))
+        return {r["uid"] for r in job.result()}
 
     # ---------- BigQuery insert helper ----------
     def _bq_insert(self, table: str, rows: list[dict]) -> None:

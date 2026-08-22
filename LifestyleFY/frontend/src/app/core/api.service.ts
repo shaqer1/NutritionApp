@@ -7,10 +7,10 @@ import {
   AdminUser, AiPromptPreview, AiPrompts, CloneDayRequest, CloneResult, CloneWeekRequest,
   CoachMessage, Roles, CustomExerciseRequest, ExerciseCacheFilters, ExerciseCacheOptions,
   ExerciseCacheSearchResult, ExerciseDetails, ExerciseSearchResultItem, FoodItem, Goals,
-  GroceryList, InventoryItem, LogEntry, LogRequest, PlanExercise, Profile, Recipe, TodaySummary,
-  WorkoutConfig, WorkoutDay, WorkoutDaySummary, WorkoutOverview, WorkoutPlanUpdateRequest,
-  WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry, WorkoutSetLogRequest,
-  WorkoutWeekOverview, SystemPrompts,
+  GroceryList, InventoryItem, LogEntry, LogRequest, NotificationPrefs, PlanExercise, Profile,
+  Recipe, TodaySummary, WorkoutConfig, WorkoutDay, WorkoutDaySummary, WorkoutOverview,
+  WorkoutPlanUpdateRequest, WorkoutProgress, WorkoutSessionLogRequest, WorkoutSetEntry,
+  WorkoutSetLogRequest, WorkoutWeekOverview, SystemPrompts,
 } from './models';
 
 /** Typed client for the FastAPI nutrition backend. */
@@ -175,6 +175,27 @@ export class ApiService {
   setAdminUserRoles(email: string, isAiAdmin: boolean, isAppAdmin: boolean): Observable<{ users: AdminUser[] }> {
     return this.http.put<{ users: AdminUser[] }>(
       `${this.base}/admin/users/roles`, { email, isAiAdmin, isAppAdmin });
+  }
+  revokeUserDeviceTokens(email: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(
+      `${this.base}/admin/users/${encodeURIComponent(email)}/device-tokens`);
+  }
+
+  // --- Push notifications ---
+  registerDeviceToken(token: string, platform = 'web'): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/device-tokens`, { token, platform });
+  }
+  unregisterDeviceToken(token: string): Observable<{ ok: boolean }> {
+    return this.http.delete<{ ok: boolean }>(`${this.base}/device-tokens/${token}`);
+  }
+  getNotificationPrefs(): Observable<{ prefs: NotificationPrefs }> {
+    return this.http.get<{ prefs: NotificationPrefs }>(`${this.base}/notification-prefs`);
+  }
+  setNotificationPrefs(prefs: NotificationPrefs): Observable<{ ok: boolean }> {
+    return this.http.put<{ ok: boolean }>(`${this.base}/notification-prefs`, prefs);
+  }
+  sendTestNotification(): Observable<{ ok: boolean }> {
+    return this.http.post<{ ok: boolean }>(`${this.base}/notifications/test`, {});
   }
 
   // --- workout ---

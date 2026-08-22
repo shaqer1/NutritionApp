@@ -55,13 +55,14 @@ deploy_backend () {
     --tag "$IMAGE"
 
   echo "==> Backend: deploying to Cloud Run"
+  # SCHEDULER_SECRET must already exist in Secret Manager (infra/02_notifications_setup.sh) before this runs.
   gcloud run deploy nutrition-api \
     --project "$PROJECT_ID" \
     --image "$IMAGE" \
     --region "$REGION" \
     --service-account "$SA_EMAIL" \
     --set-env-vars "^;^GCP_PROJECT=${PROJECT_ID};BQ_DATASET=${DATASET};WORKOUT_SHEET_ID=${WORKOUT_SHEET_ID};CORS_ORIGINS=${CORS_ORIGINS}" \
-    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest" \
+    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest,SCHEDULER_SECRET=SCHEDULER_SECRET:latest" \
     --allow-unauthenticated
 
   echo "==> Backend: smoke test"

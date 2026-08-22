@@ -1,6 +1,7 @@
 import { Component, EventEmitter, OnInit, Output, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Router } from '@angular/router';
 import { AdminUsersPanelComponent } from './admin-users-panel.component';
 import { ApiService } from './api.service';
 import { AuthService } from './auth.service';
@@ -18,6 +19,7 @@ import { Profile } from './models';
   template: `
     <div class="slide-panel-backdrop" (click)="closed.emit()"></div>
     <div class="slide-panel">
+      <button class="slide-panel-close" style="right:44px" (click)="openSettings()" aria-label="Settings">⚙️</button>
       <button class="slide-panel-close" (click)="closed.emit()" aria-label="Close">✕</button>
 
       <div class="row" style="align-items:center;gap:12px;margin-bottom:16px">
@@ -78,6 +80,7 @@ import { Profile } from './models';
 })
 export class ProfilePanelComponent implements OnInit {
   private api = inject(ApiService);
+  private router = inject(Router);
   auth = inject(AuthService);
 
   @Output() closed = new EventEmitter<void>();
@@ -110,6 +113,11 @@ export class ProfilePanelComponent implements OnInit {
   private syncProfileFromText(): void {
     this.profile.dietary_prefs = this.dietaryPrefsText.split(',').map((s) => s.trim()).filter(Boolean);
     this.profile.allergies = this.allergiesText.split(',').map((s) => s.trim()).filter(Boolean);
+  }
+
+  openSettings(): void {
+    this.closed.emit();
+    this.router.navigate(['/settings']);
   }
 
   saveProfile(): void {

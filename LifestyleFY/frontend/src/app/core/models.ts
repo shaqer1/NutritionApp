@@ -100,6 +100,18 @@ export interface AdminUser {
   isAppAdmin: boolean;
 }
 
+export interface MealNotificationPrefs {
+  breakfast: boolean;
+  lunch: boolean;
+  snack: boolean;
+  dinner: boolean;
+}
+
+export interface NotificationPrefs {
+  coach_nudges: boolean;
+  meals: MealNotificationPrefs;
+}
+
 export interface LogRequest {
   meal: string;
   meal_instance?: number; // distinguishes separate sittings, e.g. "Lunch 2"

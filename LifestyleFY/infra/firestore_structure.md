@@ -28,6 +28,17 @@ users/{uid}
 │                                     per-category standing note the user can edit,
 │                                     appended to that category's AI prompt on every
 │                                     future generate call
+├── device_tokens/{token}  (docs)  { token, platform:'web', updated_at } — FCM web
+│                                     push registrations; doc id is the token itself
+│                                     so re-registering the same device overwrites
+│                                     rather than duplicating
+├── notification_prefs/settings (doc) { coach_nudges: bool,
+│                                     meals:{breakfast,lunch,snack,dinner: bool} } —
+│                                     everything defaults false (opt-in only); its
+│                                     own collection (not nested in `meta`) so the
+│                                     scheduled push jobs can run one cheap
+│                                     collection-group query across all users
+│                                     instead of a per-user read
 ├── recipes/{recipeId}     (docs)  { name, servings, instructions,
 │                                     ingredients:[{item_id, name, quantity,
 │                                       unit, macros:{...}}] — snapshotted,

@@ -20,6 +20,7 @@ class Settings(BaseSettings):
     dev_no_auth: bool = False
     use_stubs: bool = False
     cors_origins: str = "http://localhost:4200"
+    scheduler_secret: str = ""
 
     @property
     def cors_list(self) -> list[str]:

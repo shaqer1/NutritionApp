@@ -45,6 +45,9 @@ import { AdminUser } from './models';
                 (change)="toggleRole(u, 'isAppAdmin', $event)" />
               <span class="muted" style="font-size:12px">App Admin</span>
             </label>
+            <button class="ghost" style="font-size:12px;padding:2px 8px" (click)="revokeNotifications(u)">
+              Revoke notifications
+            </button>
           </div>
         }
       }
@@ -92,6 +95,14 @@ export class AdminUsersPanelComponent implements OnInit {
     const isAiAdmin = role === 'isAiAdmin' ? checked : u.isAiAdmin;
     const isAppAdmin = role === 'isAppAdmin' ? checked : u.isAppAdmin;
     this.api.setAdminUserRoles(u.email, isAiAdmin, isAppAdmin).subscribe((r) => (this.users = r.users));
+  }
+
+  revokeNotifications(u: AdminUser): void {
+    if (!confirm(`Revoke all push notification devices for ${u.email}?`)) return;
+    this.api.revokeUserDeviceTokens(u.email).subscribe({
+      next: () => (this.status = `Revoked notifications for ${u.email}.`),
+      error: () => (this.status = `Failed to revoke notifications for ${u.email}.`),
+    });
   }
 
   addUser(): void {

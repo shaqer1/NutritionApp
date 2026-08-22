@@ -136,3 +136,18 @@ def require_app_admin(roles: dict = Depends(current_roles)) -> None:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Requires the App Admin role",
         )
+
+
+def require_scheduler_secret(
+    x_scheduler_secret: str | None = Header(default=None),
+    settings: Settings = Depends(get_settings),
+) -> None:
+    """Gates the internal /internal/notifications/* routes that Cloud
+    Scheduler calls directly — no Firebase user token involved. Empty
+    settings.scheduler_secret always rejects, so the routes fail closed if
+    it's never configured rather than accepting a blank header."""
+    if not settings.scheduler_secret or x_scheduler_secret != settings.scheduler_secret:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid scheduler secret",
+        )

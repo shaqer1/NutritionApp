@@ -34,5 +34,9 @@ export const routes: Routes = [
     path: 'workout',
     loadComponent: () => import('./pages/workout.component').then((m) => m.WorkoutComponent),
   },
+  {
+    path: 'settings',
+    loadComponent: () => import('./pages/settings.component').then((m) => m.SettingsComponent),
+  },
   { path: '**', redirectTo: 'today' },
 ];

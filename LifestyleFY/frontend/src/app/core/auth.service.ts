@@ -1,4 +1,4 @@
-import { Injectable, NgZone } from '@angular/core';
+import { Injectable, NgZone, inject } from '@angular/core';
 import { initializeApp } from 'firebase/app';
 import {
   Auth, GoogleAuthProvider, User, getAuth, getIdToken, onAuthStateChanged,
@@ -6,11 +6,13 @@ import {
 } from 'firebase/auth';
 import { BehaviorSubject, Observable } from 'rxjs';
 import { environment } from '../../environments/environment';
+import { PushNotificationsService } from './push-notifications.service';
 
 /** Wraps Firebase Auth: Google sign-in and ID token retrieval for the API interceptor. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private auth: Auth;
+  private push = inject(PushNotificationsService);
   private userSubject = new BehaviorSubject<User | null>(null);
   /** Emits the current Firebase user, or null when signed out. Null until first auth check completes. */
   user$: Observable<User | null> = this.userSubject.asObservable();
@@ -38,8 +40,11 @@ export class AuthService {
     return signInWithPopup(this.auth, new GoogleAuthProvider()).then(() => undefined);
   }
 
-  signOut(): Promise<void> {
-    return signOut(this.auth);
+  async signOut(): Promise<void> {
+    // Unregister while still authenticated — the DELETE call needs a valid
+    // bearer token, which the interceptor can no longer attach afterward.
+    await this.push.unregister();
+    await signOut(this.auth);
   }
 
   /** Last successfully retrieved ID token, used as a fallback if a refresh stalls. */

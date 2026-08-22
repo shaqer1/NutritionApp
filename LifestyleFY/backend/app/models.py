@@ -135,6 +135,27 @@ class AdminUser(BaseModel):
     isAppAdmin: bool = False
 
 
+class DeviceToken(BaseModel):
+    """A registered FCM web push token — doc id in Firestore is the token
+    itself, so re-registration overwrites rather than duplicating."""
+    token: str
+    platform: str = "web"
+
+
+class MealNotificationPrefs(BaseModel):
+    breakfast: bool = False
+    lunch: bool = False
+    snack: bool = False
+    dinner: bool = False
+
+
+class NotificationPrefs(BaseModel):
+    """Per-user opt-in flags for push notifications — everything defaults
+    off; users must explicitly enable each type from Settings."""
+    coach_nudges: bool = False
+    meals: MealNotificationPrefs = Field(default_factory=MealNotificationPrefs)
+
+
 class TodaySummary(BaseModel):
     date: date
     consumed: Macros
