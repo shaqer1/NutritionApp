@@ -1,13 +1,20 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="145 80 150 180" width="100%" height="100%">
-  <!-- Monochrome silhouette for Android's notification status-bar badge: only
-       the fork+spoon mark, solid fill, no background disc — Android derives
-       the badge shape from this image's alpha channel and recolors it itself,
-       so any circular backdrop or gradient colors here would just show up as
-       one solid blob instead of a readable shape. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="115 80 220 220" width="100%" height="100%">
+  <!-- Monochrome silhouette for Android's notification status-bar badge: solid
+       fill, no background disc — Android derives the badge shape from this
+       image's alpha channel and recolors it itself, so any circular backdrop
+       or gradient colors here would just show up as one solid blob instead
+       of a readable shape. -->
   <g fill="#000000" stroke="#000000">
+    <!-- Dumbbell -->
+    <path d="M 140.2 216.3 L 163.8 167.7" fill="none" stroke-width="10" stroke-linecap="round" />
+    <path d="M 129.4 211.0 L 150.9 221.5" fill="none" stroke-width="12" stroke-linecap="round" />
+    <path d="M 153.1 162.5 L 174.6 173.0" fill="none" stroke-width="12" stroke-linecap="round" />
+
+    <!-- Spoon -->
     <path d="M 185 245 C 195 190, 240 170, 260 135" fill="none" stroke-width="14" stroke-linecap="round" />
     <ellipse cx="266" cy="125" rx="16" ry="24" transform="rotate(35 266 125)" />
 
+    <!-- Fork -->
     <path d="M 160.0 245.0 L 214.4 133.5" fill="none" stroke-width="16" stroke-linecap="round" />
     <path d="M 200.9 127.0 L 227.8 140.1" fill="none" stroke-width="14" stroke-linecap="round" />
     <path d="M 200.9 127.0 L 217.5 92.8" fill="none" stroke-width="8" stroke-linecap="round" />
@@ -15,5 +22,34 @@
     <path d="M 218.9 135.7 L 235.5 101.6" fill="none" stroke-width="8" stroke-linecap="round" />
     <path d="M 227.8 140.1 L 244.5 106.0" fill="none" stroke-width="8" stroke-linecap="round" />
     <path d="M 182 222 C 192 196, 212 183, 222 162" fill="none" stroke-width="10" stroke-linecap="round" />
+
+    <!-- Growth chart lines -->
+    <path d="M 215 215 L 250 180 L 275 200 L 315 140" fill="none" stroke-width="8" stroke-linejoin="round" stroke-linecap="round" />
+    <path d="M 225 225 L 255 190 L 280 210 L 320 150" fill="none" stroke-width="5" stroke-linejoin="round" stroke-linecap="round" />
+
+    <!-- Barcode -->
+    <rect x="175" y="240" width="4" height="40" />
+    <rect x="182" y="240" width="2" height="48" />
+    <rect x="187" y="240" width="5" height="35" />
+    <rect x="195" y="240" width="3" height="42" />
+    <rect x="201" y="240" width="6" height="38" />
+    <rect x="210" y="240" width="2" height="45" />
+    <rect x="215" y="240" width="4" height="35" />
+    <rect x="222" y="235" width="3" height="55" />
+    <rect x="228" y="240" width="5" height="40" />
+    <rect x="236" y="240" width="2" height="46" />
+    <rect x="241" y="240" width="6" height="35" />
+    <rect x="250" y="230" width="4" height="60" />
+    <rect x="257" y="240" width="3" height="40" />
+    <rect x="263" y="240" width="5" height="48" />
+    <rect x="271" y="240" width="2" height="35" />
+    <rect x="276" y="240" width="6" height="42" />
+    <rect x="285" y="240" width="4" height="38" />
+    <rect x="292" y="240" width="2" height="45" />
+    <rect x="297" y="240" width="5" height="35" />
+    <rect x="305" y="240" width="3" height="50" />
+    <rect x="311" y="240" width="5" height="40" />
+    <rect x="319" y="240" width="2" height="35" />
   </g>
 </svg>
+
