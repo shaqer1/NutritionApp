@@ -57,6 +57,7 @@ export interface Profile {
   activity_level: string;
   dietary_prefs: string[];
   allergies: string[];
+  timezone: string;
 }
 
 export interface TodaySummary {

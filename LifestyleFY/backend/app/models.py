@@ -96,6 +96,8 @@ class Profile(BaseModel):
     activity_level: str = "moderate"  # sedentary|light|moderate|active|very_active
     dietary_prefs: list[str] = Field(default_factory=list)
     allergies: list[str] = Field(default_factory=list)
+    # IANA name; defaults to Central so existing users read back unchanged.
+    timezone: str = "America/Chicago"
 
 
 class AiPrompts(BaseModel):
@@ -154,6 +156,9 @@ class NotificationPrefs(BaseModel):
     off; users must explicitly enable each type from Settings."""
     coach_nudges: bool = False
     meals: MealNotificationPrefs = Field(default_factory=MealNotificationPrefs)
+    # event name -> ISO date (user's local date) last sent; dedupes the sweep
+    # beyond the "already logged" check (e.g. tolerance-window overlap at a run boundary).
+    last_notified: dict[str, str] = Field(default_factory=dict)
 
 
 class TodaySummary(BaseModel):

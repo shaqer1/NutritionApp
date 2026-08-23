@@ -615,23 +615,24 @@ class Store:
             return
         self._user_doc(uid).collection("notification_prefs").document("settings").set(data)
 
-    def list_opted_in_uids(self, kind: str, meal: str | None = None) -> list[str]:
-        """uids opted into `kind` ("coach" or "meal", with `meal` required for
-        the latter) — a single collection-group query across every user's
-        notification_prefs/settings doc, so scheduled push jobs don't need
-        one Firestore read per user."""
-        field = "coach_nudges" if kind == "coach" else f"meals.{meal}"
+    def list_all_notification_prefs(self) -> list[tuple[str, NotificationPrefs]]:
+        """Every user's (uid, prefs) pair — one unfiltered collection-group
+        scan, so the sweep can evaluate each user's own timezone/windows in
+        Python instead of running a separate Firestore query per meal/kind."""
         if self.stub:
-            out = []
-            for uid, data in self._notification_prefs.items():
-                prefs = NotificationPrefs(**data)
-                opted_in = prefs.coach_nudges if kind == "coach" else getattr(prefs.meals, meal or "", False)
-                if opted_in:
-                    out.append(uid)
-            return out
-        docs = (self._fs.collection_group("notification_prefs")
-                .where(field, "==", True).stream())
-        return [d.reference.parent.parent.id for d in docs]
+            return [(uid, NotificationPrefs(**data)) for uid, data in self._notification_prefs.items()]
+        docs = self._fs.collection_group("notification_prefs").stream()
+        return [(d.reference.parent.parent.id, NotificationPrefs(**d.to_dict())) for d in docs]
+
+    def set_last_notified(self, uid: str, event: str, local_date: str) -> None:
+        """Stamps `last_notified.{event}` with the user's local date, so the
+        sweep won't double-notify if a tolerance window spans two runs."""
+        if self.stub:
+            data = self._notification_prefs.setdefault(uid, NotificationPrefs().model_dump())
+            data.setdefault("last_notified", {})[event] = local_date
+            return
+        self._user_doc(uid).collection("notification_prefs").document("settings").set(
+            {"last_notified": {event: local_date}}, merge=True)
 
     def uids_with_meal_logged_today(self, meal: str, day: date | None = None) -> set[str]:
         """uids that already have a `food_log` row for `meal` on `day` (default

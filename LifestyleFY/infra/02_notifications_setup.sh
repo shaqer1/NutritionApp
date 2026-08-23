@@ -16,37 +16,14 @@ TARGET="${1:-all}"
 
 gcloud config set project "$PROJECT_ID" >/dev/null
 
-echo "==> Firestore indexes for notification preference collection-group queries"
-ACCESS_TOKEN="$(gcloud auth print-access-token)"
-create_notification_index () {
-  local field_path="$1"
-  curl --fail --silent --show-error -X PATCH \
-    -H "Authorization: Bearer ${ACCESS_TOKEN}" \
-    -H "Content-Type: application/json" \
-    "https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/collectionGroups/notification_prefs/fields/${field_path}?updateMask=indexConfig" \
-    --data-binary @- <<JSON
-{"indexConfig":{"indexes":[
-  {"queryScope":"COLLECTION","fields":[{"fieldPath":"${field_path}","order":"ASCENDING"}]},
-  {"queryScope":"COLLECTION_GROUP","fields":[{"fieldPath":"${field_path}","order":"ASCENDING"}]}
-]}}
-JSON
-}
-create_notification_index coach_nudges
-create_notification_index meals.breakfast
-create_notification_index meals.lunch
-create_notification_index meals.snack
-create_notification_index meals.dinner
-
-if [[ "$TARGET" == "indexes" ]]; then
-  echo "==> DONE. Firestore collection-group indexes are building and may take a few minutes to become ready."
-  exit 0
-fi
 if [[ "$TARGET" != "all" ]]; then
-  echo "Usage: $0 [all|indexes]" >&2
+  echo "Usage: $0 [all]" >&2
   exit 1
 fi
 
 echo "==> Scheduler shared-secret (compared against SCHEDULER_SECRET env var on the backend)"
+# No Firestore indexes needed: the sweep does one unfiltered
+# collection-group scan of notification_prefs instead of per-field queries.
 if gcloud secrets describe SCHEDULER_SECRET >/dev/null 2>&1; then
   echo "   secret SCHEDULER_SECRET exists — add a new version? (Ctrl-C to skip)"
 else
@@ -77,14 +54,9 @@ create_job () {
     2>/dev/null || echo "   (job $name may already exist — edit it manually if the secret rotated)"
 }
 
-echo "==> Meal reminder jobs (deterministic, no AI — midpoint of each window)"
-create_job meal-check-breakfast "/internal/notifications/meal-check?meal=breakfast" "0 11 * * *"
-create_job meal-check-lunch     "/internal/notifications/meal-check?meal=lunch"     "0 14 * * *"
-create_job meal-check-snack     "/internal/notifications/meal-check?meal=snack"     "0 17 * * *"
-create_job meal-check-dinner    "/internal/notifications/meal-check?meal=dinner"    "0 21 * * *"
+echo "==> Notification sweep job (meal reminders + coach nudges, every 4 hours)"
+create_job notification-sweep "/internal/notifications/sweep" "0 */4 * * *"
 
-echo "==> Coach nudge jobs (AI-generated, twice a day)"
-create_job coach-nudge-afternoon "/internal/notifications/coach-nudge" "0 17 * * *"
-create_job coach-nudge-night     "/internal/notifications/coach-nudge" "0 22 * * *"
-
-echo "==> DONE. 6 Cloud Scheduler jobs created in ${REGION}; Firestore indexes may take a few minutes to become ready."
+echo "==> DONE. 1 Cloud Scheduler job created in ${REGION} (runs 6x/day: 00:00/04:00/08:00/12:00/16:00/20:00 ${TIME_ZONE})."
+echo "==> If migrating from the old 6-job setup, delete them once the new job is verified, e.g.:"
+echo "    gcloud scheduler jobs delete meal-check-breakfast meal-check-lunch meal-check-snack meal-check-dinner coach-nudge-afternoon coach-nudge-night --location=${REGION}"

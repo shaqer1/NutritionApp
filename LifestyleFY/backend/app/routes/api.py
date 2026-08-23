@@ -1,6 +1,8 @@
 """All HTTP routes for the nutrition API."""
+from collections import defaultdict
 from datetime import date as date_type
 from datetime import datetime, timezone
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException
 
@@ -402,31 +404,72 @@ def admin_revoke_device_tokens(email: str, store: Store = Depends(store_dep),
 
 _MEAL_REMINDER_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "snack": "Snack", "dinner": "Dinner"}
 
-
-@router.post("/internal/notifications/meal-check")
-def scheduled_meal_check(meal: str, store: Store = Depends(store_dep),
-                         _auth: None = Depends(require_scheduler_secret)):
-    """Cloud Scheduler hits this once per meal window — deterministic, no AI:
-    notify anyone opted into `meal` who hasn't logged it yet today."""
-    if meal not in _MEAL_REMINDER_LABELS:
-        raise HTTPException(400, "Unknown meal")
-    opted_in = set(store.list_opted_in_uids("meal", meal))
-    already_logged = store.uids_with_meal_logged_today(meal)
-    to_notify = list(opted_in - already_logged)
-    label = _MEAL_REMINDER_LABELS[meal]
-    push.send_to_users(store, to_notify, "Lifestyle4U",
-                       f"Still time to log your {label} — a quick log keeps today's tracking on point.")
-    return {"notified": len(to_notify)}
+# Local-hour targets the sweep checks each user against (see scheduled_sweep) —
+# meal windows unchanged from the old fixed schedule; coach nudges reuse the
+# snack/dinner slots since both fire off the same 4-hourly run.
+_MEAL_TARGET_HOURS = {"breakfast": 8, "lunch": 12, "snack": 16, "dinner": 20}
+_COACH_TARGET_HOURS = {"coach_afternoon": 16, "coach_night": 20}
+_SWEEP_TOLERANCE_HOURS = 2
 
 
-@router.post("/internal/notifications/coach-nudge")
-def scheduled_coach_nudge(store: Store = Depends(store_dep), coach: Coach = Depends(coach_dep),
-                         _auth: None = Depends(require_scheduler_secret)):
-    """Cloud Scheduler hits this twice a day — same AI-generated nudge logic
-    as the in-app "Am I on track?" button, fanned out to opted-in users."""
-    today = datetime.now(timezone.utc).date()
+def _within_window(local_hour: int, target_hour: int, tolerance: int = _SWEEP_TOLERANCE_HOURS) -> bool:
+    diff = abs(local_hour - target_hour)
+    return min(diff, 24 - diff) <= tolerance
+
+
+@router.post("/internal/notifications/sweep")
+def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(coach_dep),
+                    _auth: None = Depends(require_scheduler_secret)):
+    """Cloud Scheduler hits this once every 4 hours (6x/day, all timezones
+    covered across the 6 runs) — for each opted-in user, converts now to
+    their local time and fires whichever meal/coach event's window it falls
+    in, skipping anything already logged today or already notified today."""
+    now_utc = datetime.now(timezone.utc)
+    meal_candidates: dict[tuple[str, str], list[str]] = defaultdict(list)
+    coach_candidates: list[tuple[str, str, str]] = []
+
+    for uid, prefs in store.list_all_notification_prefs():
+        if not (prefs.coach_nudges or any(prefs.meals.model_dump().values())):
+            continue
+        profile = store.get_profile(uid)
+        tz = profile.timezone if profile else "America/Chicago"
+        try:
+            local_now = now_utc.astimezone(ZoneInfo(tz))
+        except Exception:
+            local_now = now_utc.astimezone(ZoneInfo("America/Chicago"))
+        local_date = local_now.date().isoformat()
+
+        for meal, target_hour in _MEAL_TARGET_HOURS.items():
+            if not getattr(prefs.meals, meal):
+                continue
+            if prefs.last_notified.get(meal) == local_date:
+                continue
+            if _within_window(local_now.hour, target_hour):
+                meal_candidates[(meal, local_date)].append(uid)
+
+        if prefs.coach_nudges:
+            for event, target_hour in _COACH_TARGET_HOURS.items():
+                if prefs.last_notified.get(event) == local_date:
+                    continue
+                if _within_window(local_now.hour, target_hour):
+                    coach_candidates.append((uid, event, local_date))
+                    break  # at most one coach nudge per user per run
+
     notified = 0
-    for uid in store.list_opted_in_uids("coach"):
+    for (meal, local_date), uids in meal_candidates.items():
+        already_logged = store.uids_with_meal_logged_today(meal, day=date_type.fromisoformat(local_date))
+        to_send = [u for u in uids if u not in already_logged]
+        if not to_send:
+            continue
+        label = _MEAL_REMINDER_LABELS[meal]
+        push.send_to_users(store, to_send, "Lifestyle4U",
+                           f"Still time to log your {label} — a quick log keeps today's tracking on point.")
+        for u in to_send:
+            store.set_last_notified(u, meal, local_date)
+        notified += len(to_send)
+
+    for uid, event, local_date in coach_candidates:
+        today = date_type.fromisoformat(local_date)
         summary = store.get_today_summary(uid, today)
         log_entries = store.list_log(uid, today)
         prompts = store.get_ai_prompts(uid)
@@ -440,7 +483,9 @@ def scheduled_coach_nudge(store: Store = Depends(store_dep), coach: Coach = Depe
         if tip:
             store.add_coach_message(uid, tip, "nudge")
             push.send_to_user(store, uid, "Coach", tip)
+            store.set_last_notified(uid, event, local_date)
             notified += 1
+
     return {"notified": notified}
 
 

@@ -26,19 +26,19 @@ import { PushNotificationsService } from '../core/push-notifications.service';
       <p class="muted">A reminder only fires if you haven't logged that meal yet that day.</p>
       <label class="row" style="gap:8px;align-items:center">
         <input type="checkbox" [(ngModel)]="prefs.meals.breakfast" (change)="save()" />
-        Breakfast <span class="muted">(~11am)</span>
+        Breakfast <span class="muted">(~8am, your local time)</span>
       </label>
       <label class="row" style="gap:8px;align-items:center">
         <input type="checkbox" [(ngModel)]="prefs.meals.lunch" (change)="save()" />
-        Lunch <span class="muted">(~2pm)</span>
+        Lunch <span class="muted">(~12pm, your local time)</span>
       </label>
       <label class="row" style="gap:8px;align-items:center">
         <input type="checkbox" [(ngModel)]="prefs.meals.snack" (change)="save()" />
-        Snack <span class="muted">(~5pm)</span>
+        Snack <span class="muted">(~4pm, your local time)</span>
       </label>
       <label class="row" style="gap:8px;align-items:center">
         <input type="checkbox" [(ngModel)]="prefs.meals.dinner" (change)="save()" />
-        Dinner <span class="muted">(~9pm)</span>
+        Dinner <span class="muted">(~8pm, your local time)</span>
       </label>
 
       <p class="muted" style="margin-top:12px">{{ status }}</p>

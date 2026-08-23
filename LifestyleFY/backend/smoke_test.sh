@@ -49,14 +49,12 @@ curl -s -X PUT "$BASE/notification-prefs" -H 'content-type: application/json' -d
 curl -s -X POST "$BASE/notifications/test" | j
 curl -s -X DELETE "$BASE/device-tokens/smoke-test-token" | j
 
-# Scheduled (Cloud Scheduler) endpoints — needs SCHEDULER_SECRET set on both
+# Scheduled (Cloud Scheduler) endpoint — needs SCHEDULER_SECRET set on both
 # the running server and this shell to the same value; skipped otherwise.
 if [ -n "${SCHEDULER_SECRET:-}" ]; then
-  echo "== push notifications: scheduled meal-check + coach-nudge =="
-  curl -s -X POST "$BASE/internal/notifications/meal-check?meal=breakfast" \
-    -H "X-Scheduler-Secret: $SCHEDULER_SECRET" | j
-  curl -s -X POST "$BASE/internal/notifications/coach-nudge" \
+  echo "== push notifications: scheduled sweep =="
+  curl -s -X POST "$BASE/internal/notifications/sweep" \
     -H "X-Scheduler-Secret: $SCHEDULER_SECRET" | j
 else
-  echo "== push notifications: scheduled endpoints skipped (set SCHEDULER_SECRET to test) =="
+  echo "== push notifications: scheduled endpoint skipped (set SCHEDULER_SECRET to test) =="
 fi
