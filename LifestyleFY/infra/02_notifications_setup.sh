@@ -54,9 +54,9 @@ create_job () {
     2>/dev/null || echo "   (job $name may already exist — edit it manually if the secret rotated)"
 }
 
-echo "==> Notification sweep job (meal reminders + coach nudges, every 4 hours)"
-create_job notification-sweep "/internal/notifications/sweep" "0 */4 * * *"
+echo "==> Notification sweep job (meal reminders + coach nudges, every hour)"
+create_job notification-sweep "/internal/notifications/sweep" "0 * * * *"
 
-echo "==> DONE. 1 Cloud Scheduler job created in ${REGION} (runs 6x/day: 00:00/04:00/08:00/12:00/16:00/20:00 ${TIME_ZONE})."
+echo "==> DONE. 1 Cloud Scheduler job created in ${REGION} (runs hourly in ${TIME_ZONE})."
 echo "==> If migrating from the old 6-job setup, delete them once the new job is verified, e.g.:"
 echo "    gcloud scheduler jobs delete meal-check-breakfast meal-check-lunch meal-check-snack meal-check-dinner coach-nudge-afternoon coach-nudge-night --location=${REGION}"

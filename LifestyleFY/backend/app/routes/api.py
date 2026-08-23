@@ -406,7 +406,7 @@ _MEAL_REMINDER_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "snack": "S
 
 # Local-hour targets the sweep checks each user against (see scheduled_sweep) —
 # meal windows unchanged from the old fixed schedule; coach nudges reuse the
-# snack/dinner slots since both fire off the same 4-hourly run.
+# snack/dinner slots.
 _MEAL_TARGET_HOURS = {"breakfast": 8, "lunch": 12, "snack": 16, "dinner": 20}
 _COACH_TARGET_HOURS = {"coach_afternoon": 16, "coach_night": 20}
 _SWEEP_TOLERANCE_HOURS = 2
@@ -420,8 +420,7 @@ def _within_window(local_hour: int, target_hour: int, tolerance: int = _SWEEP_TO
 @router.post("/internal/notifications/sweep")
 def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(coach_dep),
                     _auth: None = Depends(require_scheduler_secret)):
-    """Cloud Scheduler hits this once every 4 hours (6x/day, all timezones
-    covered across the 6 runs) — for each opted-in user, converts now to
+    """Cloud Scheduler hits this once every hour — for each opted-in user, converts now to
     their local time and fires whichever meal/coach event's window it falls
     in, skipping anything already logged today or already notified today."""
     now_utc = datetime.now(timezone.utc)
