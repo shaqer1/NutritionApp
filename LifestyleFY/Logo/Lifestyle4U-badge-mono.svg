@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="145 80 150 180" width="100%" height="100%">
+  <!-- Monochrome silhouette for Android's notification status-bar badge: only
+       the fork+spoon mark, solid fill, no background disc — Android derives
+       the badge shape from this image's alpha channel and recolors it itself,
+       so any circular backdrop or gradient colors here would just show up as
+       one solid blob instead of a readable shape. -->
+  <g fill="#000000" stroke="#000000">
+    <path d="M 185 245 C 195 190, 240 170, 260 135" fill="none" stroke-width="14" stroke-linecap="round" />
+    <ellipse cx="266" cy="125" rx="16" ry="24" transform="rotate(35 266 125)" />
+
+    <path d="M 160.0 245.0 L 214.4 133.5" fill="none" stroke-width="16" stroke-linecap="round" />
+    <path d="M 200.9 127.0 L 227.8 140.1" fill="none" stroke-width="14" stroke-linecap="round" />
+    <path d="M 200.9 127.0 L 217.5 92.8" fill="none" stroke-width="8" stroke-linecap="round" />
+    <path d="M 209.9 131.4 L 226.5 97.2" fill="none" stroke-width="8" stroke-linecap="round" />
+    <path d="M 218.9 135.7 L 235.5 101.6" fill="none" stroke-width="8" stroke-linecap="round" />
+    <path d="M 227.8 140.1 L 244.5 106.0" fill="none" stroke-width="8" stroke-linecap="round" />
+    <path d="M 182 222 C 192 196, 212 183, 222 162" fill="none" stroke-width="10" stroke-linecap="round" />
+  </g>
+</svg>

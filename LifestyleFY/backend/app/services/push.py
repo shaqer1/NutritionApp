@@ -17,6 +17,14 @@ _firebase_ready = False
 # FCM error codes that mean the token is permanently gone — safe to prune.
 _DEAD_TOKEN_CODES = {"NOT_FOUND", "UNREGISTERED", "INVALID_ARGUMENT"}
 
+# Absolute URLs required (Chrome/Android won't resolve relative paths from a
+# push payload) — without these, Android falls back to a generic bell icon.
+_ICON_URL = "https://gen-lang-client-0347523959.web.app/assets/icons/icon-512.png"
+# Must be a plain alpha-mask silhouette (Android discards color and derives the
+# status-bar shape from transparency alone) — the full-color icon above has an
+# opaque background disc, so reusing it here would just render as a solid dot.
+_BADGE_URL = "https://gen-lang-client-0347523959.web.app/assets/icons/badge-mono.png"
+
 
 def ensure_firebase_ready() -> None:
     """Lazily initializes the firebase_admin app (mirrors app/auth.py's
@@ -54,6 +62,9 @@ def _send(store: Store, uid: str, tokens: list[str], title: str, body: str,
     message = messaging.MulticastMessage(
         tokens=tokens,
         notification=messaging.Notification(title=title, body=body),
+        webpush=messaging.WebpushConfig(
+            notification=messaging.WebpushNotification(icon=_ICON_URL, badge=_BADGE_URL),
+        ),
         data=data or {},
     )
     response = messaging.send_each_for_multicast(message)

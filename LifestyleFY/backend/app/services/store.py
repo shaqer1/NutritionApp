@@ -367,7 +367,7 @@ class Store:
         job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
             query_parameters=[
                 bigquery.ScalarQueryParameter("uid", "STRING", uid),
-                bigquery.ScalarQueryParameter("day", "STRING", day_iso),
+                bigquery.ScalarQueryParameter("day", "DATE", day_iso),
             ]))
         return [dict(r) for r in job.result()]
 
@@ -396,7 +396,7 @@ class Store:
             job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
                 query_parameters=[
                     bigquery.ScalarQueryParameter("uid", "STRING", uid),
-                    bigquery.ScalarQueryParameter("day", "STRING", day_iso),
+                    bigquery.ScalarQueryParameter("day", "DATE", day_iso),
                 ]))
             rows = [dict(r) for r in job.result()]
         return [
@@ -650,7 +650,7 @@ class Store:
         from google.cloud import bigquery
         job = self._bq.query(q, job_config=bigquery.QueryJobConfig(
             query_parameters=[
-                bigquery.ScalarQueryParameter("day", "STRING", day_iso),
+                bigquery.ScalarQueryParameter("day", "DATE", day_iso),
                 bigquery.ScalarQueryParameter("meal", "STRING", meal),
             ]))
         return {r["uid"] for r in job.result()}

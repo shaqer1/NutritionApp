@@ -38,7 +38,6 @@ ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS sat_fat_g FLOAT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS sodium_mg FLOAT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS meal_instance INT64;
 ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS grams FLOAT64;
-ALTER TABLE ${DATASET}.food_log ADD COLUMN IF NOT EXISTS log_date STRING;
 SQL
   then
     echo "WARNING: BigQuery migration step failed — usually a transient rate limit" >&2
