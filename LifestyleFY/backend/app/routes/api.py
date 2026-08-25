@@ -1,7 +1,7 @@
 """All HTTP routes for the nutrition API."""
 from collections import defaultdict
 from datetime import date as date_type
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -404,12 +404,17 @@ def admin_revoke_device_tokens(email: str, store: Store = Depends(store_dep),
 
 _MEAL_REMINDER_LABELS = {"breakfast": "Breakfast", "lunch": "Lunch", "snack": "Snack", "dinner": "Dinner"}
 
-# Local-hour targets the sweep checks each user against (see scheduled_sweep) —
-# meal windows unchanged from the old fixed schedule; coach nudges reuse the
-# snack/dinner slots.
+# Local-hour targets the sweep checks each user against (see scheduled_sweep).
 _MEAL_TARGET_HOURS = {"breakfast": 8, "lunch": 12, "snack": 16, "dinner": 20}
 _COACH_TARGET_HOURS = {"coach_afternoon": 16, "coach_night": 20}
+_MEAL_LATE_GRACE = timedelta(minutes=75)
 _SWEEP_TOLERANCE_HOURS = 2
+
+
+def _meal_notification_due(local_now: datetime, target_hour: int) -> bool:
+    target = local_now.replace(hour=target_hour, minute=0, second=0, microsecond=0)
+    elapsed = local_now - target
+    return timedelta(0) <= elapsed <= _MEAL_LATE_GRACE
 
 
 def _within_window(local_hour: int, target_hour: int, tolerance: int = _SWEEP_TOLERANCE_HOURS) -> bool:
@@ -443,7 +448,7 @@ def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(co
                 continue
             if prefs.last_notified.get(meal) == local_date:
                 continue
-            if _within_window(local_now.hour, target_hour):
+            if _meal_notification_due(local_now, target_hour):
                 meal_candidates[(meal, local_date)].append(uid)
 
         if prefs.coach_nudges:
@@ -462,7 +467,7 @@ def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(co
             continue
         label = _MEAL_REMINDER_LABELS[meal]
         push.send_to_users(store, to_send, "Lifestyle4U",
-                           f"Still time to log your {label} — a quick log keeps today's tracking on point.")
+                           f"Gurl, Log your {label}!!! — Do you wanna look like a skinny twig?")
         for u in to_send:
             store.set_last_notified(u, meal, local_date)
         notified += len(to_send)

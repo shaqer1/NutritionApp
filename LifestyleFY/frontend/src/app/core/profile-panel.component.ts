@@ -59,16 +59,9 @@ import { Profile } from './models';
       </select>
       <label>Timezone <span class="muted">(used to time meal reminders to your local day)</span></label>
       <select [(ngModel)]="profile.timezone">
-        <option value="America/New_York">Eastern (New York)</option>
-        <option value="America/Chicago">Central (Chicago)</option>
-        <option value="America/Denver">Mountain (Denver)</option>
-        <option value="America/Phoenix">Arizona (no DST)</option>
-        <option value="America/Los_Angeles">Pacific (Los Angeles)</option>
-        <option value="America/Anchorage">Alaska</option>
-        <option value="Pacific/Honolulu">Hawaii</option>
-        <option value="UTC">UTC</option>
-        <option value="Europe/London">London</option>
-        <option value="Asia/Kolkata">India</option>
+        @for (timezone of timezones; track timezone) {
+          <option [value]="timezone">{{ timezone.replaceAll('_', ' ') }}</option>
+        }
       </select>
       <label>Dietary prefs <span class="muted">(comma-separated)</span></label>
       <input [(ngModel)]="dietaryPrefsText" placeholder="e.g. high-protein, low-carb" />
@@ -104,6 +97,9 @@ export class ProfilePanelComponent implements OnInit {
     activity_level: 'moderate', dietary_prefs: ['high-protein'], allergies: [],
     timezone: 'America/Chicago',
   };
+  readonly timezones = [...new Set([
+    'UTC', 'Asia/Kolkata', ...Intl.supportedValuesOf('timeZone'),
+  ])].sort();
 
   // Plain text fields, only synced with profile.dietary_prefs/allergies on
   // load and just before save — NOT a live getter/setter, since re-deriving
