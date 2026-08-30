@@ -61,7 +61,7 @@ deploy_backend () {
     --region "$REGION" \
     --service-account "$SA_EMAIL" \
     --set-env-vars "^;^GCP_PROJECT=${PROJECT_ID};BQ_DATASET=${DATASET};WORKOUT_SHEET_ID=${WORKOUT_SHEET_ID};CORS_ORIGINS=${CORS_ORIGINS}" \
-    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest,SCHEDULER_SECRET=SCHEDULER_SECRET:latest" \
+    --set-secrets "GEMINI_API_KEY=GEMINI_API_KEY:latest,CHOMP_API_KEY=CHOMP_API_KEY:latest,EXERCISEDB_API_KEY=EXERCISEDB_API_KEY:latest,SCHEDULER_SECRET=SCHEDULER_SECRET:latest" \
     --allow-unauthenticated
 
   echo "==> Backend: smoke test"
