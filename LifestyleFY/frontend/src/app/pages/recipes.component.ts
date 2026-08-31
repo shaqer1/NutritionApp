@@ -393,13 +393,23 @@ export class RecipesComponent implements OnInit {
       sat_fat_g: sum.sat_fat_g + ing.macros.sat_fat_g, sodium_mg: sum.sodium_mg + ing.macros.sodium_mg,
     }), { cal: 0, protein: 0, carbs: 0, fat: 0, sugar_g: 0, fiber_g: 0, sat_fat_g: 0, sodium_mg: 0 });
 
+    // Ingredient totals cover the whole batch (all `servings` of it) — divide
+    // down to get the per-serving macros/grams that `per_serving` represents.
+    const perServingMacros: Macros = {
+      cal: totalMacros.cal / servings, protein: totalMacros.protein / servings,
+      carbs: totalMacros.carbs / servings, fat: totalMacros.fat / servings,
+      sugar_g: totalMacros.sugar_g / servings, fiber_g: totalMacros.fiber_g / servings,
+      sat_fat_g: totalMacros.sat_fat_g / servings, sodium_mg: totalMacros.sodium_mg / servings,
+    };
+    const perServingGrams = totalGrams / servings;
+
     const cookedItem: InventoryItem = {
       name, source: 'manual', category: 'prepared', location: 'fridge',
       item_id: null, qty: servings, unit: 'serving', initial_qty: servings,
-      per_serving: totalMacros,
+      per_serving: perServingMacros,
       serving_size: '1 serving', serving_size_qty: 1, serving_size_unit: 'serving',
-      serving_qty: totalGrams || null, serving_unit: totalGrams ? 'g' : null,
-      serving_qty_g: totalGrams || null,
+      serving_qty: perServingGrams || null, serving_unit: perServingGrams ? 'g' : null,
+      serving_qty_g: perServingGrams || null,
       ingredients_text: ingredients.map((i) => i.name).join(', ') || null,
       image_url: null,
     };
