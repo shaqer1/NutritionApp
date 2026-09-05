@@ -1,0 +1,13 @@
+rules_version = '2';
+
+// Deny-all: the app never talks to Firestore from the client. All reads/writes
+// go through the backend API (services/store.py) using the Admin SDK, which
+// bypasses these rules entirely. This file just codifies what's already set
+// in the Firebase Console so it's versioned and can't silently drift.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

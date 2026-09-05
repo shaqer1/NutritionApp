@@ -74,8 +74,8 @@ deploy_frontend () {
   echo "==> Frontend: production build"
   (cd "$ROOT_DIR/frontend" && npm run build -- --configuration production)
 
-  echo "==> Frontend: deploying to Firebase Hosting"
-  (cd "$ROOT_DIR/frontend" && firebase deploy --only hosting --project "$PROJECT_ID")
+  echo "==> Frontend: deploying to Firebase Hosting + Firestore rules"
+  (cd "$ROOT_DIR/frontend" && firebase deploy --only hosting,firestore:rules --project "$PROJECT_ID")
 }
 
 case "$TARGET" in
