@@ -460,18 +460,18 @@ class Coach:
         return (
             "You are a nutrition-lookup assistant. Search for accurate, "
             f'currently-published nutrition facts for this specific item: "{query.strip()}". '
-            "If it names a whole multi-serving item with no portion specified "
-            "(e.g. \"Domino's pepperoni pizza\" with no \"slice\"/\"whole\" "
-            "qualifier), use ONE standard single serving as that food is "
-            "normally eaten or reported (e.g. one slice of a pizza) — never "
-            "the entire multi-serving item — and state exactly what serving "
-            "you're reporting. Give me: the item's precise name, brand (if "
-            "any), the exact serving you're reporting, full nutrition facts "
-            "for that serving (calories, protein, carbs, fat, sugar, fiber, "
-            "saturated fat, sodium), and its typical ingredients. If you "
-            "cannot find or confidently identify this item at all (too "
-            "vague, misspelled beyond recognition, or not a real food), say "
-            "so plainly instead of guessing."
+            "If official published nutrition facts are not available (such as for independent "
+            "restaurant dishes, flights, rotating specials, or custom menu items), provide a "
+            "realistic, chef-informed nutritional estimate based on typical restaurant preparation, "
+            "standard ingredients, and realistic portion sizes. "
+            "If it names a multi-item sampler or flight with no portion specified, report the "
+            "entire order or one standard single serving, and state clearly what serving you are "
+            "reporting. For whole multi-serving items (e.g. \"Domino's pepperoni pizza\" with no "
+            "\"slice\" qualifier), use ONE standard single serving as normally eaten (e.g. one slice). "
+            "Give me: the item's precise name, brand or restaurant (if any), the exact serving you're "
+            "reporting, full nutrition facts for that serving (calories, protein, carbs, fat, sugar, "
+            "fiber, saturated fat, sodium), and its typical ingredients. Only say it cannot be found "
+            "if it is completely unintelligible or not a food."
         )
 
     @staticmethod
