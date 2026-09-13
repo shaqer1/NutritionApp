@@ -64,12 +64,20 @@ import { currentMealType, currentTimeLabel, todayStr } from '../core/meal-picker
 
     @if (messages.length) {
       <div class="card">
-        <h3>Recent nudges</h3>
-        @for (m of messages; track m.created_at) {
-          <div style="padding:8px 0;border-bottom:1px solid var(--border)">
-            <div>{{ m.text }}</div>
-            <div class="muted">{{ m.type }} · {{ m.created_at | date:'short' }}</div>
-          </div>
+        <div class="row spread" style="cursor:pointer" (click)="nudgesCollapsed = !nudgesCollapsed">
+          <h3>Recent nudges</h3>
+          <span class="row" style="gap:8px">
+            <span class="muted">{{ messages.length }}</span>
+            <span class="muted">{{ nudgesCollapsed ? '▼' : '▲' }}</span>
+          </span>
+        </div>
+        @if (!nudgesCollapsed) {
+          @for (m of messages; track m.created_at) {
+            <div style="padding:8px 0;border-bottom:1px solid var(--border)">
+              <div>{{ m.text }}</div>
+              <div class="muted">{{ m.type }} · {{ m.created_at | date:'short' }}</div>
+            </div>
+          }
         }
       </div>
     }
@@ -87,6 +95,7 @@ export class CoachComponent implements OnInit {
   output = '';
   message = '';
   messages: CoachMessage[] = [];
+  nudgesCollapsed = false;
 
   previewNudge = () => this.api.coachPreview(currentMealType(), currentTimeLabel(), todayStr());
 

@@ -88,7 +88,19 @@ import { todayStr } from '../core/meal-picker';
 
     @if (groceryLists.length) {
       <div class="card">
-        <h3>Saved grocery lists</h3>
+        <div class="row spread" style="cursor:pointer" (click)="savedListsCollapsed = !savedListsCollapsed">
+          <h3>Saved grocery lists</h3>
+          <span class="row" style="gap:8px">
+            <span class="muted">{{ groceryLists.length }} list{{ groceryLists.length === 1 ? '' : 's' }}</span>
+            <span class="muted">{{ savedListsCollapsed ? '▼' : '▲' }}</span>
+          </span>
+        </div>
+        @if (savedListsCollapsed) {
+          <p class="muted">
+            {{ activeListsCount() }} active · {{ archivedListsCount() }} archived ·
+            {{ totalGroceryItemsCount() }} item{{ totalGroceryItemsCount() === 1 ? '' : 's' }} total
+          </p>
+        } @else {
         <div class="seg" style="margin-bottom:10px">
           <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
           <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
@@ -136,6 +148,7 @@ import { todayStr } from '../core/meal-picker';
             </div>
           }
         }
+        }
       </div>
     }
   `,
@@ -150,6 +163,7 @@ export class GroceriesComponent implements OnInit {
   groceryLists: GroceryList[] = [];
   showArchived = false;
   expandedId: string | null = null;
+  savedListsCollapsed = false;
   sections = APP_CATEGORIES;
   newItemSection = APP_CATEGORIES[0].id;
   searchQuery = '';
@@ -171,6 +185,18 @@ export class GroceriesComponent implements OnInit {
       .filter((g) => !q
         || (g.name ?? '').toLowerCase().includes(q)
         || g.items.some((i) => i.name.toLowerCase().includes(q)));
+  }
+
+  activeListsCount(): number {
+    return this.groceryLists.filter((g) => g.is_active ?? true).length;
+  }
+
+  archivedListsCount(): number {
+    return this.groceryLists.filter((g) => !(g.is_active ?? true)).length;
+  }
+
+  totalGroceryItemsCount(): number {
+    return this.groceryLists.reduce((sum, g) => sum + g.items.length, 0);
   }
 
   generate(): void {

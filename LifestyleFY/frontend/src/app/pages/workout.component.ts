@@ -89,7 +89,7 @@ const PHASE_GROUPS: PhaseGroup[] = [
 
     <div class="seg">
       <button [class.active]="viewMode === 'overview'" (click)="switchView('overview')">Overview</button>
-      <button [class.active]="viewMode === 'workout'" (click)="switchView('workout')">Workout</button>
+      <button [class.active]="viewMode === 'workout'" (click)="switchView('workout')">Plan</button>
       <button [class.active]="viewMode === 'progress'" (click)="switchView('progress')">Progress</button>
     </div>
 
@@ -279,17 +279,37 @@ const PHASE_GROUPS: PhaseGroup[] = [
       </ng-template>
 
       <ng-template #exerciseCard let-ex="ex" let-showTracker="showTracker">
-        <div class="card">
-          <div class="row spread" style="align-items:flex-start">
+        <div class="card" [class.green]="isExerciseComplete(ex)">
+          <div class="row spread" style="align-items:flex-start;cursor:pointer" (click)="toggleExerciseCollapse(ex)">
             <div style="font-weight:700;flex:1">{{ ex.exercise }}</div>
-            <div class="row" style="gap:6px;flex-shrink:0">
+            <div class="row" style="gap:6px;flex-shrink:0;align-items:center">
               <div class="muted" style="font-size:11px;white-space:nowrap">
                 {{ categoryMeta(ex.category).emoji }} {{ categoryMeta(ex.category).label }}
               </div>
-              <button class="ghost" style="padding:2px 7px;font-size:12px" (click)="openEditPlan(ex)">✏️</button>
+              @if (!isExerciseCollapsed(ex)) {
+                <button class="ghost" style="padding:2px 7px;font-size:12px"
+                        (click)="$event.stopPropagation(); openEditPlan(ex)">✏️</button>
+              }
+              <span class="muted" style="font-size:12px">{{ isExerciseCollapsed(ex) ? '▼' : '▲' }}</span>
             </div>
           </div>
 
+          <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
+            <div class="muted" style="font-size:12px">SETS <b style="color:var(--text)">{{ ex.sets || '-' }}</b></div>
+            <div class="muted" style="font-size:12px">REPS <b style="color:var(--text)">{{ ex.reps || '-' }}</b></div>
+            @if (ex.weight) {
+              <div class="muted" style="font-size:12px">LOAD <b style="color:var(--text)">{{ ex.weight }}</b></div>
+            }
+            @if (isExerciseCollapsed(ex)) {
+              @if (exerciseMax(ex); as m) {
+                <div class="muted" style="font-size:12px">MAX <b style="color:var(--green)">{{ m.reps }} &#64; {{ m.weight }}</b></div>
+              }
+            } @else if (ex.rest) {
+              <div class="muted" style="font-size:12px">REST <b style="color:var(--text)">{{ ex.rest }}</b></div>
+            }
+          </div>
+
+          @if (!isExerciseCollapsed(ex)) {
           @if (editingPlanId === ex.plan_id) {
             <div style="background:#14141c;border-radius:10px;padding:10px;margin-top:8px">
               <label>Exercise name</label>
@@ -320,17 +340,6 @@ const PHASE_GROUPS: PhaseGroup[] = [
               </div>
             </div>
           } @else {
-
-          <div class="row" style="gap:8px;flex-wrap:wrap;margin-top:8px">
-            <div class="muted" style="font-size:12px">SETS <b style="color:var(--text)">{{ ex.sets || '-' }}</b></div>
-            <div class="muted" style="font-size:12px">REPS <b style="color:var(--text)">{{ ex.reps || '-' }}</b></div>
-            @if (ex.weight) {
-              <div class="muted" style="font-size:12px">LOAD <b style="color:var(--text)">{{ ex.weight }}</b></div>
-            }
-            @if (ex.rest) {
-              <div class="muted" style="font-size:12px">REST <b style="color:var(--text)">{{ ex.rest }}</b></div>
-            }
-          </div>
 
           @if (ex.notes) {
             <p class="muted" style="font-style:italic;margin-top:8px">💡 {{ ex.notes }}</p>
@@ -577,6 +586,7 @@ const PHASE_GROUPS: PhaseGroup[] = [
             </div>
           }
           }
+          }
         </div>
       </ng-template>
 
@@ -795,6 +805,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
   setDraftsByExercise: Record<string, SetDraft[]> = {};
   completedExercises = new Set<string>();
   expandedPlanIds = new Set<string>();
+  collapsedExerciseIds = new Set<string>();
 
   finishOpen = false;
   energyLevel = 'medium';
@@ -1048,6 +1059,7 @@ export class WorkoutComponent implements OnInit, OnDestroy {
     this.setDraftsByExercise = {};
     this.completedExercises = new Set<string>();
     this.expandedPlanIds = new Set<string>();
+    this.collapsedExerciseIds = new Set<string>();
     this.finishOpen = false;
     this.editingPlanId = null;
     this.detailPanelPlanId = null;
@@ -1092,7 +1104,65 @@ export class WorkoutComponent implements OnInit, OnDestroy {
           this.completedExercises.add(exerciseName);
         }
       });
+      this.initExerciseCollapseDefaults();
     });
+  }
+
+  /** Collapses each exercise card by default when it's already complete —
+   * warm-up/cool-down exercises have no Mark Complete button of their own,
+   * so they're only ever "complete" (and thus collapsed) once the whole
+   * workout day has been logged as done. */
+  private initExerciseCollapseDefaults(): void {
+    if (!this.dayData) return;
+    const all = [...this.dayData.warmup, ...this.dayData.strength, ...this.dayData.cooldown];
+    for (const ex of all) {
+      if (ex.plan_id && this.isExerciseComplete(ex)) {
+        this.collapsedExerciseIds.add(ex.plan_id);
+      }
+    }
+  }
+
+  /** True once all of an exercise's sets are marked done; for exercises with
+   * no tracker (warm-up/cool-down) it's implied complete only when the whole
+   * workout day has been logged as finished. */
+  isExerciseComplete(ex: PlanExercise): boolean {
+    if (this.setDraftsByExercise[ex.exercise]) {
+      return this.completedExercises.has(ex.exercise);
+    }
+    return !!this.currentDay && this.completedDays.includes(this.currentDay);
+  }
+
+  isExerciseCollapsed(ex: PlanExercise): boolean {
+    return !!ex.plan_id && this.collapsedExerciseIds.has(ex.plan_id);
+  }
+
+  toggleExerciseCollapse(ex: PlanExercise): void {
+    if (!ex.plan_id) return;
+    if (this.collapsedExerciseIds.has(ex.plan_id)) this.collapsedExerciseIds.delete(ex.plan_id);
+    else this.collapsedExerciseIds.add(ex.plan_id);
+  }
+
+  /** Max actual reps/weight logged so far for this exercise (independently —
+   * not necessarily from the same set), shown in the collapsed summary. */
+  exerciseMax(ex: PlanExercise): { reps: string; weight: string } | null {
+    const done = this.setDraftsByExercise[ex.exercise]?.filter((d) => d.done) ?? [];
+    if (!done.length) return null;
+    const maxOf = (vals: string[]): string => {
+      let best = vals[0];
+      let bestNum = parseFloat(best);
+      for (const v of vals.slice(1)) {
+        const n = parseFloat(v);
+        if (!isNaN(n) && (isNaN(bestNum) || n > bestNum)) {
+          best = v;
+          bestNum = n;
+        }
+      }
+      return best;
+    };
+    return {
+      reps: maxOf(done.map((d) => d.actual_reps || '0')),
+      weight: maxOf(done.map((d) => d.weight || '0')),
+    };
   }
 
   toggleDetail(planId: string | null | undefined): void {

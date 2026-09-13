@@ -31,37 +31,61 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
     </div>
     @if (summary) {
       <div class="card">
-        <div class="row spread">
+        <div class="row spread" style="cursor:pointer" (click)="macroCollapsed = !macroCollapsed">
           <h3>Macros vs Goal</h3>
-          <span class="muted">{{ summary.meals_logged }} meals</span>
+          <span class="row" style="gap:8px">
+            <span class="muted">{{ summary.meals_logged }} meals</span>
+            <span class="muted">{{ macroCollapsed ? '▼' : '▲' }}</span>
+          </span>
         </div>
 
         @if (summary.goals) {
-          <ng-container>
-            <div>Calories
-              <span class="muted"> — {{ summary.consumed.cal | number:'1.0-0' }}
-                / {{ summary.goals.calories | number:'1.0-0' }} kcal</span>
+          @if (macroCollapsed) {
+            <div class="row" style="gap:10px;flex-wrap:wrap;margin-top:4px">
+              <div style="flex:1;min-width:64px">
+                <div class="muted" style="font-size:11px">Cal {{ summary.consumed.cal | number:'1.0-0' }}/{{ summary.goals.calories | number:'1.0-0' }}</div>
+                <div class="bar" style="height:5px;margin-top:2px"><span [style.width.%]="pct(summary.consumed.cal, summary.goals.calories)"></span></div>
+              </div>
+              <div style="flex:1;min-width:64px">
+                <div class="muted" style="font-size:11px">P {{ summary.consumed.protein | number:'1.0-0' }}/{{ summary.goals.protein_g | number:'1.0-0' }}</div>
+                <div class="bar protein" style="height:5px;margin-top:2px"><span [style.width.%]="pct(summary.consumed.protein, summary.goals.protein_g)"></span></div>
+              </div>
+              <div style="flex:1;min-width:64px">
+                <div class="muted" style="font-size:11px">Carb {{ summary.consumed.carbs | number:'1.0-0' }}/{{ summary.goals.carbs_g | number:'1.0-0' }}</div>
+                <div class="bar carbs" style="height:5px;margin-top:2px"><span [style.width.%]="pct(summary.consumed.carbs, summary.goals.carbs_g)"></span></div>
+              </div>
+              <div style="flex:1;min-width:64px">
+                <div class="muted" style="font-size:11px">Fat {{ summary.consumed.fat | number:'1.0-0' }}/{{ summary.goals.fat_g | number:'1.0-0' }}</div>
+                <div class="bar fat" style="height:5px;margin-top:2px"><span [style.width.%]="pct(summary.consumed.fat, summary.goals.fat_g)"></span></div>
+              </div>
             </div>
-            <div class="bar"><span [style.width.%]="pct(summary.consumed.cal, summary.goals.calories)"></span></div>
+          } @else {
+            <ng-container>
+              <div>Calories
+                <span class="muted"> — {{ summary.consumed.cal | number:'1.0-0' }}
+                  / {{ summary.goals.calories | number:'1.0-0' }} kcal</span>
+              </div>
+              <div class="bar"><span [style.width.%]="pct(summary.consumed.cal, summary.goals.calories)"></span></div>
 
-            <div style="margin-top:10px">Protein
-              <span class="muted"> — {{ summary.consumed.protein | number:'1.0-0' }}
-                / {{ summary.goals.protein_g | number:'1.0-0' }} g</span>
-            </div>
-            <div class="bar protein"><span [style.width.%]="pct(summary.consumed.protein, summary.goals.protein_g)"></span></div>
+              <div style="margin-top:10px">Protein
+                <span class="muted"> — {{ summary.consumed.protein | number:'1.0-0' }}
+                  / {{ summary.goals.protein_g | number:'1.0-0' }} g</span>
+              </div>
+              <div class="bar protein"><span [style.width.%]="pct(summary.consumed.protein, summary.goals.protein_g)"></span></div>
 
-            <div style="margin-top:10px">Carbs
-              <span class="muted"> — {{ summary.consumed.carbs | number:'1.0-0' }}
-                / {{ summary.goals.carbs_g | number:'1.0-0' }} g</span>
-            </div>
-            <div class="bar carbs"><span [style.width.%]="pct(summary.consumed.carbs, summary.goals.carbs_g)"></span></div>
+              <div style="margin-top:10px">Carbs
+                <span class="muted"> — {{ summary.consumed.carbs | number:'1.0-0' }}
+                  / {{ summary.goals.carbs_g | number:'1.0-0' }} g</span>
+              </div>
+              <div class="bar carbs"><span [style.width.%]="pct(summary.consumed.carbs, summary.goals.carbs_g)"></span></div>
 
-            <div style="margin-top:10px">Fat
-              <span class="muted"> — {{ summary.consumed.fat | number:'1.0-0' }}
-                / {{ summary.goals.fat_g | number:'1.0-0' }} g</span>
-            </div>
-            <div class="bar fat"><span [style.width.%]="pct(summary.consumed.fat, summary.goals.fat_g)"></span></div>
-          </ng-container>
+              <div style="margin-top:10px">Fat
+                <span class="muted"> — {{ summary.consumed.fat | number:'1.0-0' }}
+                  / {{ summary.goals.fat_g | number:'1.0-0' }} g</span>
+              </div>
+              <div class="bar fat"><span [style.width.%]="pct(summary.consumed.fat, summary.goals.fat_g)"></span></div>
+            </ng-container>
+          }
         } @else {
           <p class="muted">No goals set yet — head to the Goals tab.</p>
         }
@@ -69,25 +93,42 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
 
       @if (summary.goals) {
         <div class="card green">
-          <h3>Still to go today</h3>
-          <div class="row spread"><span>Calories</span>
-            <b>{{ summary.remaining.cal | number:'1.0-0' }} kcal</b></div>
-          <div class="row spread"><span>Protein</span>
-            <b>{{ summary.remaining.protein | number:'1.0-0' }} g</b></div>
+          <div class="row spread" style="cursor:pointer" (click)="stillToGoCollapsed = !stillToGoCollapsed">
+            <h3>Still to go today</h3>
+            <span class="muted">{{ stillToGoCollapsed ? '▼' : '▲' }}</span>
+          </div>
+          @if (stillToGoCollapsed) {
+            <div class="muted">
+              Cal {{ summary.remaining.cal | number:'1.0-0' }} · P {{ summary.remaining.protein | number:'1.0-0' }}g
+            </div>
+          } @else {
+            <div class="row spread"><span>Calories</span>
+              <b>{{ summary.remaining.cal | number:'1.0-0' }} kcal</b></div>
+            <div class="row spread"><span>Protein</span>
+              <b>{{ summary.remaining.protein | number:'1.0-0' }} g</b></div>
+          }
         </div>
       }
 
       @if (summary.coach_tip) {
         <div class="card blue">
-          <h3>🤖 Coach</h3>
-          <p style="margin:0">{{ summary.coach_tip }}</p>
+          <div class="row spread" style="cursor:pointer" (click)="coachTipCollapsed = !coachTipCollapsed">
+            <h3>🤖 Coach</h3>
+            <span class="muted">{{ coachTipCollapsed ? '▼' : '▲' }}</span>
+          </div>
+          <p style="margin:0">{{ coachTipCollapsed ? trimText(summary.coach_tip, 60) : summary.coach_tip }}</p>
         </div>
       }
 
       <div class="card">
-        <h3>Logged today</h3>
+        <div class="row spread" style="cursor:pointer" (click)="loggedTodayCollapsed = !loggedTodayCollapsed">
+          <h3>Logged today</h3>
+          <span class="muted">{{ loggedTodayCollapsed ? '▼' : '▲' }}</span>
+        </div>
         @if (!logEntries.length) {
           <p class="muted">Nothing logged today yet.</p>
+        } @else if (loggedTodayCollapsed) {
+          <p class="muted">{{ loggedTodaySummaryLine() }}</p>
         } @else {
           <table style="width:100%;border-collapse:collapse">
             <thead>
@@ -172,9 +213,19 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
       </div>
 
       <div class="card">
-        <h3>Workouts logged today</h3>
+        <div class="row spread" style="cursor:pointer" (click)="workoutsTodayCollapsed = !workoutsTodayCollapsed">
+          <h3>Workouts logged today</h3>
+          <span class="muted">{{ workoutsTodayCollapsed ? '▼' : '▲' }}</span>
+        </div>
         @if (!workoutDays.length) {
           <p class="muted">No workouts logged today.</p>
+        } @else if (workoutsTodayCollapsed) {
+          @for (w of workoutDays; track w.date + w.week + w.day) {
+            <div class="row spread" style="padding:6px 0;border-top:1px solid var(--border)">
+              <div>{{ w.day || 'Workout' }} <span class="muted">· {{ workoutDayExerciseCount(w) }} ex</span></div>
+              <div class="muted">{{ energyIcon(w.energy_level) }} · Wk {{ w.week }} · max {{ workoutDayMaxWeight(w) || '-' }}</div>
+            </div>
+          }
         } @else {
           @for (w of workoutDays; track w.date + w.week + w.day) {
             <div style="padding:8px 0;border-top:1px solid var(--border)">
@@ -219,6 +270,12 @@ export class TodayComponent implements OnInit, OnDestroy {
   loading = false;
   mealTypes = MEAL_TYPES;
   selectedDate = new Date();
+
+  macroCollapsed = false;
+  stillToGoCollapsed = true;
+  coachTipCollapsed = false;
+  loggedTodayCollapsed = false;
+  workoutsTodayCollapsed = true;
 
   editingLogId: string | null = null;
   editDraft = this.blankEditDraft();
@@ -343,6 +400,45 @@ export class TodayComponent implements OnInit, OnDestroy {
   pct(v: number, goal: number): number {
     if (!goal) return 0;
     return Math.min((v / goal) * 100, 100);
+  }
+
+  trimText(text: string, maxLen: number): string {
+    return text.length > maxLen ? text.slice(0, maxLen).trimEnd() + '…' : text;
+  }
+
+  private abbrevMeal(meal: string): string {
+    const map: Record<string, string> = { breakfast: 'B', lunch: 'L', dinner: 'D', snack: 'S' };
+    return map[meal] ?? (meal ? meal[0].toUpperCase() : '?');
+  }
+
+  loggedTodaySummaryLine(): string {
+    const mealCount = this.summary?.meals_logged ?? 0;
+    const totals = new Map<string, number>();
+    for (const e of this.logEntries) {
+      totals.set(e.meal, (totals.get(e.meal) ?? 0) + e.macros.cal);
+    }
+    const parts = [...totals.entries()].map(([meal, cal]) => `${this.abbrevMeal(meal)} ${Math.round(cal)}`);
+    const total = this.logEntries.reduce((s, e) => s + e.macros.cal, 0);
+    return `${mealCount} meal${mealCount === 1 ? '' : 's'}`
+      + (parts.length ? ' · ' + parts.join(' · ') : '')
+      + ` · Total ${Math.round(total)} kcal`;
+  }
+
+  workoutDayExerciseCount(w: WorkoutDaySummary): number {
+    return new Set(w.sets.map((s) => s.exercise)).size;
+  }
+
+  workoutDayMaxWeight(w: WorkoutDaySummary): string {
+    let best = '';
+    let bestNum: number | null = null;
+    for (const s of w.sets) {
+      const n = this.parseLeadingNumber(s.weight);
+      if (n != null && (bestNum == null || n > bestNum)) {
+        bestNum = n;
+        best = s.weight;
+      }
+    }
+    return best;
   }
 
   startEdit(e: LogEntry): void {

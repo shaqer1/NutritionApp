@@ -123,7 +123,20 @@ import {
 
     @if (recipes.length) {
       <div class="card">
-        <h3>Saved recipes</h3>
+        <div class="row spread" style="cursor:pointer" (click)="savedRecipesCollapsed = !savedRecipesCollapsed">
+          <h3>Saved recipes</h3>
+          <span class="row" style="gap:8px">
+            <span class="muted">{{ recipes.length }} recipe{{ recipes.length === 1 ? '' : 's' }}</span>
+            <span class="muted">{{ savedRecipesCollapsed ? '▼' : '▲' }}</span>
+          </span>
+        </div>
+        @if (savedRecipesCollapsed) {
+          <p class="muted">
+            @for (c of recipeMealCounts(); track c.meal; let last = $last) {
+              {{ c.meal }} {{ c.count }}{{ last ? '' : ' · ' }}
+            }
+          </p>
+        } @else {
         <div class="seg" style="margin-bottom:10px">
           <button [class.active]="!showArchived" (click)="showArchived = false">Active</button>
           <button [class.active]="showArchived" (click)="showArchived = true">Archived</button>
@@ -197,6 +210,7 @@ import {
             </div>
           }
         }
+        }
       </div>
     }
 
@@ -253,6 +267,7 @@ export class RecipesComponent implements OnInit {
   pantryItems: InventoryItem[] = [];
 
   showArchived = false;
+  savedRecipesCollapsed = false;
   pickerItemId: string | null = null;
   pickerQty = 1;
   searchQuery = '';
@@ -276,6 +291,15 @@ export class RecipesComponent implements OnInit {
       .filter((r) => !q || r.name.toLowerCase().includes(q))
       .filter((r) => this.mealFilter === 'all'
         || (this.mealFilter === 'unset' ? !r.meal : r.meal === this.mealFilter));
+  }
+
+  recipeMealCounts(): { meal: string; count: number }[] {
+    const counts = new Map<string, number>();
+    for (const r of this.recipes) {
+      const key = r.meal || 'unset';
+      counts.set(key, (counts.get(key) ?? 0) + 1);
+    }
+    return [...counts.entries()].map(([meal, count]) => ({ meal, count }));
   }
 
   get filteredPantryItems(): InventoryItem[] {
