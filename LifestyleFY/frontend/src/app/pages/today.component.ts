@@ -92,24 +92,34 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
       </div>
 
       <div class="card">
-        <h3>Water</h3>
-        <div class="row" style="gap:16px;align-items:center">
-          <div style="position:relative;width:48px;height:80px;flex-shrink:0">
-            <div style="position:absolute;top:0;left:16px;width:16px;height:10px;background:#14141c;border-radius:3px 3px 0 0"></div>
-            <div style="position:absolute;top:8px;left:0;width:48px;height:72px;border:2px solid #14141c;border-radius:10px;overflow:hidden;background:#0c0c12">
-              <div style="position:absolute;bottom:0;left:0;width:100%;background:var(--blue);transition:height .3s"
-                [style.height.%]="waterPct()"></div>
-            </div>
-          </div>
-          <div style="flex:1">
-            <div style="font-size:20px;font-weight:700">{{ summary.water_glasses }} / {{ summary.water_goal_glasses }}</div>
-            <div class="muted" style="font-size:12px">glasses today</div>
-            <div class="row" style="gap:8px;margin-top:8px">
-              <button class="ghost" (click)="decrementWater()" [disabled]="summary.water_glasses <= 0">−</button>
-              <button class="ghost" (click)="incrementWater()">+</button>
-            </div>
-          </div>
+        <div class="row spread" style="cursor:pointer" (click)="waterCollapsed = !waterCollapsed">
+          <h3>Water</h3>
+          <span class="row" style="gap:8px">
+            <span class="muted">{{ summary.water_glasses }}/{{ summary.water_goal_glasses }} glasses</span>
+            <span class="muted">{{ waterCollapsed ? '▼' : '▲' }}</span>
+          </span>
         </div>
+        @if (waterCollapsed) {
+          <div class="bar water"><span [style.width.%]="waterPct()"></span></div>
+        } @else {
+          <div class="row" style="justify-content:center;margin-top:8px">
+            <div style="position:relative;width:140px;height:140px;border-radius:50%;overflow:hidden;background:#0f1420;border:2px solid #23324f;box-shadow:0 0 24px rgba(56,189,248,.25)">
+              <div style="position:absolute;left:0;bottom:0;width:100%;background:linear-gradient(180deg, var(--water-light), var(--water));z-index:1"
+                [style.height.%]="waterPct()">
+                <div style="position:absolute;top:-14px;left:-20%;width:140%;height:28px;border-radius:50%;background:var(--water-light)"></div>
+              </div>
+              <div style="position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center">
+                <div style="font-size:28px;font-weight:800">{{ waterPct() | number:'1.0-0' }}%</div>
+                <div class="muted" style="font-size:11px">of daily goal</div>
+                <div class="muted" style="font-size:11px;margin-top:2px">{{ summary.water_glasses }}/{{ summary.water_goal_glasses }} glasses</div>
+              </div>
+            </div>
+          </div>
+          <div class="row" style="justify-content:center;gap:12px;margin-top:14px">
+            <button class="ghost" (click)="decrementWater()" [disabled]="summary.water_glasses <= 0">−</button>
+            <button class="ghost" (click)="incrementWater()">+</button>
+          </div>
+        }
       </div>
 
       @if (summary.goals) {
@@ -297,6 +307,7 @@ export class TodayComponent implements OnInit, OnDestroy {
   coachTipCollapsed = false;
   loggedTodayCollapsed = false;
   workoutsTodayCollapsed = true;
+  waterCollapsed = true;
 
   editingLogId: string | null = null;
   editDraft = this.blankEditDraft();

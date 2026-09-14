@@ -4,6 +4,8 @@
   --accent: #e94560;
   --green: #4ecca3;
   --blue: #4d9de0;
+  --water: #38bdf8;
+  --water-light: #7dd8ff;
   --text: #eaeaf0;
   --muted: #9a9ab0;
   --border: #2c2c3f;
@@ -68,6 +70,7 @@ label { display: block; font-size: 13px; color: var(--muted); margin: 8px 0 4px;
 .bar.protein > span { background: var(--blue); }
 .bar.carbs > span { background: #e0a44d; }
 .bar.fat > span { background: var(--accent); }
+.bar.water > span { background: linear-gradient(90deg, var(--water), var(--water-light)); }
 
 .app.login {
   min-height: 100vh; display: flex; flex-direction: column;
