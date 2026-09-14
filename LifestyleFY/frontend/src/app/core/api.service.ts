@@ -70,6 +70,9 @@ export class ApiService {
     return this.http.delete<TodaySummary>(
       `${this.base}/log/${logId}`, { params: day ? { day } : {} });
   }
+  setWater(date: string, glasses: number): Observable<TodaySummary> {
+    return this.http.put<TodaySummary>(`${this.base}/water`, { date, glasses });
+  }
 
   // --- profile / goals ---
   getProfile(): Observable<{ profile: Profile | null }> {

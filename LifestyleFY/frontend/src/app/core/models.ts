@@ -58,6 +58,7 @@ export interface Profile {
   dietary_prefs: string[];
   allergies: string[];
   timezone: string;
+  water_goal_glasses: number;
 }
 
 export interface TodaySummary {
@@ -68,6 +69,8 @@ export interface TodaySummary {
   pct_to_goal: number;
   goals?: Goals | null;
   coach_tip?: string | null;
+  water_glasses: number;
+  water_goal_glasses: number;
 }
 
 export interface AiPrompts {
@@ -111,6 +114,7 @@ export interface MealNotificationPrefs {
 export interface NotificationPrefs {
   coach_nudges: boolean;
   meals: MealNotificationPrefs;
+  water: boolean;
 }
 
 export interface LogRequest {

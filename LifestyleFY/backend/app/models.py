@@ -98,6 +98,7 @@ class Profile(BaseModel):
     allergies: list[str] = Field(default_factory=list)
     # IANA name; defaults to Central so existing users read back unchanged.
     timezone: str = "America/Chicago"
+    water_goal_glasses: int = Field(8, gt=0)
 
 
 class AiPrompts(BaseModel):
@@ -156,6 +157,7 @@ class NotificationPrefs(BaseModel):
     off; users must explicitly enable each type from Settings."""
     coach_nudges: bool = False
     meals: MealNotificationPrefs = Field(default_factory=MealNotificationPrefs)
+    water: bool = False
     # event name -> ISO date (user's local date) last sent; dedupes the sweep
     # beyond the "already logged" check (e.g. tolerance-window overlap at a run boundary).
     last_notified: dict[str, str] = Field(default_factory=dict)
@@ -169,6 +171,8 @@ class TodaySummary(BaseModel):
     pct_to_goal: float  # 0..1 on calories
     goals: Goals | None = None
     coach_tip: str | None = None
+    water_glasses: int = 0
+    water_goal_glasses: int = 8
 
 
 class CoachMessage(BaseModel):

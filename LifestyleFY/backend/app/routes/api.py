@@ -2,6 +2,7 @@
 from collections import defaultdict
 from datetime import date as date_type
 from datetime import datetime, timedelta, timezone
+import math
 from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Body, Depends, HTTPException
@@ -185,6 +186,14 @@ def advance_goal(uid: str = Depends(current_uid), store: Store = Depends(store_d
     goals = next_goal(current, profile)
     store.set_goals(uid, goals, reason="next goal after reaching target")
     return {"goals": goals}
+
+
+# ---------- Water ----------
+@router.put("/water")
+def set_water(date: date_type = Body(..., embed=True), glasses: int = Body(..., embed=True, ge=0),
+             uid: str = Depends(current_uid), store: Store = Depends(store_dep)):
+    store.set_water_glasses(uid, date, glasses)
+    return store.recompute_today_summary(uid, day=date)
 
 
 # ---------- Recipes: AI-suggested draft, then explicit save/list/delete ----------
@@ -410,6 +419,11 @@ _COACH_TARGET_HOURS = {"coach_afternoon": 16, "coach_night": 20}
 _MEAL_LATE_GRACE = timedelta(minutes=75)
 _SWEEP_TOLERANCE_HOURS = 2
 
+# Water pacing: 1 glass every 105min starting 8am local -> checkpoint clock
+# times are fixed (9:45am/3pm/6:30pm), but the required-glasses fraction at
+# each checkpoint scales to the user's own configured daily goal.
+_WATER_CHECKPOINTS = {"water_2": (10, 2 / 8), "water_5": (15, 5 / 8), "water_7": (19, 7 / 8)}
+
 
 def _meal_notification_due(local_now: datetime, target_hour: int) -> bool:
     target = local_now.replace(hour=target_hour, minute=0, second=0, microsecond=0)
@@ -431,9 +445,10 @@ def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(co
     now_utc = datetime.now(timezone.utc)
     meal_candidates: dict[tuple[str, str], list[str]] = defaultdict(list)
     coach_candidates: list[tuple[str, str, str]] = []
+    water_candidates: list[tuple[str, str, str, int]] = []  # (uid, event, local_date, required)
 
     for uid, prefs in store.list_all_notification_prefs():
-        if not (prefs.coach_nudges or any(prefs.meals.model_dump().values())):
+        if not (prefs.coach_nudges or any(prefs.meals.model_dump().values()) or prefs.water):
             continue
         profile = store.get_profile(uid)
         tz = profile.timezone if profile else "America/Chicago"
@@ -458,6 +473,15 @@ def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(co
                 if _within_window(local_now.hour, target_hour):
                     coach_candidates.append((uid, event, local_date))
                     break  # at most one coach nudge per user per run
+
+        if prefs.water:
+            goal = profile.water_goal_glasses if profile else 8
+            for event, (target_hour, fraction) in _WATER_CHECKPOINTS.items():
+                if prefs.last_notified.get(event) == local_date:
+                    continue
+                if _meal_notification_due(local_now, target_hour):
+                    required = math.ceil(fraction * goal)
+                    water_candidates.append((uid, event, local_date, required))
 
     notified = 0
     for (meal, local_date), uids in meal_candidates.items():
@@ -489,6 +513,15 @@ def scheduled_sweep(store: Store = Depends(store_dep), coach: Coach = Depends(co
             push.send_to_user(store, uid, "Coach", tip)
             store.set_last_notified(uid, event, local_date)
             notified += 1
+
+    for uid, event, local_date, required in water_candidates:
+        actual = store.get_water_glasses(uid, date_type.fromisoformat(local_date))
+        if actual >= required:
+            continue
+        push.send_to_users(store, [uid], "Lifestyle4U",
+                           f"Gurl, you're only at {actual} glasses of water — catch up!!")
+        store.set_last_notified(uid, event, local_date)
+        notified += 1
 
     return {"notified": notified}
 

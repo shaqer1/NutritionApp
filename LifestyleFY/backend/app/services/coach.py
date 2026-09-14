@@ -241,6 +241,7 @@ class Coach:
             f"{round(summary.remaining.protein)}g P / {round(summary.remaining.carbs)}g C / "
             f"{round(summary.remaining.fat)}g F.\n"
             f"Meals/items already eaten today: {eaten}.\n"
+            f"Water intake today: {summary.water_glasses}/{summary.water_goal_glasses} glasses.\n"
             f"Pantry on hand: {on_hand}.\n"
             "Recent workouts (up to 3, most recent first): {Recent_workouts}"
         )

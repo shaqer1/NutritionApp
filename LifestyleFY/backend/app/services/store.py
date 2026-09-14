@@ -65,6 +65,7 @@ class Store:
             self._workout_plan_template: dict[str, dict] = {}
             self._device_tokens: dict[str, dict[str, dict]] = {}
             self._notification_prefs: dict[str, dict] = {}
+            self._water_log: dict[str, dict[str, int]] = {}
         else:
             from google.cloud import bigquery, firestore
 
@@ -477,6 +478,23 @@ class Store:
             ])).result()
         return self.recompute_today_summary(uid, day=log_date)
 
+    # ---------- Water log (per-day glass count, Firestore-only) ----------
+    def get_water_glasses(self, uid: str, day: date) -> int:
+        day_iso = day.isoformat()
+        if self.stub:
+            return self._water_log.get(uid, {}).get(day_iso, 0)
+        snap = self._user_doc(uid).collection("water_log").document(day_iso).get()
+        return snap.to_dict().get("glasses", 0) if snap.exists else 0
+
+    def set_water_glasses(self, uid: str, day: date, glasses: int) -> None:
+        glasses = max(glasses, 0)
+        day_iso = day.isoformat()
+        if self.stub:
+            self._water_log.setdefault(uid, {})[day_iso] = glasses
+            return
+        self._user_doc(uid).collection("water_log").document(day_iso).set(
+            {"glasses": glasses, "updated_at": _now().isoformat()})
+
     def recompute_today_summary(self, uid: str, day: date | None = None,
                                 coach_tip: str | None = None) -> TodaySummary:
         day = day or _now().date()
@@ -507,10 +525,15 @@ class Store:
             remaining = Macros()
             pct = 0.0
 
+        profile = self.get_profile(uid)
+        water_goal_glasses = profile.water_goal_glasses if profile else 8
+        water_glasses = self.get_water_glasses(uid, day)
+
         summary = TodaySummary(
             date=day, consumed=consumed, remaining=remaining,
             meals_logged=meals_logged, pct_to_goal=round(pct, 3),
             goals=goals, coach_tip=coach_tip,
+            water_glasses=water_glasses, water_goal_glasses=water_goal_glasses,
         )
         doc = summary.model_dump(mode="json")
         doc["last_updated"] = _now().isoformat()
@@ -528,7 +551,8 @@ class Store:
             ref.set(doc)
         return TodaySummary(**{k: doc[k] for k in
                                ("date", "consumed", "remaining", "meals_logged",
-                                "pct_to_goal", "goals", "coach_tip")})
+                                "pct_to_goal", "goals", "coach_tip",
+                                "water_glasses", "water_goal_glasses")})
 
     def get_today_summary(self, uid: str, day: date | None = None) -> TodaySummary:
         return self.recompute_today_summary(uid, day=day)

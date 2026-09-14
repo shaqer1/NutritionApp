@@ -63,6 +63,8 @@ import { Profile } from './models';
           <option [value]="timezone">{{ timezone.replaceAll('_', ' ') }}</option>
         }
       </select>
+      <label>Water goal (glasses/day)</label>
+      <input type="number" min="1" step="1" [(ngModel)]="profile.water_goal_glasses" />
       <label>Dietary prefs <span class="muted">(comma-separated)</span></label>
       <input [(ngModel)]="dietaryPrefsText" placeholder="e.g. high-protein, low-carb" />
       <label>Allergies <span class="muted">(comma-separated — the AI will avoid these)</span></label>
@@ -95,7 +97,7 @@ export class ProfilePanelComponent implements OnInit {
   profile: Profile = {
     weight_lb: 120, height_in: 70, age: 30, sex: 'male',
     activity_level: 'moderate', dietary_prefs: ['high-protein'], allergies: [],
-    timezone: 'America/Chicago',
+    timezone: 'America/Chicago', water_goal_glasses: 8,
   };
   readonly timezones = [...new Set([
     'UTC', 'Asia/Kolkata', ...Intl.supportedValuesOf('timeZone'),
@@ -132,6 +134,7 @@ export class ProfilePanelComponent implements OnInit {
 
   saveProfile(): void {
     this.syncProfileFromText();
+    if (this.profile.water_goal_glasses < 1) this.profile.water_goal_glasses = 1;
     this.api.setProfile(this.profile).subscribe(() => (this.profileStatus = 'Profile saved.'));
   }
 

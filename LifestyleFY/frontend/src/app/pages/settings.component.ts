@@ -41,6 +41,13 @@ import { PushNotificationsService } from '../core/push-notifications.service';
         Dinner <span class="muted">(~8pm, your local time)</span>
       </label>
 
+      <h3 style="margin-top:20px">Water reminders</h3>
+      <p class="muted">Nudges you if you're behind pace toward your daily water goal.</p>
+      <label class="row" style="gap:8px;align-items:center">
+        <input type="checkbox" [(ngModel)]="prefs.water" (change)="save()" />
+        Water reminders <span class="muted">(starting 8am your local time)</span>
+      </label>
+
       <p class="muted" style="margin-top:12px">{{ status }}</p>
     </div>
   `,
@@ -52,6 +59,7 @@ export class SettingsComponent implements OnInit {
   prefs: NotificationPrefs = {
     coach_nudges: false,
     meals: { breakfast: false, lunch: false, snack: false, dinner: false },
+    water: false,
   };
   status = '';
 
@@ -60,7 +68,8 @@ export class SettingsComponent implements OnInit {
   }
 
   async save(): Promise<void> {
-    const anyEnabled = this.prefs.coach_nudges || Object.values(this.prefs.meals).some(Boolean);
+    const anyEnabled = this.prefs.coach_nudges || this.prefs.water
+      || Object.values(this.prefs.meals).some(Boolean);
     if (anyEnabled) {
       const granted = await this.push.ensurePermissionAndToken();
       if (!granted) {

@@ -91,6 +91,27 @@ import { energyIcon as sharedEnergyIcon } from '../core/workout-categories';
         }
       </div>
 
+      <div class="card">
+        <h3>Water</h3>
+        <div class="row" style="gap:16px;align-items:center">
+          <div style="position:relative;width:48px;height:80px;flex-shrink:0">
+            <div style="position:absolute;top:0;left:16px;width:16px;height:10px;background:#14141c;border-radius:3px 3px 0 0"></div>
+            <div style="position:absolute;top:8px;left:0;width:48px;height:72px;border:2px solid #14141c;border-radius:10px;overflow:hidden;background:#0c0c12">
+              <div style="position:absolute;bottom:0;left:0;width:100%;background:var(--blue);transition:height .3s"
+                [style.height.%]="waterPct()"></div>
+            </div>
+          </div>
+          <div style="flex:1">
+            <div style="font-size:20px;font-weight:700">{{ summary.water_glasses }} / {{ summary.water_goal_glasses }}</div>
+            <div class="muted" style="font-size:12px">glasses today</div>
+            <div class="row" style="gap:8px;margin-top:8px">
+              <button class="ghost" (click)="decrementWater()" [disabled]="summary.water_glasses <= 0">−</button>
+              <button class="ghost" (click)="incrementWater()">+</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
       @if (summary.goals) {
         <div class="card green">
           <div class="row spread" style="cursor:pointer" (click)="stillToGoCollapsed = !stillToGoCollapsed">
@@ -400,6 +421,23 @@ export class TodayComponent implements OnInit, OnDestroy {
   pct(v: number, goal: number): number {
     if (!goal) return 0;
     return Math.min((v / goal) * 100, 100);
+  }
+
+  waterPct(): number {
+    if (!this.summary) return 0;
+    return this.pct(this.summary.water_glasses, this.summary.water_goal_glasses);
+  }
+
+  incrementWater(): void {
+    this.setWater((this.summary?.water_glasses ?? 0) + 1);
+  }
+
+  decrementWater(): void {
+    this.setWater(Math.max(0, (this.summary?.water_glasses ?? 0) - 1));
+  }
+
+  private setWater(glasses: number): void {
+    this.api.setWater(this.dateStr(this.selectedDate), glasses).subscribe((s) => (this.summary = s));
   }
 
   trimText(text: string, maxLen: number): string {

@@ -7,13 +7,19 @@ Hot / current state read by the app on every open. One `users/{uid}` root per pe
 ```
 users/{uid}
 ├── profile                (doc)   { weight_lb, height_in, age, sex, activity_level,
-│                                     dietary_prefs[], allergies[], updated_at }
+│                                     dietary_prefs[], allergies[], timezone,
+│                                     water_goal_glasses, updated_at }
 ├── goals/current          (doc)   { calories, protein_g, carbs_g, fat_g,
 │                                     target_weight_lb, weekly_gain_lb, phase,
 │                                     set_by: 'ai'|'manual', created_at }
 ├── today_summary          (doc)   { date, consumed:{cal,protein,carbs,fat},
 │                                     remaining:{cal,protein,carbs,fat},
-│                                     meals_logged, pct_to_goal, last_updated }
+│                                     meals_logged, pct_to_goal,
+│                                     water_glasses, water_goal_glasses, last_updated }
+├── water_log/{date}       (docs)  { glasses, updated_at } — one doc per calendar
+│                                     day (client-local date, YYYY-MM-DD); missing
+│                                     doc means 0 glasses that day, no backfill
+│                                     needed for days before this feature shipped
 ├── inventory/{itemId}     (docs)  { name, barcode, qty, unit,
 │                                     per_serving:{cal,protein,carbs,fat,
 │                                       sugar_g,fiber_g,sat_fat_g,sodium_mg},
@@ -33,7 +39,8 @@ users/{uid}
 │                                     so re-registering the same device overwrites
 │                                     rather than duplicating
 ├── notification_prefs/settings (doc) { coach_nudges: bool,
-│                                     meals:{breakfast,lunch,snack,dinner: bool} } —
+│                                     meals:{breakfast,lunch,snack,dinner: bool},
+│                                     water: bool } —
 │                                     everything defaults false (opt-in only); its
 │                                     own collection (not nested in `meta`) so the
 │                                     scheduled push jobs can run one cheap
