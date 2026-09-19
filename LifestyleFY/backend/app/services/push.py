@@ -24,6 +24,10 @@ _ICON_URL = "https://gen-lang-client-0347523959.web.app/assets/icons/icon-512.pn
 # status-bar shape from transparency alone) — the full-color icon above has an
 # opaque background disc, so reusing it here would just render as a solid dot.
 _BADGE_URL = "https://gen-lang-client-0347523959.web.app/assets/icons/badge-mono.png"
+# FCM's default SW click handler only opens/focuses a window when this (or
+# notification.click_action) is set — without it, clicking the notification
+# does nothing.
+_APP_URL = "https://gen-lang-client-0347523959.web.app/"
 
 
 def ensure_firebase_ready() -> None:
@@ -64,6 +68,7 @@ def _send(store: Store, uid: str, tokens: list[str], title: str, body: str,
         notification=messaging.Notification(title=title, body=body),
         webpush=messaging.WebpushConfig(
             notification=messaging.WebpushNotification(icon=_ICON_URL, badge=_BADGE_URL),
+            fcm_options=messaging.WebpushFCMOptions(link=_APP_URL),
         ),
         data=data or {},
     )

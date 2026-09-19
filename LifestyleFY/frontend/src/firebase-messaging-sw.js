@@ -23,18 +23,10 @@ self.addEventListener('push', (event) => {
   event.stopImmediatePropagation();
 });
 
-self.addEventListener('notificationclick', (event) => {
-  event.stopImmediatePropagation();
-  event.notification.close();
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
-      for (const client of clients) {
-        if ('focus' in client) return client.focus();
-      }
-      return self.clients.openWindow('/');
-    })
-  );
-});
+// Firebase Messaging's own notificationclick listener (registered above via
+// firebase.messaging()) runs first and calls stopImmediatePropagation, so it
+// fully owns click handling — it opens/focuses the URL from the message's
+// webpush.fcm_options.link (set server-side in push.py).
 
 // Angular CLI generates this file at build time next to this one — load it
 // last so its own install/activate/fetch handlers still run in this worker.
