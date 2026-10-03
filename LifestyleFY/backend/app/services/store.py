@@ -1269,7 +1269,9 @@ class Store:
         recent = sorted(by_key.values(), key=lambda r: r["date"], reverse=True)
         plan_day_keys = {(r["week"], r["day"]) for r in self._workout_plan_rows(uid)
                          if in_range(r["week"])}
-        total_planned_days = len(plan_day_keys) or 40
+        total_planned_days = len(plan_day_keys)
+        if total_planned_days == 0 and week_min is None and week_max is None:
+            total_planned_days = 40
 
         return WorkoutProgress(
             total_sessions=len(by_key), total_sets=len(sets),

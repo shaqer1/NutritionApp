@@ -51,6 +51,7 @@ interface PhaseGroup {
 const PHASE_GROUPS: PhaseGroup[] = [
   { key: 'reintroduction', label: 'Reintroduction', weekStart: 1, weekEnd: 10 },
   { key: 'maintenance-building', label: 'Maintenance Building', weekStart: 11, weekEnd: 16 },
+  { key: 'strength-building', label: 'Strength Building', weekStart: 17, weekEnd: 22 },
 ];
 
 @Component({
@@ -110,6 +111,36 @@ const PHASE_GROUPS: PhaseGroup[] = [
           </div>
         </div>
       </div>
+
+      @if (isStrengthBuildingWeek(overviewWeek)) {
+        <details class="card phase-guidance">
+          <summary>Phase guidance</summary>
+          <ul>
+            <li>Weeks 17–18: work at 2–3 reps in reserve (RIR), adding reps within each exercise's range.</li>
+            <li>Weeks 19 and 21: increase load only after every set reaches the top of its rep range with at least 2 RIR; otherwise repeat the load.</li>
+            <li>Week 20: hold Week 19 loads and build reps. Week 22: deload with 2 sets per exercise, about 10% less load, and 3–4 RIR.</li>
+            <li>Rest 2–3 minutes on main lifts and 1–2 minutes on accessories. Leave at least a day between lower sessions and do not train through pain.</li>
+          </ul>
+        </details>
+        <details class="card nutrition-guidance">
+          <summary>Recommended nutrition</summary>
+          <div class="nutrition-guidance-content">
+            <div class="nutrition-guidance-goals">
+              <div><span>Saved calories</span><strong>2,738 kcal/day</strong></div>
+              <div><span>Saved protein</span><strong>118 g/day</strong></div>
+              <div><span>Saved carbohydrates</span><strong>396 g/day</strong></div>
+              <div><span>Saved fat</span><strong>76 g/day</strong></div>
+            </div>
+            <p class="muted">Recent logged averages: 1,851 kcal, 112.8 g protein, 160.5 g carbohydrates, and 85.7 g fat per day (14 logged days, Sep 18–Oct 1, 2026). Logged totals may not include everything eaten, and no bodyweight trend was available to confirm a surplus.</p>
+            <ul>
+              <li>Keep protein consistent and spread it across 3–5 meals (roughly 25–35 g per meal).</li>
+              <li>If food logging is complete, increase calories gradually rather than jumping straight to the saved target. Include carbohydrates 1–3 hours before training and protein plus carbohydrates after.</li>
+              <li>Track bodyweight under consistent conditions several mornings each week; compare weekly averages before adjusting calories.</li>
+            </ul>
+            <p class="muted nutrition-guidance-footnote">Reference guidance only; this accordion does not change nutrition goals or log food.</p>
+          </div>
+        </details>
+      }
 
       @if (overviewLoading) {
         <p class="muted">Loading overview…</p>
@@ -644,6 +675,10 @@ const PHASE_GROUPS: PhaseGroup[] = [
                   (click)="selectProgressPhaseGroup(g.key)">{{ g.label }}</button>
         }
       </div>
+      <p class="muted" style="margin:8px 2px 0">
+        Weeks {{ selectedProgressPhaseGroup().weekStart }}–{{ selectedProgressPhaseGroup().weekEnd }}
+        · {{ selectedProgressPhaseGroup().weekEnd - selectedProgressPhaseGroup().weekStart + 1 }} weeks
+      </p>
 
       @if (progressLoading) {
         <p class="muted" style="margin-top:16px">Loading progress…</p>
@@ -665,10 +700,16 @@ const PHASE_GROUPS: PhaseGroup[] = [
 
         <div class="card" style="margin-top:16px">
           <h3>🏋️ {{ selectedProgressPhaseGroup().label }} Progress</h3>
-          <div class="bar"><span [style.width.%]="progressPct()"></span></div>
-          <p class="muted" style="text-align:center;margin-top:6px">
-            {{ progress.distinct_days_completed }} of {{ progress.total_planned_days }} days complete ({{ progressPct() }}%)
-          </p>
+          @if (progress.total_planned_days) {
+            <div class="bar"><span [style.width.%]="progressPct()"></span></div>
+            <p class="muted" style="text-align:center;margin-top:6px">
+              {{ progress.distinct_days_completed }} of {{ progress.total_planned_days }} days complete ({{ progressPct() }}%)
+            </p>
+          } @else {
+            <p class="muted" style="text-align:center;margin-top:6px">
+              No workouts are planned for this phase yet.
+            </p>
+          }
         </div>
 
         <h3 style="margin-top:20px">📅 Recent Workouts</h3>
@@ -692,6 +733,65 @@ const PHASE_GROUPS: PhaseGroup[] = [
     }
   `,
   styles: [`
+    .phase-guidance {
+      margin-top: 10px;
+      margin-bottom: 12px;
+    }
+    .phase-guidance summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .phase-guidance ul {
+      margin: 10px 0 0;
+      padding-left: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .phase-guidance li + li {
+      margin-top: 6px;
+    }
+    .nutrition-guidance {
+      margin-top: -4px;
+      margin-bottom: 12px;
+    }
+    .nutrition-guidance summary {
+      cursor: pointer;
+      font-weight: 700;
+    }
+    .nutrition-guidance-content {
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    .nutrition-guidance-goals {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+    .nutrition-guidance-goals > div {
+      display: flex;
+      flex-direction: column;
+      padding: 8px 10px;
+      border-radius: 8px;
+      background: var(--surface-alt, rgba(127, 127, 127, .12));
+    }
+    .nutrition-guidance-goals strong {
+      color: var(--text);
+      font-size: 14px;
+    }
+    .nutrition-guidance-content ul {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+    .nutrition-guidance-content li + li {
+      margin-top: 6px;
+    }
+    .nutrition-guidance-footnote {
+      margin: 8px 0 0;
+      font-size: 12px;
+    }
     .coach-fab {
       position: fixed;
       z-index: 40;
@@ -1265,7 +1365,13 @@ export class WorkoutComponent implements OnInit, OnDestroy {
     if (week <= 5) return 'Phase 2: Building 📈';
     if (week <= 8) return 'Phase 3: Strength 💪';
     if (week <= 10) return 'Phase 4: Peak 🔥';
-    return 'Maintenance 🛠️';
+    if (week <= 16) return 'Maintenance 🛠️';
+    return 'Phase 5: Strength Building 💪';
+  }
+
+  isStrengthBuildingWeek(week: number): boolean {
+    const group = PHASE_GROUPS.find((g) => g.key === 'strength-building');
+    return !!group && week >= group.weekStart && week <= group.weekEnd;
   }
 
   getPhaseGroup(week: number): PhaseGroup {

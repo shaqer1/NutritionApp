@@ -6,214 +6,148 @@
   <meta name="color-scheme" content="light dark">
   <title>Strength Building — Draft Phase Plan</title>
   <style>
+    :root {
+      color-scheme: light dark;
+      --bg: #10151a; --surface: #1a2126; --surface-2: #202a30;
+      --text: #e6ecef; --muted: #93a5ac; --line: #2b3a41;
+      --accent: #78b8e6; --accent-ink: #c5e4fa; --warm: #f0a47d;
+      --green: #80c7a6; --green-bg: #1b332a;
+    }
     @media (prefers-color-scheme: light) {
       :root {
         --bg: #eef1f2; --surface: #fff; --surface-2: #f4f6f7;
         --text: #182226; --muted: #5b6c73; --line: #d7dee1;
-        --accent: #2f6690; --accent-ink: #1f4a68; --warm: #a8532e; --warm-bg: #f3e4dc;
+        --accent: #2f6690; --accent-ink: #1f4a68; --warm: #a8532e;
         --green: #32735b; --green-bg: #e6f1eb;
       }
     }
-    @media (prefers-color-scheme: dark) {
-      :root {
-        --bg: #10151a; --surface: #1a2126; --surface-2: #202a30;
-        --text: #e6ecef; --muted: #93a5ac; --line: #2b3a41;
-        --accent: #74acd1; --accent-ink: #a9d2ec; --warm: #dd9268; --warm-bg: #2c211b;
-        --green: #8bc6a8; --green-bg: #1d3028;
-      }
-    }
-    :root[data-theme="light"] {
-      --bg: #eef1f2; --surface: #fff; --surface-2: #f4f6f7;
-      --text: #182226; --muted: #5b6c73; --line: #d7dee1;
-      --accent: #2f6690; --accent-ink: #1f4a68; --warm: #a8532e; --warm-bg: #f3e4dc;
-      --green: #32735b; --green-bg: #e6f1eb;
-    }
-    :root[data-theme="dark"] {
-      --bg: #10151a; --surface: #1a2126; --surface-2: #202a30;
-      --text: #e6ecef; --muted: #93a5ac; --line: #2b3a41;
-      --accent: #74acd1; --accent-ink: #a9d2ec; --warm: #dd9268; --warm-bg: #2c211b;
-      --green: #8bc6a8; --green-bg: #1d3028;
-    }
     * { box-sizing: border-box; }
-    body {
-      max-width: 1040px; margin: 0 auto; padding: 2.2rem 1.25rem 4rem;
-      background: var(--bg); color: var(--text);
-      font: 16px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.55 system-ui, sans-serif; }
+    main { width: min(1120px, calc(100% - 2rem)); margin: 2rem auto 4rem; }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: .35rem; font-size: clamp(2rem, 5vw, 3rem); line-height: 1.1; }
+    h2 { margin: 0; font-size: 1.35rem; }
+    h3 { margin-bottom: .4rem; font-size: 1rem; }
+    a { color: var(--accent); }
+    header, section, .panel, .callout, .overview-preview, .day-card {
+      background: var(--surface); border: 1px solid var(--line); border-radius: 14px;
     }
-    h1, h2, h3, h4 {
-      margin-top: 0; color: var(--text); font-family: Georgia, "Iowan Old Style", serif;
-      font-weight: normal; text-wrap: balance;
-    }
-    h1 { margin-bottom: .45rem; font-size: clamp(2rem, 6vw, 2.7rem); }
-    h2 { margin-bottom: 0; font-size: 1.55rem; }
-    h3 { margin: 0 0 .4rem; font-family: inherit; font-size: 1rem; font-weight: 650; }
-    .num { font-variant-numeric: tabular-nums; font-family: ui-monospace, "SFMono-Regular", monospace; }
-    .top { margin-bottom: 2rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--line); }
-    .eyebrow { color: var(--accent); font-size: .72rem; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; }
-    .lede { max-width: 72ch; color: var(--muted); }
-    .stat-strip {
-      display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1px;
-      margin-top: 1.35rem; overflow: hidden; border: 1px solid var(--line);
-      border-radius: 10px; background: var(--line);
-    }
-    .stat { min-width: 0; padding: .8rem 1rem; background: var(--surface); }
-    .stat .k { color: var(--muted); font-size: .67rem; letter-spacing: .08em; text-transform: uppercase; }
-    .stat .v { margin-top: .15rem; font-family: ui-monospace, monospace; font-size: 1.05rem; }
-    section { margin: 2.5rem 0; }
-    .section-head { display: flex; align-items: baseline; justify-content: space-between; gap: 1rem; flex-wrap: wrap; margin-bottom: 1rem; }
-    .note, .muted { color: var(--muted); }
-    .note { font-size: .85rem; }
-    .panel, .callout {
-      margin: 1rem 0; padding: 1rem 1.2rem; border: 1px solid var(--line);
-      border-radius: 10px; background: var(--surface);
-    }
-    .callout { border-left: 3px solid var(--warm); border-radius: 0 9px 9px 0; background: var(--warm-bg); }
-    .callout ul, .panel ul { margin: .45rem 0 0; padding-left: 1.2rem; }
-    li { margin: .35rem 0; }
+    header, section, .overview-preview { padding: 1.25rem; margin-bottom: 1.2rem; }
+    .eyebrow, .note, .muted, footer { color: var(--muted); }
+    .eyebrow { margin-bottom: .4rem; font-size: .78rem; font-weight: 750; letter-spacing: .09em; text-transform: uppercase; }
+    .lede { max-width: 75ch; margin: .6rem 0 1.1rem; color: var(--muted); }
+    .stat-strip, .macro-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(145px, 1fr)); gap: .7rem; }
+    .stat, .macro { padding: .8rem; border-radius: 10px; background: var(--surface-2); }
+    .stat .k, .macro .label { color: var(--muted); font-size: .78rem; }
+    .stat .v, .macro .value { margin-top: .2rem; font-weight: 750; }
+    .section-head { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; margin-bottom: .85rem; }
+    .section-head .note { max-width: 48ch; text-align: right; font-size: .84rem; }
+    .callout { padding: 1rem; border-color: color-mix(in srgb, var(--warm) 45%, var(--line)); }
+    .callout h3 { color: var(--warm); }
+    .callout ul, .accordion-body ul { margin: .5rem 0 0; padding-left: 1.2rem; }
+    li + li { margin-top: .3rem; }
+    .overview-preview { padding: 0; overflow: hidden; }
+    .overview-preview > .section-head { padding: 1rem 1rem 0; }
+    .overview-preview-head { display: flex; justify-content: space-between; gap: 1rem; padding: .8rem 1rem; background: var(--surface-2); }
+    .number-row { display: flex; gap: .5rem; padding: 1rem; }
+    .number-chip { display: grid; width: 2rem; height: 2rem; place-items: center; border-radius: 50%; background: var(--surface-2); }
+    .number-chip.active { background: var(--accent); color: #fff; }
     details.accordion { overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-    details.accordion > summary { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; cursor: pointer; font-weight: 650; list-style: none; }
+    details.accordion > summary { display: flex; justify-content: space-between; gap: 1rem; padding: .85rem 1rem; cursor: pointer; font-weight: 650; list-style: none; }
     details.accordion > summary::-webkit-details-marker { display: none; }
     details.accordion > summary::after { content: "+"; color: var(--accent); font-size: 1.2rem; }
     details.accordion[open] > summary::after { content: "−"; }
-    .accordion-body { padding: 0 1rem 1rem; border-top: 1px solid var(--line); }
-    .accordion-body ul { margin: .75rem 0 0; padding-left: 1.2rem; }
-    .overview-preview { margin: 1.25rem 0 2rem; }
-    .overview-preview-head { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 10px 10px 0 0; background: var(--surface); }
-    .overview-preview-head strong { display: block; font-family: Georgia, serif; font-size: 1.2rem; font-weight: normal; }
-    .overview-preview-head span { color: var(--muted); font-size: .8rem; }
-    .overview-preview details.accordion { border-radius: 0; border-top: 0; }
-    .number-row { display: flex; gap: .5rem; padding: .8rem 1rem; border: 1px solid var(--line); border-top: 0; border-radius: 0 0 10px 10px; background: var(--surface-2); }
-    .number-chip { display: grid; width: 2rem; height: 2rem; place-items: center; border: 1px solid var(--line); border-radius: 999px; background: var(--surface); color: var(--muted); font-family: ui-monospace, monospace; }
-    .number-chip.active { border-color: var(--accent); background: var(--accent); color: #fff; }
-    .nutrition-accordion { margin-top: 1rem; }
-    .table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-    table { width: 100%; border-collapse: collapse; }
-    th {
-      position: sticky; top: 0; padding: .65rem .8rem; border-bottom: 1px solid var(--line);
-      background: var(--surface); color: var(--muted); font-size: .67rem;
-      letter-spacing: .06em; text-align: left; text-transform: uppercase; white-space: nowrap;
-    }
-    td { padding: .58rem .8rem; border-bottom: 1px solid var(--line); font-size: .86rem; }
-    tbody tr:nth-child(even) { background: var(--surface-2); }
-    tbody tr:last-child td { border-bottom: 0; }
-    .pill { display: inline-block; padding: .1rem .5rem; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); font-size: .72rem; }
-    .week-block { margin: 1.8rem 0 2.4rem; }
-    .week-tag { display: flex; align-items: baseline; gap: .75rem; margin-bottom: .8rem; }
-    .week-num { color: var(--accent-ink); font: 1.35rem Georgia, serif; }
-    .week-sub { color: var(--muted); font-size: .73rem; letter-spacing: .06em; text-transform: uppercase; }
-    .day-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem; }
-    .day-card { min-width: 0; overflow: hidden; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); }
-    .day-head { display: flex; justify-content: space-between; gap: .75rem; padding: .7rem .85rem; border-bottom: 1px solid var(--line); background: var(--surface-2); }
-    .day-head h3 { margin: 0; }
-    .focus { color: var(--muted); font-size: .73rem; text-align: right; }
-    .day-table td { padding: .5rem .7rem; font-size: .82rem; }
-    .day-table td:last-child { color: var(--accent-ink); text-align: right; white-space: nowrap; }
-    .demo-link { display: inline-block; margin-left: .55rem; color: var(--accent-ink); font-size: .72rem; white-space: nowrap; }
-    .sec-row td { padding: .38rem .7rem; background: var(--surface-2); color: var(--muted); font-size: .64rem; letter-spacing: .08em; text-transform: uppercase; }
-    .badge { display: inline-block; padding: .05rem .4rem; border: 1px solid var(--warm); border-radius: 5px; color: var(--warm); font-size: .64rem; letter-spacing: .05em; text-transform: uppercase; }
-    .macro-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .75rem; margin: 1rem 0; }
-    .macro { padding: .8rem; border: 1px solid var(--line); border-radius: 9px; background: var(--surface); }
-    .macro .label { color: var(--muted); font-size: .7rem; text-transform: uppercase; }
-    .macro .value { font-family: ui-monospace, monospace; font-size: 1rem; }
-    .actions { display: flex; justify-content: flex-end; }
-    button { padding: .55rem .85rem; border: 1px solid var(--line); border-radius: 7px; background: var(--surface); color: var(--text); cursor: pointer; }
-    footer { margin-top: 3rem; padding-top: 1.25rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .8rem; }
-    @media (max-width: 720px) {
-      .stat-strip, .macro-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-      .day-grid { grid-template-columns: 1fr; }
+    .accordion-body { padding: .8rem 1rem 1rem; border-top: 1px solid var(--line); }
+    .table-wrap { overflow-x: auto; margin-top: .8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    th, td { padding: .55rem .65rem; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+    th { color: var(--muted); font-size: .78rem; }
+    .num { font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .badge { display: inline-block; padding: .12rem .45rem; border-radius: 99px; background: var(--green-bg); color: var(--green); font-size: .75rem; font-weight: 700; }
+    .day-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: .9rem; }
+    .day-card { padding: 1rem; }
+    .day-card h3 { margin: 0; font-size: 1.1rem; }
+    .day-meta { margin: .2rem 0 .75rem; color: var(--muted); font-size: .84rem; }
+    .subhead { margin: .8rem 0 .2rem; color: var(--accent-ink); font-size: .76rem; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
+    .exercise-list { margin: 0; padding: 0; list-style: none; }
+    .exercise { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .25rem .7rem; padding: .55rem 0; border-bottom: 1px solid var(--line); }
+    .exercise:last-child { border-bottom: 0; }
+    .exercise-name { font-weight: 650; }
+    .exercise-name a { text-decoration: none; }
+    .exercise-target { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+    .exercise-source { grid-column: 1 / -1; color: var(--muted); font-size: .76rem; }
+    .accordion-body .callout { margin-bottom: .8rem; }
+    button { padding: .65rem 1rem; border: 0; border-radius: 8px; background: var(--accent); color: #fff; font: inherit; font-weight: 700; cursor: pointer; }
+    .actions { margin: 1rem 0; text-align: right; }
+    footer { margin-top: 1.3rem; font-size: .85rem; }
+    @media (max-width: 560px) {
+      main { width: min(100% - 1rem, 1120px); margin-top: .5rem; }
+      header, section { padding: 1rem; }
+      .section-head { display: block; }
+      .section-head .note { margin-top: .25rem; text-align: left; }
+      .exercise { grid-template-columns: 1fr; }
+      .exercise-target { text-align: left; }
+      .overview-preview-head { display: block; }
     }
     @media print {
-      :root, :root[data-theme="light"], :root[data-theme="dark"] {
-        --bg: #fff; --surface: #fff; --surface-2: #f5f5f5; --text: #111;
-        --muted: #444; --line: #bbb; --accent: #245b80; --accent-ink: #174666;
-        --warm: #884122; --warm-bg: #faf2ed; --green: #2d614c; --green-bg: #eef5f1;
-      }
-      body { max-width: none; padding: 0; font-size: 11pt; }
-      .actions { display: none; }
-      .day-card, .panel, .callout, .table-wrap { break-inside: avoid; }
-      .week-block { break-inside: avoid; }
+      body { background: #fff; color: #111; }
+      main { width: 100%; margin: 0; }
+      header, section, .overview-preview, .day-card { break-inside: avoid; background: #fff; }
+      details.accordion:not([open]) > .accordion-body { display: block; }
+      button { display: none; }
     }
   </style>
 </head>
 <body>
-  <header class="top">
-    <div class="eyebrow">Phase group · Draft for review · Not seeded</div>
+<main>
+  <header>
+    <div class="eyebrow">Draft for review · Weeks 17–22 · Not seeded</div>
     <h1>Strength Building</h1>
-    <p class="lede">
-      Proposed six-week block for Weeks 17–22, following the Weeks 11–16 phase in the
-      reference page. Four training days each week: Lower A, Upper A, Lower B, Upper B.
-      The training baselines below are from your live workout logs; this page does not write to the app.
-    </p>
+    <p class="lede">A six-week, four-day upper/lower plan. The historical baseline is rebuilt from the workout-plan records for Weeks 1–16 and actual logged sets; prescribed loads and performed loads are deliberately shown as separate data.</p>
     <div class="stat-strip">
-      <div class="stat"><div class="k">Workout source</div><div class="v">workout_set_log · 532 sets</div></div>
-      <div class="stat"><div class="k">Workout history</div><div class="v">Weeks 1–9 · through Aug 1</div></div>
-      <div class="stat"><div class="k">Exercises recorded</div><div class="v">83</div></div>
-      <div class="stat"><div class="k">Proposed sessions</div><div class="v">24 · 4 days/week</div></div>
+      <div class="stat"><div class="k">Plan records checked</div><div class="v">722 · Weeks 1–16</div></div>
+      <div class="stat"><div class="k">Actual workout sets</div><div class="v">532 · Weeks 1–9</div></div>
+      <div class="stat"><div class="k">Exercises in actual logs</div><div class="v">83</div></div>
+      <div class="stat"><div class="k">Proposed schedule</div><div class="v">24 sessions · 4/week</div></div>
     </div>
   </header>
 
-  <section class="overview-preview" aria-label="Overview tab placement preview">
-    <div class="section-head">
-      <h2>Overview tab · placement preview</h2>
-      <div class="note">Phase guidance accordion sits below the header and above the day numbers</div>
-    </div>
-    <div class="overview-preview-head">
-      <strong>Strength Building · Phase 5</strong>
-      <span>Week 17 · week 1 of 6</span>
-    </div>
-    <details class="accordion">
-      <summary>Phase guidance</summary>
-      <div class="accordion-body">
-        <ul>
-          <li>Weeks 17–18: work at 2–3 reps in reserve (RIR), adding reps within each exercise's range.</li>
-          <li>Weeks 19 and 21: increase the load only after every set reaches the top of its rep range with at least 2 RIR; otherwise repeat the load.</li>
-          <li>Week 20: hold Week 19 loads and build reps. Week 22: deload with 2 sets per exercise, about 10% less load, and 3–4 RIR.</li>
-          <li>Rest 2–3 minutes on the main lifts and 1–2 minutes on accessories. Keep at least a day between lower sessions; do not train through pain.</li>
-        </ul>
-      </div>
-    </details>
-    <div class="number-row" aria-label="Workout day selectors">
-      <span class="number-chip active">1</span><span class="number-chip">2</span>
-      <span class="number-chip">3</span><span class="number-chip">4</span>
-    </div>
-  </section>
-
   <div class="callout">
-    <h3>Data and sequencing notes</h3>
+    <h3>Important: prescription is not performance</h3>
     <ul>
-      <li>The live workout database contains 532 sets across 83 exercises for one account. The latest logged workout is August 1, 2026 (Week 9); there are no logged Weeks 10–16 in that source. Weeks 11–16 are therefore treated as the sequence shown in the supplied draft, not as completed training.</li>
-      <li>This proposal uses Weeks 17–22 to follow that draft sequence. Starting loads are conservative re-entry targets based on the latest logged working sets, not the historical best or the unlogged loads proposed in the reference.</li>
-      <li>Every planned strength, warm-up, and cool-down movement below is matched to an existing exercise-catalog record with a demo link. The app will show its exercise details and demo when the workout row is seeded with that record's catalog ID. Some demos are animated GIFs rather than video files.</li>
-      <li>Loads are planned targets, not a requirement to increase every week. If the previous week did not meet the rep/RIR rule, repeat its load. Adjust for equipment increments and how the warm-up sets feel.</li>
+      <li>The workout-plan collection has prescribed sessions for Weeks 1–16. The actual set log has 532 sets through Week 9, with no logged sets for Weeks 10–16. Week 16 values below are the latest <em>planned targets</em>, not verified completed lifts.</li>
+      <li>For Week 17, the draft uses the matching Week 16 planned target where a Week 16 movement is available; Upper Body B uses the last dedicated Upper B prescription in Week 15 because Week 16 has no canonical Upper B day. The Week 17–22 progression beyond those database targets is a proposal, not existing database data.</li>
+      <li>Actual logging through Week 9 is materially lower for some lifts than the later prescribed plan (for example, squat 80 lb × 6 logged versus 95 lb planned in Week 16). Treat the listed targets as ceilings to validate in warm-ups; lower the working load if it does not leave the prescribed reps in reserve.</li>
+      <li>Week 11 includes a copied duplicate Lower A row; it is excluded from the canonical plan comparison. Week 16 also has a copied/alternate upper row and a Full Body day, rather than four clean A/B sessions.</li>
     </ul>
   </div>
 
   <section>
     <div class="section-head">
-      <h2>Actuals used to set the starting point</h2>
-      <div class="note">Selected movements with logged working sets; most-recent load guides the start</div>
+      <h2>Database coverage · Weeks 1–16</h2>
+      <div class="note">Existing plan rows versus actually logged working sets</div>
     </div>
     <div class="table-wrap">
       <table>
-        <thead><tr><th>Lift</th><th>Sets logged</th><th>Weeks</th><th>Best load</th><th>Most recent</th><th>Week 17 target</th></tr></thead>
+        <thead><tr><th>Week</th><th>Plan records</th><th>Actual logged sets</th><th>Data status</th></tr></thead>
         <tbody>
-          <tr><td>Barbell Squat</td><td class="num">17</td><td class="num">5–9</td><td class="num">80 lb</td><td class="num">80 lb × 6</td><td class="num">75 lb</td></tr>
-          <tr><td>BB Romanian Deadlift</td><td class="num">4</td><td class="num">9</td><td class="num">50 lb</td><td class="num">50 lb × 10</td><td class="num">45 lb</td></tr>
-          <tr><td>Machine Leg Press</td><td class="num">10</td><td class="num">6–8</td><td class="num">70 lb</td><td class="num">60 lb × 10</td><td class="num">55 lb</td></tr>
-          <tr><td>Machine Seated Leg Curl</td><td class="num">6</td><td class="num">5–8</td><td class="num">50 lb</td><td class="num">50 lb × 8</td><td class="num">45 lb</td></tr>
-          <tr><td>Barbell Deadlift</td><td class="num">4</td><td class="num">5</td><td class="num">60 lb</td><td class="num">60 lb × 8</td><td class="num">55 lb</td></tr>
-          <tr><td>Goblet Squat</td><td class="num">9</td><td class="num">2–5</td><td class="num">40 lb</td><td class="num">30 lb × 10</td><td class="num">25 lb</td></tr>
-          <tr><td>Hip Thrusts</td><td class="num">6</td><td class="num">2–3</td><td class="num">55 lb</td><td class="num">50 lb × 15</td><td class="num">45 lb</td></tr>
-          <tr><td>Cable Lat Pulldown (Wide Grip)</td><td class="num">10</td><td class="num">4–9</td><td class="num">60 lb</td><td class="num">57.5 lb × 6</td><td class="num">50 lb</td></tr>
-          <tr><td>Cable Seated Row</td><td class="num">11</td><td class="num">5–9</td><td class="num">50 lb</td><td class="num">45 lb × 7</td><td class="num">40 lb</td></tr>
-          <tr><td>Seated Shoulder Press</td><td class="num">16</td><td class="num">1–7</td><td class="num">45 lb</td><td class="num">40 lb × 10</td><td class="num">35 lb</td></tr>
-          <tr><td>Cable Tricep Pushdown (V-Bar)</td><td class="num">3</td><td class="num">8</td><td class="num">75 lb</td><td class="num">75 lb × 10</td><td class="num">67.5 lb</td></tr>
-          <tr><td>Cross Body Hammer Curl</td><td class="num">12</td><td class="num">1–8</td><td class="num">40 lb</td><td class="num">40 lb × 6</td><td class="num">35 lb</td></tr>
-          <tr><td>Dumbbell Incline Bench Press</td><td class="num">6</td><td class="num">6–9</td><td class="num">55 lb</td><td class="num">30 lb × 7</td><td class="num">25 lb</td></tr>
-          <tr><td>BB Bent Over Row</td><td class="num">8</td><td class="num">7–8</td><td class="num">30 lb</td><td class="num">30 lb × 8</td><td class="num">25 lb</td></tr>
-          <tr><td>DB Shoulder Press</td><td class="num">6</td><td class="num">7–8</td><td class="num">65 lb</td><td class="num">40 lb × 8</td><td class="num">35 lb</td></tr>
-          <tr><td>Cable Rear Pulldown (Wide Grip)</td><td class="num">7</td><td class="num">5–8</td><td class="num">57.5 lb</td><td class="num">57.5 lb × 10</td><td class="num">50 lb</td></tr>
-          <tr><td>Dumbbell Incline Curl</td><td class="num">6</td><td class="num">6–8</td><td class="num">30 lb</td><td class="num">30 lb × 7</td><td class="num">25 lb</td></tr>
+          <tr><td>1</td><td>39</td><td>57</td><td>Plan + actuals</td></tr>
+          <tr><td>2</td><td>39</td><td>48</td><td>Plan + actuals</td></tr>
+          <tr><td>3</td><td>40</td><td>62</td><td>Plan + actuals</td></tr>
+          <tr><td>4</td><td>54</td><td>77</td><td>Plan + actuals</td></tr>
+          <tr><td>5</td><td>40</td><td>53</td><td>Plan + actuals</td></tr>
+          <tr><td>6</td><td>36</td><td>61</td><td>Plan + actuals</td></tr>
+          <tr><td>7</td><td>36</td><td>60</td><td>Plan + actuals</td></tr>
+          <tr><td>8</td><td>49</td><td>69</td><td>Plan + actuals</td></tr>
+          <tr><td>9</td><td>38</td><td>45</td><td>Plan + actuals</td></tr>
+          <tr><td>10</td><td>38</td><td>0</td><td>Plan only</td></tr>
+          <tr><td>11</td><td>58</td><td>0</td><td>Plan only · includes copied row</td></tr>
+          <tr><td>12</td><td>58</td><td>0</td><td>Plan only</td></tr>
+          <tr><td>13</td><td>41</td><td>0</td><td>Plan only</td></tr>
+          <tr><td>14</td><td>43</td><td>0</td><td>Plan only</td></tr>
+          <tr><td>15</td><td>58</td><td>0</td><td>Plan only</td></tr>
+          <tr><td>16</td><td>55</td><td>0</td><td>Plan only · alternate day labels</td></tr>
+          <tr><th>Total</th><th>722</th><th>532</th><th>Actuals stop after Week 9</th></tr>
         </tbody>
       </table>
     </div>
@@ -221,43 +155,82 @@
 
   <section>
     <div class="section-head">
-      <h2>Exercise-catalog links</h2>
-      <div class="note">Verified against the live exercise_cache collection</div>
+      <h2>Weeks 11–16 · verified plan trail</h2>
+      <div class="note">Prescribed targets from the live plan records; not actual logged lifts</div>
     </div>
-    <div class="panel">
-      <p>Each movement in the 24-session plan has a clickable catalog demo. When seeded, the plan will store the matching <span class="num">exercise_id</span>; the app uses that ID to show the demo link, image, instructions, equipment, and target muscles where available.</p>
-      <p class="muted">The catalog matches the logged lift names directly except for clear display-name variants: “Bench Press” uses the catalog’s “Bench Press,” “BB Bent Over Row” uses “Barbell Bent-Over Row,” “DB Shoulder Press” uses “Dumbbell Shoulder Press,” and the barbell Romanian deadlift is linked to “Barbell Romanian Deadlift.” Check the demo against your exact setup if the exercise name has multiple equipment variants.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Exercise</th><th>W11</th><th>W12</th><th>W13</th><th>W14</th><th>W15</th><th>W16</th></tr></thead>
+        <tbody>
+          <tr><td>Barbell Squat</td><td>82.5 lb</td><td>85 lb</td><td>87.5 lb</td><td>90 lb</td><td>92.5 lb</td><td>95 lb</td></tr>
+          <tr><td>Romanian Deadlift</td><td>52.5 lb</td><td>52.5 lb</td><td>55 lb</td><td>55 lb</td><td>57.5 lb</td><td>57.5 lb*</td></tr>
+          <tr><td>Bench Press</td><td>77.5 lb</td><td>80 lb</td><td>82.5 lb</td><td>85 lb</td><td>87.5 lb</td><td>90 lb</td></tr>
+          <tr><td>Hanging Knees to Chest</td><td>3×12</td><td>3×12</td><td>3×15</td><td>3×15</td><td>3×15</td><td>3×18</td></tr>
+          <tr><td>Body Saw Plank</td><td>3×30 s</td><td>3×30 s</td><td>3×40 s</td><td>3×40 s</td><td>3×45 s</td><td>3×45 s</td></tr>
+        </tbody>
+      </table>
     </div>
+    <p class="note">The Week 13 Bench Press target is from that week's Full Body row; Weeks 11–12 and 14–16 use the primary upper-body bench prescription. Week 16's dedicated Lower A row prescribes the RDL at 57.5 lb, while its Full Body row separately lists it at bodyweight. This draft uses the dedicated Lower A target and does not treat those two rows as equivalent loaded sets.</p>
   </section>
 
   <section>
     <div class="section-head">
-      <h2>How this fits the app</h2>
-      <div class="note">Workout plan fields compared with this review page</div>
+      <h2>Actual logged sets · Weeks 1–9</h2>
+      <div class="note">Recent and best loads from workout_set_log; Weeks 10–16 have no actuals</div>
     </div>
-    <div class="panel">
-      <ul>
-        <li><strong>Fits existing workout rows:</strong> week, day label, section (Warm-Up / Strength / Cool-Down), exercise order, sets, reps, target load, exercise ID, and per-exercise notes. Catalog IDs resolve to the app's existing exercise details and demo links.</li>
-        <li><strong>Needs a small app update:</strong> the app's current phase-group labels stop at Week 16, and its weekly phase label calls everything after Week 10 “Maintenance.” Weeks 17–22 need the “Strength Building” group and weekly label so both headings show the right phase.</li>
-        <li><strong>Progression and recovery guidance:</strong> there is no dedicated phase-level guidance field or card today. The existing Notes field belongs to an individual exercise; repeating the global bullets on every lift would be noisy. Recommended approach: add one compact “Phase guidance” card to the workout screen, backed by phase-level notes, to show the rep/RIR progression and recovery rules once.</li>
-        <li><strong>Nutrition:</strong> the nutrition comparison is only for this HTML review and will remain informational; it does not map to the workout plan and will not be seeded as part of this phase.</li>
-      </ul>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Exercise</th><th>Logged sets</th><th>Actual weeks</th><th>Best logged load</th><th>Most recent logged set</th><th>Latest plan target</th></tr></thead>
+        <tbody>
+          <tr><td>Bench Press</td><td>49</td><td>1–9</td><td>75 lb</td><td>75 lb × 5</td><td>90 lb · W16</td></tr>
+          <tr><td>Barbell Squat</td><td>17</td><td>5–9</td><td>80 lb</td><td>80 lb × 6</td><td>95 lb · W16</td></tr>
+          <tr><td>Romanian Deadlift</td><td>19</td><td>1–8</td><td>50 lb</td><td>50 lb × 10</td><td>57.5 lb · W16 Lower A</td></tr>
+          <tr><td>Cable Lat Pulldown (Wide Grip)</td><td>10</td><td>4–9</td><td>60 lb</td><td>57.5 lb × 6</td><td>67.5 lb · W16</td></tr>
+          <tr><td>Cable Seated Row</td><td>11</td><td>5–9</td><td>50 lb</td><td>45 lb × 7</td><td>57.5 lb · W15</td></tr>
+          <tr><td>Machine Leg Press</td><td>10</td><td>6–8</td><td>70 lb</td><td>60 lb × 10</td><td>77.5 lb · W16</td></tr>
+          <tr><td>Machine Hip Abduction</td><td>27</td><td>4–9</td><td>80 lb</td><td>80 lb × 10</td><td>87.5 lb · W16</td></tr>
+          <tr><td>Cable Tricep Pushdown (V-Bar)</td><td>3</td><td>8</td><td>75 lb</td><td>75 lb × 10</td><td>82.5 lb · W16</td></tr>
+          <tr><td>Cross Body Hammer Curl</td><td>12</td><td>1–8</td><td>40 lb</td><td>40 lb × 6</td><td>62.5 lb · W16; see note</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="note">The Week 16 Cross Body Hammer Curl prescription jumps from 47.5 lb in Week 15 to 62.5 lb in Week 16, while logged history tops out at 40 lb. Upper Body A does not carry that outlier forward; Upper Body B uses its last dedicated Week 15 target of 47.5 lb. All working loads remain conditional on warm-up performance and RIR.</p>
+  </section>
+
+  <section class="overview-preview" aria-label="Overview tab placement preview">
+    <div class="section-head">
+      <h2>Overview tab · placement preview</h2>
+      <div class="note">Guidance accordion is above the day selectors and collapsed by default</div>
+    </div>
+    <div class="overview-preview-head"><strong>Strength Building · Phase 5</strong><span>Week 17 · week 1 of 6</span></div>
+    <details class="accordion">
+      <summary>Phase guidance</summary>
+      <div class="accordion-body">
+        <ul>
+          <li>Start at the displayed database-referenced load only if warm-ups feel controlled and leave about 2–3 reps in reserve (RIR); otherwise reduce the load that day.</li>
+          <li>Build reps within the range first. Add about 2.5 lb in Weeks 19 and 21 only after all working sets reach the top of the range with at least 2 RIR; if not, repeat the prior load.</li>
+          <li>Week 20 holds Week 19 loads. Week 22 is a deload: use the Week 17 baseline and 2 working sets per strength exercise at 3–4 RIR.</li>
+          <li>Rest 2–3 minutes for main lifts and 1–2 minutes for accessories; leave at least one day between lower sessions where practical. Do not train through pain.</li>
+        </ul>
+      </div>
+    </details>
+    <div class="number-row" aria-label="Workout day selectors">
+      <span class="number-chip active">1</span><span class="number-chip">2</span><span class="number-chip">3</span><span class="number-chip">4</span>
     </div>
   </section>
 
   <section>
     <div class="section-head">
       <h2>Progression and recovery</h2>
-      <div class="note">Warm-up and ramp-up sets are not included in the working-set counts below</div>
+      <div class="note">Warm-up and cool-down work is separate from strength exercise counts</div>
     </div>
     <div class="panel">
       <ul>
-        <li><strong>Schedule:</strong> Day 1 Upper Body A, Day 2 Lower Body A, Day 3 Upper Body B, Day 4 Lower Body B. Place rest days where they fit; try to leave at least one day between lower sessions.</li>
-        <li><strong>Before each session:</strong> do the catalog-linked warm-up below, then 2–4 gradual ramp-up sets before the first main lift. Ramp-up sets are not working sets.</li>
-        <li><strong>Weeks 17–18:</strong> use the displayed loads; stop each working set with about 2–3 reps in reserve (RIR), and build reps inside the range.</li>
-        <li><strong>Weeks 19 and 21:</strong> the planned load rises only if every set reached the top of its rep range with at least 2 RIR. Otherwise repeat the previous load and keep building reps.</li>
-        <li><strong>Week 20:</strong> hold the Week 19 load and add reps. <strong>Week 22:</strong> deload with 2 working sets per lift, about 10% less than Week 21, and 3–4 RIR.</li>
-        <li>Rest 2–3 minutes on squat, deadlift, bench, and rows; 1–2 minutes on accessories. Do not test maxes in this block. Stop or modify a movement if it causes pain.</li>
+        <li><strong>Day order:</strong> Day 1 Upper Body A, Day 2 Lower Body A, Day 3 Upper Body B, Day 4 Lower Body B. Place rest days where they fit and keep at least a day between lower sessions when possible.</li>
+        <li><strong>Before lifting:</strong> complete the listed mobility warm-up, then use gradual ramp-up sets before the first main lift; these are not working sets.</li>
+        <li><strong>Weeks 17–18:</strong> hold the database-referenced baseline and build reps at 2–3 RIR. <strong>Weeks 19 and 21:</strong> the suggested +2.5 lb step is earned, not automatic. <strong>Week 20:</strong> hold and build reps.</li>
+        <li><strong>Week 22:</strong> return to baseline loads, reduce to 2 working sets per strength movement, and keep 3–4 RIR. Core remains last in each day's strength list.</li>
+        <li>Use the closest available equipment increment, and reduce a target if technique, pain, or warm-up performance calls for it. No max testing in this block.</li>
       </ul>
     </div>
   </section>
@@ -265,198 +238,214 @@
   <section>
     <div class="section-head">
       <h2>Weeks 17–22 · Strength Building</h2>
-      <div class="note">Four-day upper/lower split · A days have 6 strength exercises; B days have 7</div>
+      <div class="note">Day A: 6 strength exercises including core · Day B: 7 including core</div>
     </div>
-    <div id="plan"></div>
+    <div id="plan" class="day-grid"></div>
+  </section>
+
+  <section>
+    <div class="section-head">
+      <h2>App fit and catalog</h2>
+      <div class="note">HTML only; no database writes have been made</div>
+    </div>
+    <div class="panel">
+      <ul>
+        <li>The plan uses the app's existing week, day, phase, section, order, exercise, sets, reps, weight, notes, and exercise-ID fields. Exercise labels do not include imported A1/B1-style prefixes.</li>
+        <li>Strength movements and mobility items link to catalog records and demos. A few legacy plan rows associate a generic movement name with a catalog ID whose catalog label specifies different equipment; the review plan uses a matching catalog entry where available.</li>
+        <li>The Overview guidance belongs in its collapsed accordion above the day selectors. Progress should group Weeks 17–22 under Strength Building. Nutrition remains informational and is not part of workout seeding.</li>
+      </ul>
+    </div>
   </section>
 
   <section>
     <div class="section-head">
       <h2>Recommended nutrition</h2>
-      <div class="note">Bottom-of-page accordion preview · collapsed by default</div>
+      <div class="note">Bottom-of-page accordion · collapsed by default · informational only</div>
     </div>
-    <details class="accordion nutrition-accordion">
-      <summary>Recommended nutrition · informational only</summary>
+    <details class="accordion">
+      <summary>Nutrition context and training support</summary>
       <div class="accordion-body">
         <div class="callout">
-          <h3>Latest saved goal (goal history, July 25, 2026) — reference only</h3>
+          <h3>Saved nutrition goal from the existing review query</h3>
           <div class="macro-grid">
-            <div class="macro"><div class="label">Calories</div><div class="value">2,738 kcal</div></div>
-            <div class="macro"><div class="label">Protein</div><div class="value">118 g</div></div>
-            <div class="macro"><div class="label">Carbohydrate</div><div class="value">396 g</div></div>
-            <div class="macro"><div class="label">Fat</div><div class="value">76 g</div></div>
+            <div class="macro"><div class="label">Calories</div><div class="value">2,738 kcal/day</div></div>
+            <div class="macro"><div class="label">Protein</div><div class="value">118 g/day</div></div>
+            <div class="macro"><div class="label">Carbohydrate</div><div class="value">396 g/day</div></div>
+            <div class="macro"><div class="label">Fat</div><div class="value">76 g/day</div></div>
           </div>
-          <p class="muted">No nutrition goals or profile values are changed by this draft.</p>
+          <p class="muted">Reference only; this plan does not alter nutrition goals or seed nutrition records.</p>
         </div>
         <div class="table-wrap">
           <table>
-            <thead><tr><th>Recent logged average</th><th>Logged amount/day</th><th>Saved target/day</th><th>Difference</th></tr></thead>
+            <thead><tr><th>Recent food-log average</th><th>Logged/day</th><th>Saved target/day</th><th>Difference</th></tr></thead>
             <tbody>
-              <tr><td>Calories</td><td class="num">1,851 kcal</td><td class="num">2,738 kcal</td><td class="num">−887 kcal</td></tr>
-              <tr><td>Protein</td><td class="num">112.8 g</td><td class="num">118 g</td><td class="num">−5.2 g</td></tr>
-              <tr><td>Carbohydrate</td><td class="num">160.5 g</td><td class="num">396 g</td><td class="num">−235.5 g</td></tr>
-              <tr><td>Fat</td><td class="num">85.7 g</td><td class="num">76 g</td><td class="num">+9.7 g</td></tr>
+              <tr><td>Calories</td><td>1,851 kcal</td><td>2,738 kcal</td><td>−887 kcal</td></tr>
+              <tr><td>Protein</td><td>112.8 g</td><td>118 g</td><td>−5.2 g</td></tr>
+              <tr><td>Carbohydrate</td><td>160.5 g</td><td>396 g</td><td>−235.5 g</td></tr>
+              <tr><td>Fat</td><td>85.7 g</td><td>76 g</td><td>+9.7 g</td></tr>
             </tbody>
           </table>
         </div>
-        <p class="note">Food-log basis: 14 logged days, September 18–October 1, 2026; average 7.2 entries per logged day. These are logged totals, not a verified measure of everything eaten. No bodyweight entries were found, so a calorie surplus or rate of gain cannot be verified from weight trend.</p>
-        <div class="panel">
-          <ul>
-            <li>Protein logging is already close to the saved 118 g target. Keep that as the daily anchor and spread it across 3–5 meals (roughly 25–35 g per meal).</li>
-            <li>The logged calorie and carbohydrate averages are well below the saved bulk goal. First confirm that meals, cooking fats, drinks, and snacks are being captured consistently; if the log is complete, close the gap gradually rather than jumping straight from the logged average to the full target.</li>
-            <li>Make carbohydrates the main training fuel: include a carb-containing meal 1–3 hours before lifting and a protein-plus-carb meal afterward. Keep the saved macro goal as the reference while checking the next 2–3 weeks of complete logs.</li>
-            <li>Start a regular bodyweight trend (same conditions, several mornings per week). Use weekly averages before changing calories; without that trend, this draft does not assume the current surplus is producing weight gain.</li>
-          </ul>
-        </div>
+        <p class="note">The prior food-log query covered 14 logged days and averaged 7.2 entries per logged day. Logged totals do not confirm everything eaten, and there was no bodyweight trend to verify a surplus.</p>
+        <ul>
+          <li>Protein logging was close to the saved target. Keep protein consistent and spread it across 3–5 meals (roughly 25–35 g per meal).</li>
+          <li>If food logging is complete, bring calories up gradually rather than jumping directly to the saved target. Include a carbohydrate-containing meal 1–3 hours before training and a protein-plus-carbohydrate meal afterward.</li>
+          <li>Track bodyweight under consistent conditions several mornings each week and compare weekly averages before adjusting calories.</li>
+        </ul>
       </div>
     </details>
   </section>
 
-  <div class="actions"><button onclick="window.print()">Print / Save PDF</button></div>
-  <footer>
-    Draft only — no database writes. The nutrition section is informational and will not be seeded. Workload is based on logged sets, not a medical assessment. Review exercise choices, equipment variants, loads, warm-ups, cool-downs, and the workout phase before asking to seed Weeks 17–22.
-  </footer>
+  <div class="actions"><button type="button" onclick="window.print()">Print / Save PDF</button></div>
+  <footer>Review draft only — no workout or nutrition data has been written. Week 17–22 loads are conditional proposed targets based on the verified plan trail; Weeks 11–16 values were prescriptions, not logged performance. Please review the movements and loads before any seed operation.</footer>
+</main>
+<script>
+  const weeks = [
+    { number: 17, label: "baseline" },
+    { number: 18, label: "build reps" },
+    { number: 19, label: "progress if earned" },
+    { number: 20, label: "build reps" },
+    { number: 21, label: "progress if earned" },
+    { number: 22, label: "deload" }
+  ];
 
-  <script>
-    const weeks = [
-      { number: 17, label: "re-entry" },
-      { number: 18, label: "build reps" },
-      { number: 19, label: "progress if earned" },
-      { number: 20, label: "build reps" },
-      { number: 21, label: "progress if earned" },
-      { number: 22, label: "deload · reduce sets and load" }
-    ];
+  const mobility = {
+    upper: {
+      warmup: [
+        { name: "Arm Circles", reps: "10 each direction", id: "armcircles_jefit_867", url: "https://cdn.jefit.com/assets/img/exercises/gifs/867.gif" },
+        { name: "Cat Cow Stretch", reps: "8", id: "catcowstretch_jefit_1423", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1423.gif" }
+      ],
+      cooldown: [
+        { name: "Back Pec Stretch", reps: "30 s / side", id: "exr_41n2hQeNyCnt3uFh", url: "https://cdn.exercisedb.dev/w/videos/Wwr7cET/41n2hQeNyCnt3uFh__Back-Pec-Stretch-(female)_Back.mp4" },
+        { name: "Child Pose Side Stretch", reps: "30 s / side", id: "childposesidestretch_jefit_1374", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1374.gif" }
+      ]
+    },
+    lower: {
+      warmup: [
+        { name: "Bodyweight Squat", reps: "10", id: "bodyweightsquat_jefit_493", url: "https://cdn.jefit.com/assets/img/exercises/gifs/493.gif" },
+        { name: "Front to Back Leg Swings", reps: "10 / side", id: "fronttobacklegswings_jefit_1419", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1419.gif" }
+      ],
+      cooldown: [
+        { name: "90/90 Hamstring Stretch", reps: "30 s / side", id: "9090hamstringstretch_jefit_465", url: "https://cdn.jefit.com/assets/img/exercises/gifs/465.gif" },
+        { name: "Kneeling Hip Flexor", reps: "30 s / side", id: "kneelinghipflexor_jefit_556", url: "https://cdn.jefit.com/assets/img/exercises/gifs/556.gif" }
+      ]
+    }
+  };
 
-    const days = [
-      {
-        name: "Upper Body A", focus: "Horizontal press + pull",
-        warmup: [
-          { name: "Arm Circles", sets: 1, reps: "10 each direction", load: "Bodyweight", catalogId: "armcircles_jefit_867", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/867.gif" },
-          { name: "Cat Cow Stretch", sets: 1, reps: "8", load: "Bodyweight", catalogId: "catcowstretch_jefit_1423", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1423.gif" }
-        ],
-        exercises: [
-          { name: "Bench Press", sets: 3, reps: "5–7", loads: [70, 70, 72.5, 72.5, 75, 67.5], catalogId: "exr_41n2hxnFMotsXTj3", videoUrl: "https://cdn.exercisedb.dev/w/videos/N75Uemp/41n2hxnFMotsXTj3__Barbell-Bench-Press_Chest2_.mp4" },
-          { name: "Cable Lat Pulldown (Wide Grip)", sets: 3, reps: "8–10", loads: [50, 50, 52.5, 52.5, 55, 50], catalogId: "cablelatpulldownwidegrip_jefit_86", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/86.gif" },
-          { name: "Cable Seated Row", sets: 3, reps: "8–10", loads: [40, 40, 42.5, 42.5, 45, 40], catalogId: "cableseatedrow_jefit_21", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/21.gif" },
-          { name: "Seated Shoulder Press", sets: 2, reps: "8–10", loads: [35, 35, 37.5, 37.5, 40, 35], catalogId: "exr_41n2hs6camM22yBG", videoUrl: "https://cdn.exercisedb.dev/w/videos/fe5R356/41n2hs6camM22yBG__Dumbbell-Seated-Shoulder-Press_Shoulders_.mp4" },
-          { name: "Cable Tricep Pushdown (V-Bar)", sets: 2, reps: "10–12", loads: [67.5, 67.5, 70, 70, 72.5, 65], catalogId: "cabletriceppushdownvbar_jefit_149", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/149.gif" },
-          { name: "Hanging Knee Raise", sets: 3, reps: ["8–10", "10–12", "10–12", "12–15", "12–15", "8–10"], loads: [], load: "Bodyweight", catalogId: "hangingkneeraise_jefit_690", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/690.gif", core: true }
-        ],
-        cooldown: [
-          { name: "Back Pec Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "exr_41n2hQeNyCnt3uFh", videoUrl: "https://cdn.exercisedb.dev/w/videos/Wwr7cET/41n2hQeNyCnt3uFh__Back-Pec-Stretch-(female)_Back.mp4" },
-          { name: "Child Pose Side Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "childposesidestretch_jefit_1374", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1374.gif" }
-        ]
-      },
-      {
-        name: "Lower Body A", focus: "Squat focus",
-        warmup: [
-          { name: "Bodyweight Squat", sets: 1, reps: "10", load: "Bodyweight", catalogId: "bodyweightsquat_jefit_493", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/493.gif" },
-          { name: "Front to Back Leg Swings", sets: 1, reps: "10 / side", load: "Bodyweight", catalogId: "fronttobacklegswings_jefit_1419", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1419.gif" }
-        ],
-        exercises: [
-          { name: "Barbell Squat", sets: 3, reps: "5–7", loads: [75, 75, 77.5, 77.5, 80, 72.5], catalogId: "barbellsquat_jefit_12", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/12.gif" },
-          { name: "BB Romanian Deadlift", sets: 3, reps: "8–10", loads: [45, 45, 47.5, 47.5, 50, 45], catalogId: "barbellromaniandeadlift_jefit_199", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/199.gif" },
-          { name: "Machine Leg Press", sets: 2, reps: "10–12", loads: [55, 55, 60, 60, 65, 57.5], catalogId: "machinelegpress_jefit_1250", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1250.gif" },
-          { name: "Machine Seated Leg Curl", sets: 2, reps: "8–12", loads: [45, 45, 47.5, 47.5, 50, 45], catalogId: "machineseatedlegcurl_jefit_161", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/161.gif" },
-          { name: "Bulgarian Split Squat", sets: 2, reps: "8–10 / side", loads: [25, 25, 27.5, 27.5, 30, 25], catalogId: "exr_41n2hpLLs1uU5atr", videoUrl: "https://cdn.exercisedb.dev/w/videos/bn2Y6tf/41n2hpLLs1uU5atr__Bulgarian-Split-Squat_Thighs.mp4" },
-          { name: "Plank", sets: 3, reps: ["30–40 s", "40–45 s", "40–45 s", "45–60 s", "45–60 s", "30 s"], loads: [], load: "Bodyweight", catalogId: "plank_jefit_631", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/631.gif", core: true }
-        ],
-        cooldown: [
-          { name: "90/90 Hamstring Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "9090hamstringstretch_jefit_465", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/465.gif" },
-          { name: "Kneeling Hip Flexor", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "kneelinghipflexor_jefit_556", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/556.gif" }
-        ]
-      },
-      {
-        name: "Upper Body B", focus: "Incline press + upper back",
-        warmup: [
-          { name: "Arm Circles", sets: 1, reps: "10 each direction", load: "Bodyweight", catalogId: "armcircles_jefit_867", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/867.gif" },
-          { name: "Cat Cow Stretch", sets: 1, reps: "8", load: "Bodyweight", catalogId: "catcowstretch_jefit_1423", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1423.gif" }
-        ],
-        exercises: [
-          { name: "Dumbbell Incline Bench Press", sets: 3, reps: "8–10", loads: [25, 25, 27.5, 27.5, 30, 25], catalogId: "dumbbellinclinebenchpress_jefit_31", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/31.gif" },
-          { name: "BB Bent Over Row", sets: 3, reps: "8–10", loads: [25, 25, 27.5, 27.5, 30, 25], catalogId: "barbellbentoverrow_jefit_3", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/3.gif" },
-          { name: "Cable Rear Pulldown (Wide Grip)", sets: 3, reps: "8–12", loads: [50, 50, 52.5, 52.5, 55, 50], catalogId: "cablerearpulldownwidegrip_jefit_84", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/84.gif" },
-          { name: "DB Shoulder Press", sets: 2, reps: "8–10", loads: [35, 35, 37.5, 37.5, 40, 35], catalogId: "dumbbellshoulderpress_jefit_884", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/884.gif" },
-          { name: "Dumbbell Incline Curl", sets: 2, reps: "8–12", loads: [25, 25, 27.5, 27.5, 30, 25], catalogId: "dumbbellinclinecurl_jefit_106", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/106.gif" },
-          { name: "Cable Tricep Pushdown (V-Bar)", sets: 2, reps: "10–12", loads: [67.5, 67.5, 70, 70, 72.5, 65], catalogId: "cabletriceppushdownvbar_jefit_149", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/149.gif" },
-          { name: "L-Sit on Floor", sets: 3, reps: ["10–15 s", "15–20 s", "15–20 s", "20–25 s", "20–25 s", "10–15 s"], loads: [], load: "Bodyweight", catalogId: "exr_41n2hU3XPwUFSpkC", videoUrl: "https://cdn.exercisedb.dev/w/videos/vcE6q2I/41n2hU3XPwUFSpkC__L-Sit-on-Floor_Waist_.mp4", core: true }
-        ],
-        cooldown: [
-          { name: "Back Pec Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "exr_41n2hQeNyCnt3uFh", videoUrl: "https://cdn.exercisedb.dev/w/videos/Wwr7cET/41n2hQeNyCnt3uFh__Back-Pec-Stretch-(female)_Back.mp4" },
-          { name: "Child Pose Side Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "childposesidestretch_jefit_1374", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1374.gif" }
-        ]
-      },
-      {
-        name: "Lower Body B", focus: "Hinge + single-leg",
-        warmup: [
-          { name: "Bodyweight Squat", sets: 1, reps: "10", load: "Bodyweight", catalogId: "bodyweightsquat_jefit_493", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/493.gif" },
-          { name: "Front to Back Leg Swings", sets: 1, reps: "10 / side", load: "Bodyweight", catalogId: "fronttobacklegswings_jefit_1419", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1419.gif" }
-        ],
-        exercises: [
-          { name: "Barbell Deadlift", sets: 3, reps: "5–6", loads: [55, 55, 57.5, 57.5, 60, 55], catalogId: "barbelldeadlift_jefit_93", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/93.gif" },
-          { name: "Goblet Squat", sets: 3, reps: "8–10", loads: [25, 25, 27.5, 27.5, 30, 25], catalogId: "exr_41n2hQDiSwTZXM4F", videoUrl: "https://cdn.exercisedb.dev/w/videos/nFmXQAf/41n2hQDiSwTZXM4F__Dumbbell-Goblet-Squat_Thighs.mp4" },
-          { name: "Hip Thrusts", sets: 3, reps: "8–12", loads: [45, 45, 47.5, 47.5, 50, 45], catalogId: "exr_41n2hxxePSdr5oN1", videoUrl: "https://cdn.exercisedb.dev/w/videos/HaateGp/41n2hxxePSdr5oN1__Hip-Thrusts_Hips_.mp4" },
-          { name: "Dumbbell Hamstring Curl", sets: 2, reps: "10–12", loads: [40, 40, 42.5, 42.5, 45, 40], catalogId: "dumbbellhamstringcurl_jefit_1198", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/1198.gif" },
-          { name: "Dumbbell Lunge", sets: 2, reps: "8–10 / side", loads: [35, 35, 37.5, 37.5, 40, 35], catalogId: "dumbbelllunge_jefit_136", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/136.gif" },
-          { name: "Standing Calf Raise", sets: 2, reps: "10–15", loads: [40, 40, 42.5, 42.5, 45, 40], catalogId: "exr_41n2hdWu3oaCGdWT", videoUrl: "https://cdn.exercisedb.dev/w/videos/4n278Va/41n2hdWu3oaCGdWT__Dumbbell-Standing-Calf-Raise_Calves.mp4" },
-          { name: "Weight Plate Russian Twist", sets: 3, reps: ["10 / side", "12 / side", "12 / side", "15 / side", "15 / side", "10 / side"], loads: [], load: "Bodyweight / light plate", catalogId: "weightplaterussiantwist_jefit_339", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/339.gif", core: true }
-        ],
-        cooldown: [
-          { name: "90/90 Hamstring Stretch", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "9090hamstringstretch_jefit_465", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/465.gif" },
-          { name: "Kneeling Hip Flexor", sets: 1, reps: "30 s / side", load: "Bodyweight", catalogId: "kneelinghipflexor_jefit_556", videoUrl: "https://cdn.jefit.com/assets/img/exercises/gifs/556.gif" }
-        ]
-      }
-    ];
+  const days = [
+    {
+      name: "Day 1 Upper Body A", focus: "Horizontal press and pull", kind: "upper",
+      exercises: [
+        { name: "Bench Press", sets: 4, reps: "6–8", base: 90, source: "Week 16 · Upper A", id: "exr_41n2hxnFMotsXTj3", url: "https://cdn.exercisedb.dev/w/videos/N75Uemp/41n2hxnFMotsXTj3__Barbell-Bench-Press_Chest2_.mp4" },
+        { name: "Cable Lat Pulldown (Wide Grip)", sets: 3, reps: "10–12", base: 67.5, source: "Week 16 · Upper A", id: "cablelatpulldownwidegrip_jefit_86", url: "https://cdn.jefit.com/assets/img/exercises/gifs/86.gif" },
+        { name: "Dumbbell One Arm Bent-over Row", sets: 3, reps: "10–12 / side", base: 57.5, source: "Week 16 · Upper A", id: "exr_41n2hY9EdwkdGz9a", url: "https://cdn.exercisedb.dev/w/videos/7imWBg/41n2hY9EdwkdGz9a__Dumbbell-Bent-over-Row_Back_.mp4" },
+        { name: "Cable Rope Face Pull", sets: 3, reps: "10–12", base: 47.5, source: "Week 16 · Upper A", id: "cableropefacepull_jefit_874", url: "https://cdn.jefit.com/assets/img/exercises/gifs/874.gif" },
+        { name: "Cable Tricep Pushdown (V-Bar)", sets: 3, reps: "10–12", base: 82.5, source: "Week 16 · Upper A", id: "cabletriceppushdownvbar_jefit_149", url: "https://cdn.jefit.com/assets/img/exercises/gifs/149.gif" },
+        { name: "Hanging Knee Raise", sets: 3, reps: ["18", "18", "20", "20", "22", "18"], bodyweight: true, core: true, source: "Week 16 core target: 3×18", id: "hangingkneeraise_jefit_690", url: "https://cdn.jefit.com/assets/img/exercises/gifs/690.gif" }
+      ]
+    },
+    {
+      name: "Day 2 Lower Body A", focus: "Squat focus", kind: "lower",
+      exercises: [
+        { name: "Barbell Squat", sets: 4, reps: "6–8", base: 95, source: "Week 16 · Lower A", id: "barbellsquat_jefit_12", url: "https://cdn.jefit.com/assets/img/exercises/gifs/12.gif" },
+        { name: "Barbell Romanian Deadlift", sets: 3, reps: "8–10", base: 57.5, source: "Week 16 · Lower A", id: "barbellromaniandeadlift_jefit_199", url: "https://cdn.jefit.com/assets/img/exercises/gifs/199.gif" },
+        { name: "Machine Leg Press", sets: 3, reps: "10–12", base: 77.5, source: "Week 16 · Lower A", id: "machinelegpress_jefit_1250", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1250.gif" },
+        { name: "Dumbbell Reverse Lunge", sets: 3, reps: "8–10 / side", base: 47.5, source: "Week 16 · Lower A", id: "dumbbellreverselunge_jefit_473", url: "https://cdn.jefit.com/assets/img/exercises/gifs/473.gif" },
+        { name: "Machine Hip Abduction", sets: 3, reps: "12–15", base: 87.5, source: "Week 16 · Lower A", id: "machinehipabduction_jefit_216", url: "https://cdn.jefit.com/assets/img/exercises/gifs/216.gif" },
+        { name: "Plank", sets: 3, reps: ["30 s", "35 s", "40 s", "40 s", "45 s", "30 s"], bodyweight: true, core: true, source: "Core finisher; time progression proposed", id: "plank_jefit_631", url: "https://cdn.jefit.com/assets/img/exercises/gifs/631.gif" }
+      ]
+    },
+    {
+      name: "Day 3 Upper Body B", focus: "Overhead press and upper back", kind: "upper",
+      exercises: [
+        { name: "Dumbbell Seated Arnold Press", sets: 4, reps: "8–10", base: 47.5, source: "Week 15 · dedicated Upper B", id: "dumbbellseatedarnoldpress_jefit_25", url: "https://cdn.jefit.com/assets/img/exercises/gifs/25.gif" },
+        { name: "Bench Press", sets: 4, reps: "8–10", base: 47.5, source: "Week 15 · dedicated Upper B", id: "exr_41n2hxnFMotsXTj3", url: "https://cdn.exercisedb.dev/w/videos/N75Uemp/41n2hxnFMotsXTj3__Barbell-Bench-Press_Chest2_.mp4" },
+        { name: "Cable Rear Pulldown (Wide Grip)", sets: 3, reps: "10–12", base: 65, source: "Week 15 · dedicated Upper B", id: "cablerearpulldownwidegrip_jefit_84", url: "https://cdn.jefit.com/assets/img/exercises/gifs/84.gif" },
+        { name: "Cable Rope Face Pull", sets: 3, reps: "10–12 / side", base: 62.5, source: "Week 15 · dedicated Upper B", id: "cableropefacepull_jefit_874", url: "https://cdn.jefit.com/assets/img/exercises/gifs/874.gif" },
+        { name: "Triceps Dip", sets: 3, reps: "8–10", base: 85, source: "Week 15 · dedicated Upper B", id: "exr_41n2hadQgEEX8wDN", url: "https://cdn.exercisedb.dev/w/videos/gGHzijt/41n2hadQgEEX8wDN__Triceps-Dip_Upper-Arms_.mp4" },
+        { name: "Cross Body Hammer Curl", sets: 3, reps: "10–12", base: 47.5, source: "Week 15 · dedicated Upper B; Week 16 jump excluded", id: "exr_41n2hgCHNgtVLHna", url: "https://cdn.exercisedb.dev/w/videos/a0XElzR/41n2hgCHNgtVLHna__Dumbbell-Cross-Body-Hammer-Curl_Forearms.mp4" },
+        { name: "L-Sit on Floor", sets: 3, reps: ["20 s", "20 s", "25 s", "25 s", "30 s", "20 s"], bodyweight: true, core: true, source: "Week 15 · dedicated Upper B: 3×20 s", id: "exr_41n2hU3XPwUFSpkC", url: "https://cdn.exercisedb.dev/w/videos/vcE6q2I/41n2hU3XPwUFSpkC__L-Sit-on-Floor_Waist_.mp4" }
+      ]
+    },
+    {
+      name: "Day 4 Lower Body B", focus: "Lower-body volume and single-leg work", kind: "lower",
+      exercises: [
+        { name: "Barbell Squat", sets: 3, reps: "8", base: 95, source: "Week 16 · Lower A; same movement", id: "barbellsquat_jefit_12", url: "https://cdn.jefit.com/assets/img/exercises/gifs/12.gif" },
+        { name: "Barbell Romanian Deadlift", sets: 3, reps: "8–10", base: 57.5, source: "Week 16 · Lower A; Full Body row conflicts", id: "barbellromaniandeadlift_jefit_199", url: "https://cdn.jefit.com/assets/img/exercises/gifs/199.gif" },
+        { name: "Machine Leg Press", sets: 3, reps: "10–12", base: 77.5, source: "Week 16 · Lower A; same movement", id: "machinelegpress_jefit_1250", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1250.gif" },
+        { name: "Dumbbell Reverse Lunge", sets: 3, reps: "10–12 / side", base: 67.5, source: "Week 16 · Full Body", id: "dumbbellreverselunge_jefit_473", url: "https://cdn.jefit.com/assets/img/exercises/gifs/473.gif" },
+        { name: "Machine Hip Adduction", sets: 3, reps: "12–15", base: 42.5, source: "Week 16 · Full Body", id: "machinehipadduction_jefit_217", url: "https://cdn.jefit.com/assets/img/exercises/gifs/217.gif" },
+        { name: "Barbell Calf Raise", sets: 3, reps: "8", base: 90, source: "Week 16 · Full Body", id: "barbellcalfraise_jefit_1230", url: "https://cdn.jefit.com/assets/img/exercises/gifs/1230.gif" },
+        { name: "Weight Plate Russian Twist", sets: 3, reps: ["18 / side", "18 / side", "20 / side", "20 / side", "22 / side", "18 / side"], bodyweight: true, core: true, source: "Week 16 · Full Body: 3×18 / side", id: "weightplaterussiantwist_jefit_339", url: "https://cdn.jefit.com/assets/img/exercises/gifs/339.gif" }
+      ]
+    }
+  ];
 
-    const formatLoad = (load) => `${Number.isInteger(load) ? load : load.toFixed(1)} lb`;
-    const plan = document.getElementById("plan");
-    const demoLink = (exercise) => `<a class="demo-link" href="${exercise.videoUrl}" target="_blank" rel="noopener noreferrer">Demo ↗</a>`;
-    const simpleRows = (exercises) => exercises.map((exercise, index) =>
-      `<tr><td class="num">${String(index + 1).padStart(2, "0")}</td><td>${exercise.name}${demoLink(exercise)}</td><td class="num">${exercise.sets} × ${exercise.reps}</td><td class="num">${exercise.load}</td></tr>`
-    ).join("");
+  function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, char => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    })[char]);
+  }
 
-    weeks.forEach((week, weekIndex) => {
-      const section = document.createElement("section");
-      section.className = "week-block";
-      const tag = document.createElement("div");
-      tag.className = "week-tag";
-      tag.innerHTML = `<span class="week-num">Week ${week.number}</span><span class="week-sub">Strength Building · ${week.label}</span>`;
-      const grid = document.createElement("div");
-      grid.className = "day-grid";
+  function weeklySets(exercise, weekNumber) {
+    return weekNumber === 22 ? 2 : exercise.sets;
+  }
 
-      days.forEach((day, dayIndex) => {
-        const card = document.createElement("article");
-        card.className = "day-card";
-        const strengthRows = day.exercises.map((exercise, exerciseIndex) => {
-          const sets = weekIndex === 5 ? Math.min(2, exercise.sets) : exercise.sets;
-          const marker = weekIndex === 5 && exerciseIndex === 0 ? '<span class="badge">Deload</span>' : "";
-          const reps = exercise.core ? exercise.reps[weekIndex] : exercise.reps;
-          const load = exercise.core ? exercise.load : formatLoad(exercise.loads[weekIndex]);
-          return `<tr><td class="num">${String(exerciseIndex + 1).padStart(2, "0")}</td><td>${exercise.name} ${marker}${demoLink(exercise)}</td><td class="num">${sets} × ${reps}</td><td class="num">${load}</td></tr>`;
-        }).join("");
-        card.innerHTML = `
-          <div class="day-head">
-            <h3>Day ${dayIndex + 1} ${day.name}</h3>
-            <span class="focus">${day.focus}</span>
-          </div>
-          <div class="table-wrap" style="border:0;border-radius:0">
-            <table class="day-table">
-              <thead><tr><th>#</th><th>Movement · demo</th><th>Sets × reps</th><th>Load</th></tr></thead>
-              <tbody>
-                <tr class="sec-row"><td colspan="4">Warm-up</td></tr>
-                ${simpleRows(day.warmup)}
-                <tr class="sec-row"><td colspan="4">Strength</td></tr>
-                ${strengthRows}
-                <tr class="sec-row"><td colspan="4">Cool-down</td></tr>
-                ${simpleRows(day.cooldown)}
-              </tbody>
-            </table>
-          </div>`;
-        grid.append(card);
-      });
-      section.append(tag, grid);
-      plan.append(section);
-    });
-  </script>
+  function weeklyTarget(exercise, weekIndex) {
+    if (exercise.bodyweight) return exercise.reps[weekIndex];
+    const increase = weekIndex === 2 || weekIndex === 3 ? 2.5
+      : weekIndex === 4 ? 5 : 0;
+    const load = exercise.base + increase;
+    return `${Number.isInteger(load) ? load : load.toFixed(1)} lb`;
+  }
+
+  function renderMobility(items, title) {
+    return `<div class="subhead">${title}</div><ul class="exercise-list">${
+      items.map(item => `<li class="exercise">
+        <span class="exercise-name"><a href="${escapeHtml(item.url)}" target="_blank" rel="noopener">${escapeHtml(item.name)}</a></span>
+        <span class="exercise-target">1 × ${escapeHtml(item.reps)}</span>
+        <span class="exercise-source">Catalog ID: ${escapeHtml(item.id)} · bodyweight / mobility</span>
+      </li>`).join("")
+    }</ul>`;
+  }
+
+  function renderExercise(exercise, week, weekIndex) {
+    const sets = weeklySets(exercise, week.number);
+    const target = weeklyTarget(exercise, weekIndex);
+    const load = exercise.bodyweight ? "Bodyweight" : target;
+    return `<li class="exercise">
+      <span class="exercise-name"><a href="${escapeHtml(exercise.url)}" target="_blank" rel="noopener">${escapeHtml(exercise.name)}</a>${exercise.core ? ' <span class="badge">Core · last</span>' : ""}</span>
+      <span class="exercise-target">${sets} × ${escapeHtml(exercise.bodyweight ? target : exercise.reps)} · ${escapeHtml(load)}</span>
+      <span class="exercise-source">${escapeHtml(exercise.source)} · catalog ID: ${escapeHtml(exercise.id)}</span>
+    </li>`;
+  }
+
+  function renderPlan() {
+    const container = document.getElementById("plan");
+    container.innerHTML = weeks.map((week, weekIndex) => `
+      <section class="week-block" aria-label="Week ${week.number}">
+        <div class="section-head">
+          <h2>Week ${week.number} · ${escapeHtml(week.label)}</h2>
+          <span class="note">${week.number === 22 ? "Reduced working sets" : "Loads increase only when earned"}</span>
+        </div>
+        <div class="day-grid">${days.map(day => {
+          const count = day.exercises.length;
+          const expected = day.name.includes("Body A") ? 6 : 7;
+          if (count !== expected || !day.exercises.at(-1).core) throw new Error(`Invalid exercise count or core ordering: ${day.name}`);
+          const tools = mobility[day.kind];
+          return `<article class="day-card">
+            <h3>${escapeHtml(day.name)}</h3>
+            <div class="day-meta">${escapeHtml(day.focus)} · ${count} strength exercises</div>
+            ${renderMobility(tools.warmup, "Warm-up")}
+            <div class="subhead">Strength</div>
+            <ul class="exercise-list">${day.exercises.map(ex => renderExercise(ex, week, weekIndex)).join("")}</ul>
+            ${renderMobility(tools.cooldown, "Cool-down")}
+          </article>`;
+        }).join("")}</div>
+      </section>`).join("");
+  }
+
+  renderPlan();
+</script>
 </body>
 </html>
