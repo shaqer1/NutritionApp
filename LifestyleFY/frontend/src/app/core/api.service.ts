@@ -24,9 +24,9 @@ export class ApiService {
   private planInitContext = new HttpContext().set(REQUEST_TIMEOUT_MS, 40000);
 
   // --- scanning / search ---
-  scan(barcode: string): Observable<{ item: FoodItem; source: string }> {
+  scan(barcode: string, refresh = false): Observable<{ item: FoodItem; source: string }> {
     return this.http.post<{ item: FoodItem; source: string }>(
-      `${this.base}/scan`, { barcode });
+      `${this.base}/scan`, { barcode, refresh });
   }
   search(q: string): Observable<{ results: FoodItem[] }> {
     return this.http.get<{ results: FoodItem[] }>(

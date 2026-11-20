@@ -33,7 +33,7 @@ see [DEPLOYMENT.md](DEPLOYMENT.md).
 - **Pantry/recipe/grocery feature batch** (latest): recipe ingredients can now only
   be added from the pantry (never free text), so every recipe line links back to a
   real `InventoryItem`; Pantry gained an "All" location tab and a hide-out-of-stock
-  toggle; a third "Manual entry" Add/Scan tab creates a full ingredient (macros,
+  toggle; the collapsible Add item section can create a full ingredient (macros,
   image, ingredients text) without a barcode/AI match; Recipes support fully manual
   creation, an image URL, and an Active/Archived lifecycle (archive/restore/delete
   permanently); Grocery lists are now structured JSON (items grouped by section +

@@ -132,12 +132,14 @@ class FoodResolver:
         self.s = settings
         self.store = store
 
-    async def resolve_barcode(self, barcode: str) -> tuple[FoodItem | None, str]:
+    async def resolve_barcode(self, barcode: str, *, refresh: bool = False) -> tuple[FoodItem | None, str]:
         """Returns (item, matched_source). matched_source in
-        {cache, off, chomp, none}."""
-        cached = self.store.cache_get(barcode)
-        if cached:
-            return FoodItem(**cached), "cache"
+        {cache, off, chomp, none}. A refresh skips the cache read and
+        replaces the cached item only if an upstream lookup succeeds."""
+        if not refresh:
+            cached = self.store.cache_get(barcode)
+            if cached:
+                return FoodItem(**cached), "cache"
 
         item = await self._off_barcode(barcode)
         if item:

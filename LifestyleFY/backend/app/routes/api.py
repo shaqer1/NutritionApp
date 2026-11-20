@@ -38,7 +38,7 @@ def health():
 async def scan(req: ScanRequest, uid: str = Depends(current_uid),
                resolver: FoodResolver = Depends(resolver_dep),
                store: Store = Depends(store_dep)):
-    item, source = await resolver.resolve_barcode(req.barcode)
+    item, source = await resolver.resolve_barcode(req.barcode, refresh=req.refresh)
     store.record_scan(uid, req.barcode, source,
                       item.name if item else None, item is not None)
     if not item:

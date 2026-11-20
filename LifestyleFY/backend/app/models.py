@@ -37,6 +37,7 @@ class FoodItem(BaseModel):
 
 class ScanRequest(BaseModel):
     barcode: str
+    refresh: bool = False
 
 
 class InventoryItem(FoodItem):

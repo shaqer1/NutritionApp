@@ -18,6 +18,20 @@ type EditDraft = Pick<InventoryItem,
   selector: 'app-inventory-item',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, ImageUrlFieldComponent],
+  styles: [`
+    .log-controls { flex-wrap: wrap; }
+    .serving-stepper { gap: 4px; }
+    .serving-stepper button { width: 44px; height: 44px; padding: 0; font-size: 19px; }
+    .serving-stepper input {
+      width: 64px;
+      height: 44px;
+      padding-inline: 4px;
+      text-align: center;
+      appearance: textfield;
+    }
+    .serving-stepper input::-webkit-inner-spin-button,
+    .serving-stepper input::-webkit-outer-spin-button { appearance: none; margin: 0; }
+  `],
   template: `
     <a routerLink="/inventory" class="muted" style="text-decoration:none">← Back to Inventory</a>
 
@@ -95,8 +109,15 @@ type EditDraft = Pick<InventoryItem,
 
       <div class="card blue">
         <h3>Log this</h3>
-        <div class="row">
-          <input type="number" [(ngModel)]="logServings" min="0.25" step="0.25" style="max-width:90px" />
+        <div class="row log-controls">
+          <div class="row serving-stepper">
+            <button type="button" class="ghost" aria-label="Decrease servings"
+              [disabled]="!canDecreaseServings" (click)="adjustLogServings(-1)">&minus;</button>
+            <input type="number" aria-label="Servings" [(ngModel)]="logServings"
+              [min]="minLogServings" step="0.25" />
+            <button type="button" class="ghost" aria-label="Increase servings"
+              (click)="adjustLogServings(1)">+</button>
+          </div>
           <input type="date" [(ngModel)]="logDate" (ngModelChange)="onLogDateChange()" style="max-width:150px" />
           <button (click)="openMealPicker()">Log as eaten</button>
         </div>
@@ -175,7 +196,8 @@ export class InventoryItemComponent implements OnInit {
   locations = LOCATIONS;
   categoryMeta = categoryMeta;
 
-  logServings = 1;
+  readonly minLogServings = 0.25;
+  logServings: number | null = 1;
   logDate = todayStr();
   mealPickerOpen = false;
   mealTypes = MEAL_TYPES;
@@ -213,6 +235,15 @@ export class InventoryItemComponent implements OnInit {
   }
 
   // ---------- Log this ----------
+  get canDecreaseServings(): boolean {
+    return this.logServings !== null && this.logServings >= this.minLogServings + 1;
+  }
+
+  adjustLogServings(delta: -1 | 1): void {
+    if (delta === -1 && !this.canDecreaseServings) return;
+    this.logServings = (this.logServings ?? 0) + delta;
+  }
+
   openMealPicker(): void {
     this.mealPickerOpen = true;
     this.api.getLog(this.logDate).subscribe((r) => (this.pickerEntries = r.entries));
@@ -236,12 +267,17 @@ export class InventoryItemComponent implements OnInit {
 
   logNow(mealType: string, instance: number): void {
     if (!this.item) return;
+    const servings = this.logServings;
+    if (servings === null || !Number.isFinite(servings) || servings < this.minLogServings) {
+      this.logStatus = `Enter at least ${this.minLogServings} servings.`;
+      return;
+    }
     const grams = this.item.serving_qty_g != null
-      ? this.logServings * this.item.serving_qty_g : null;
+      ? servings * this.item.serving_qty_g : null;
     this.api.log({
       meal: mealType, meal_instance: instance, item_name: this.item.name,
       barcode: this.item.barcode ?? null, source: this.item.source,
-      servings: this.logServings, macros: this.item.per_serving, grams,
+      servings, macros: this.item.per_serving, grams,
       inventory_item_id: this.item.item_id, log_date: this.logDate,
     }).subscribe(() => {
       this.mealPickerOpen = false;

@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 import { BrowserMultiFormatReader, IScannerControls } from '@zxing/browser';
+import { Subscription, finalize } from 'rxjs';
 import { ApiService } from '../core/api.service';
 import { HamburgerMenuService } from '../core/hamburger-menu.service';
 import { ImageUrlFieldComponent } from '../core/image-url-field.component';
@@ -62,44 +63,79 @@ const LOCATION_EMOJI: Record<Location, string> = {
   selector: 'app-inventory',
   standalone: true,
   imports: [CommonModule, FormsModule, RouterLink, ImageUrlFieldComponent],
+  styles: [`
+    .add-section { margin-bottom: 12px; }
+    .add-toggle {
+      width: 100%;
+      padding: 10px 0;
+      background: transparent;
+      color: var(--text);
+    }
+  `],
   template: `
-    @if (addOpen) {
-      <div class="card">
-        <div class="seg">
-          <button [class.active]="addMode === 'scan'" (click)="addMode = 'scan'">Scan</button>
-          <button [class.active]="addMode === 'search'" (click)="addMode = 'search'">Search</button>
-        </div>
-        <div style="margin-top:10px">
-
-          @if (addMode === 'scan') {
-            <div style="margin-top:10px">
-              <video #video playsinline></video>
-              <div class="row" style="margin-top:10px">
-                @if (!scanning) {
-                  <button (click)="startCamera()">Start camera</button>
-                } @else {
-                  <button class="ghost" (click)="stopCamera()">Stop</button>
-                }
-              </div>
-              <p class="muted">{{ scanStatus }}</p>
+    <div class="add-section">
+      <button type="button" class="add-toggle row spread" [attr.aria-expanded]="addOpen"
+        (click)="toggleAdd()">
+        <span>Add item</span><span aria-hidden="true">{{ addOpen ? '▲' : '▼' }}</span>
+      </button>
+      @if (addOpen) {
+        <div style="margin-top:8px">
+          <section aria-labelledby="scan-barcode-heading">
+            <h3 id="scan-barcode-heading">Scan barcode</h3>
+            <video #video playsinline [hidden]="!scanning" style="max-height:240px;object-fit:contain"></video>
+            <div class="row">
+              @if (scanning) {
+                <button class="ghost" (click)="stopCamera()">Stop camera</button>
+              } @else {
+                <button (click)="startCamera()" [disabled]="cameraStarting || lookupPending || saving">Start camera</button>
+              }
             </div>
-          } @else {
-            <div style="margin-top:10px">
-              <label>Barcode or product name</label>
-              <div class="row">
-                <input [(ngModel)]="manualQuery" placeholder="e.g. 3017620422003 or 'greek yogurt'" />
-                <button class="ghost" (click)="lookupManual()">Find</button>
-              </div>
-              <p class="muted">{{ scanStatus }}</p>
+            @if (cameraStatus) {
+              <p class="muted" role="status">{{ cameraStatus }}</p>
+            }
+          </section>
+          <div style="margin-top:12px">
+            <label for="add-barcode">Barcode or product name</label>
+            <div class="row">
+              <input id="add-barcode" [(ngModel)]="manualQuery" [disabled]="lookupPending || saving"
+                (keydown.enter)="lookupManual()" placeholder="e.g. 3017620422003 or 'greek yogurt'" />
+              <button class="ghost" [disabled]="lookupPending || saving || !manualQuery.trim()" (click)="lookupManual()">Find</button>
             </div>
+            @if (cachedBarcode && cachedBarcode === manualQuery.trim()) {
+              <button class="ghost" style="margin-top:8px" [disabled]="lookupPending || saving"
+                (click)="refreshCachedItem()">Refresh cached item</button>
+            }
+            @if (scanStatus) {
+              <p class="muted" role="status">{{ scanStatus }}</p>
+            }
+          </div>
 
-            <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
-              <h3>Manual entry</h3>
-              <label>Name</label>
+          @if (results.length) {
+            <div style="margin-top:10px">
+              <h3>Search results</h3>
+              @for (r of results; track $index) {
+                <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
+                  <div>
+                    <div>{{ r.name }}</div>
+                    <div class="muted">{{ r.per_serving.cal | number:'1.0-0' }} kcal ·
+                      {{ r.per_serving.protein | number:'1.0-0' }}g protein</div>
+                  </div>
+                  <button class="ghost" [disabled]="lookupPending || saving" (click)="pick(r)">Pick</button>
+                </div>
+              }
+            </div>
+          }
+
+          <div style="margin-top:16px;border-top:1px solid var(--border);padding-top:16px">
+              <label for="add-item-name">Name</label>
               <div class="row">
-                <input [(ngModel)]="manualEntry.name" placeholder="e.g. Homemade chili, or a restaurant item" style="flex:1" />
-                <button class="ghost" (click)="aiLookup()">✨ Ask AI</button>
+                <input id="add-item-name" [(ngModel)]="manualEntry.name"
+                  placeholder="e.g. Homemade chili, or a restaurant item" style="flex:1" />
+                <button class="ghost" [disabled]="lookupPending || saving || !manualEntry.name.trim()" (click)="aiLookup()">✨ Ask AI</button>
               </div>
+              @if (aiStatus) {
+                <p class="muted" role="status">{{ aiStatus }}</p>
+              }
               <div class="row">
                 <div style="flex:1"><label>Category</label>
                   <select [(ngModel)]="manualEntry.category">
@@ -166,53 +202,49 @@ const LOCATION_EMOJI: Record<Location, string> = {
                 style="width:100%;background:#14141c;color:var(--text);border:1px solid var(--border);
                        border-radius:10px;padding:10px 12px;font-size:15px;font-family:inherit"></textarea>
               <div style="margin-top:10px" class="row">
-                <button class="green" [disabled]="!manualEntry.name" (click)="submitManualEntry()">
+                <button class="green" [disabled]="!manualEntry.name.trim() || lookupPending || saving" (click)="submitManualEntry()">
                   Add to pantry
                 </button>
-                <button class="ghost" [disabled]="!manualEntry.name" (click)="openMealPicker()">
+                <button class="ghost" [disabled]="!manualEntry.name.trim() || lookupPending || saving" (click)="openMealPicker()">
                   Log as eaten
                 </button>
               </div>
               @if (mealPickerOpen) {
                 <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:10px">
-                  <p class="muted">Which meal?</p>
-                  @for (mt of mealTypes; track mt) {
-                    <div style="margin-bottom:8px">
-                      <div class="muted" style="text-transform:capitalize">{{ mt }}</div>
-                      <div class="row" style="flex-wrap:wrap;gap:8px">
-                        @for (inst of existingInstances(mt); track inst) {
-                          <button class="ghost" (click)="logManualEntry(mt, inst)">{{ mealLabel(mt, inst) }}</button>
-                        }
-                        <button class="ghost" (click)="logManualEntry(mt, nextInstance(mt))">
-                          + New {{ mt }}
-                        </button>
+                  <label for="add-log-date">Date</label>
+                  <input id="add-log-date" type="date" [ngModel]="logDate" (ngModelChange)="loadPickerDate($event)"
+                    [disabled]="saving" style="max-width:170px" />
+                  @if (pickerError) {
+                    <p class="muted" role="status">Couldn't load meals for this date.</p>
+                    <button class="ghost" (click)="loadPickerDate(logDate)">Retry</button>
+                  } @else if (pickerEntries) {
+                    <p class="muted">Which meal?</p>
+                    @for (mt of mealTypes; track mt) {
+                      <div style="margin-bottom:8px">
+                        <div class="muted" style="text-transform:capitalize">{{ mt }}</div>
+                        <div class="row" style="flex-wrap:wrap;gap:8px">
+                          @for (inst of existingInstances(mt); track inst) {
+                            <button class="ghost" [disabled]="lookupPending || saving"
+                              (click)="logManualEntry(mt, inst)">{{ mealLabel(mt, inst) }}</button>
+                          }
+                          <button class="ghost" [disabled]="lookupPending || saving" (click)="logManualEntry(mt, nextInstance(mt))">
+                            + New {{ mt }}
+                          </button>
+                        </div>
                       </div>
-                    </div>
+                    }
+                  } @else if (logDate) {
+                    <p class="muted" role="status">Loading meals…</p>
                   }
                 </div>
               }
-              <p class="muted">{{ scanStatus }}</p>
-            </div>
-          }
-
-          @if (results.length) {
-            <div style="margin-top:10px">
-              <h3>Search results</h3>
-              @for (r of results; track r.name) {
-                <div class="row spread" style="padding:8px 0;border-bottom:1px solid var(--border)">
-                  <div>
-                    <div>{{ r.name }}</div>
-                    <div class="muted">{{ r.per_serving.cal | number:'1.0-0' }} kcal ·
-                      {{ r.per_serving.protein | number:'1.0-0' }}g protein</div>
-                  </div>
-                  <button class="ghost" (click)="pick(r)">Pick</button>
-                </div>
+              @if (formStatus) {
+                <p class="muted" role="status">{{ formStatus }}</p>
               }
-            </div>
-          }
+          </div>
         </div>
-      </div>
-    }
+      }
+    </div>
 
     <div class="seg">
       <button [class.active]="viewMode === 'log'" (click)="setViewMode('log')">Log</button>
@@ -408,16 +440,22 @@ export class InventoryComponent implements OnInit, OnDestroy {
   private hamburger = inject(HamburgerMenuService);
   private reader = new BrowserMultiFormatReader();
   private controls?: IScannerControls;
+  private cameraSession = 0;
 
-  // ---------- Add / Scan section ----------
+  // ---------- Add section ----------
   addOpen = false;
-  addMode: 'scan' | 'search' = 'scan';
   scanning = false;
-  scanStatus = 'Point the camera at a barcode, or type one below.';
+  cameraStarting = false;
+  cameraStatus = '';
+  scanStatus = '';
+  aiStatus = '';
+  formStatus = '';
   manualQuery = '';
+  cachedBarcode: string | null = null;
+  lookupPending = false;
+  saving = false;
   results: FoodItem[] = [];
 
-  // ---------- Manual entry: full ingredient form (Search tab, always visible) ----------
   manualEntry = this.blankManualEntry();
 
   private blankManualEntry() {
@@ -432,7 +470,19 @@ export class InventoryComponent implements OnInit, OnDestroy {
     };
   }
 
+  private resetAddFields(): void {
+    this.manualEntry = this.blankManualEntry();
+    this.manualQuery = '';
+    this.cachedBarcode = null;
+    this.results = [];
+    this.scanStatus = '';
+    this.aiStatus = '';
+    this.mealPickerOpen = false;
+    this.pickerRequest?.unsubscribe();
+  }
+
   submitManualEntry(): void {
+    if (this.lookupPending || this.saving || !this.manualEntry.name.trim()) return;
     const m = this.manualEntry;
     const unit = m.servingUnit.toLowerCase() || null;
     const item: InventoryItem = {
@@ -452,15 +502,24 @@ export class InventoryComponent implements OnInit, OnDestroy {
       category: m.category,
       item_id: null, qty: m.qty, unit: m.unit, location: m.location,
     };
-    this.api.addInventory(item).subscribe(() => {
-      this.scanStatus = `Added ${m.name} to pantry.`;
-      this.manualEntry = this.blankManualEntry();
-      this.reloadInventory();
+    this.stopCamera();
+    this.saving = true;
+    this.formStatus = '';
+    this.api.addInventory(item).pipe(finalize(() => (this.saving = false))).subscribe({
+      next: () => {
+        this.resetAddFields();
+        this.formStatus = `Added ${m.name} to pantry.`;
+        this.reloadInventory();
+      },
+      error: () => (this.formStatus = 'Could not add the item to pantry. Try again.'),
     });
   }
   mealPickerOpen = false;
   mealTypes = MEAL_TYPES;
-  private pickerEntries: LogEntry[] = [];
+  logDate = todayStr();
+  pickerEntries: LogEntry[] | null = null;
+  pickerError = false;
+  private pickerRequest?: Subscription;
 
   // ---------- Mode toggle ----------
   viewMode: 'log' | 'pantry' = 'pantry';
@@ -494,13 +553,19 @@ export class InventoryComponent implements OnInit, OnDestroy {
     this.reloadInventory();
     this.reloadLog();
     this.hamburger.override.set({
-      icon: '➕', label: 'Add item', action: () => (this.addOpen = !this.addOpen),
+      icon: '➕', label: 'Add item', action: () => this.toggleAdd(),
     });
   }
 
   ngOnDestroy(): void {
-    this.controls?.stop();
+    this.stopCamera();
+    this.pickerRequest?.unsubscribe();
     this.hamburger.override.set(null);
+  }
+
+  toggleAdd(): void {
+    this.addOpen = !this.addOpen;
+    if (!this.addOpen) this.stopCamera();
   }
 
   setViewMode(mode: 'log' | 'pantry'): void {
@@ -511,47 +576,88 @@ export class InventoryComponent implements OnInit, OnDestroy {
 
   // ---------- Camera scanning ----------
   async startCamera(): Promise<void> {
+    const video = this.videoRef?.nativeElement;
+    if (!video || this.scanning || this.cameraStarting || this.lookupPending || this.saving) return;
+    const session = ++this.cameraSession;
+    this.cameraStarting = true;
     this.scanning = true;
-    this.scanStatus = 'Starting camera…';
+    this.cameraStatus = 'Starting camera…';
     try {
-      this.controls = await this.reader.decodeFromVideoDevice(
-        undefined, this.videoRef!.nativeElement, (result, _err, controls) => {
-          if (result) {
-            controls.stop();
-            this.scanning = false;
-            this.onBarcode(result.getText());
-          }
+      const controls = await this.reader.decodeFromVideoDevice(
+        undefined, video, (result, _err, controls) => {
+          if (session !== this.cameraSession || !result) return;
+          this.controls = controls;
+          this.onBarcode(result.getText());
         });
+      if (session === this.cameraSession) {
+        this.controls = controls;
+        this.cameraStatus = 'Point the camera at a barcode.';
+      } else {
+        controls.stop();
+      }
     } catch {
-      this.scanning = false;
-      this.scanStatus = 'Camera unavailable — use manual entry. (Camera needs HTTPS or localhost.)';
+      if (session === this.cameraSession) {
+        this.scanning = false;
+        this.cameraStatus = 'Camera unavailable — type the barcode below. (Camera needs HTTPS or localhost.)';
+      }
+    } finally {
+      this.cameraStarting = false;
     }
   }
 
   stopCamera(): void {
+    this.cameraSession++;
     this.controls?.stop();
+    this.controls = undefined;
     this.scanning = false;
-    this.scanStatus = 'Stopped.';
+    this.cameraStatus = '';
   }
 
-  private onBarcode(code: string): void {
-    this.scanStatus = `Looking up ${code}…`;
-    this.api.scan(code).subscribe({
+  refreshCachedItem(): void {
+    if (this.cachedBarcode && this.cachedBarcode === this.manualQuery.trim()) {
+      this.onBarcode(this.cachedBarcode, true);
+    }
+  }
+
+  private onBarcode(code: string, refresh = false): void {
+    if (this.lookupPending || this.saving) return;
+    this.stopCamera();
+    this.manualQuery = code;
+    this.results = [];
+    if (!refresh) this.cachedBarcode = null;
+    this.aiStatus = '';
+    this.formStatus = '';
+    this.lookupPending = true;
+    this.scanStatus = refresh ? `Refreshing ${code}…` : `Looking up ${code}…`;
+    this.api.scan(code, refresh).pipe(finalize(() => (this.lookupPending = false))).subscribe({
       next: (r) => {
         this.applyFoodToManualEntry(r.item);
-        this.scanStatus = `Found via ${r.source} — double-check the numbers before saving.`;
+        this.cachedBarcode = r.source === 'cache' ? code : null;
+        const status = refresh ? 'Cache and form refreshed' : r.source === 'cache' ? 'Found in cache' : `Found via ${r.source}`;
+        this.scanStatus = `${status} — double-check the numbers before saving.`;
       },
-      error: () => {
-        this.scanStatus = `No match for ${code}. Fill in the form below, or try Ask AI.`;
+      error: (err) => {
+        this.scanStatus = refresh
+          ? 'Could not refresh this item. Your form was not changed.'
+          : err.status === 404
+            ? `No match for ${code}. Fill in the form below, or try Ask AI.`
+            : 'Barcode lookup failed. Try again, or fill in the form below.';
       },
     });
   }
 
   lookupManual(): void {
     const v = this.manualQuery.trim();
-    if (!v) return;
+    if (!v || this.lookupPending || this.saving) return;
     if (/^\d{6,}$/.test(v)) { this.onBarcode(v); return; }
-    this.api.search(v).subscribe({
+    this.stopCamera();
+    this.cachedBarcode = null;
+    this.results = [];
+    this.aiStatus = '';
+    this.formStatus = '';
+    this.scanStatus = `Searching for "${v}"…`;
+    this.lookupPending = true;
+    this.api.search(v).pipe(finalize(() => (this.lookupPending = false))).subscribe({
       next: (r) => {
         this.results = r.results;
         if (r.results.length) {
@@ -569,15 +675,21 @@ export class InventoryComponent implements OnInit, OnDestroy {
    * the user reviews/edits right there before hitting "Add to pantry". */
   aiLookup(): void {
     const v = this.manualEntry.name.trim();
-    if (!v) return;
-    this.scanStatus = `Asking AI about "${v}"… (can take 10-30s)`;
-    this.api.aiSearchFood(v).subscribe({
+    if (!v || this.lookupPending || this.saving) return;
+    this.stopCamera();
+    this.formStatus = '';
+    this.aiStatus = `Asking AI about "${v}"… (can take 10-30s)`;
+    this.lookupPending = true;
+    this.api.aiSearchFood(v).pipe(finalize(() => (this.lookupPending = false))).subscribe({
       next: (r) => {
         this.applyFoodToManualEntry(r.item);
-        this.scanStatus = 'Filled in via AI — double-check the numbers before saving.';
+        this.cachedBarcode = null;
+        this.scanStatus = '';
+        this.results = [];
+        this.aiStatus = 'Filled in via AI — double-check the numbers before saving.';
       },
       error: (err) => {
-        this.scanStatus = err?.status === 404
+        this.aiStatus = err?.status === 404
           ? `AI couldn't confidently identify "${v}" — try being more specific, or fill in the fields manually.`
           : 'AI lookup failed. Try again, or fill in the fields manually.';
       },
@@ -610,23 +722,40 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   pick(item: FoodItem): void {
+    this.stopCamera();
     this.applyFoodToManualEntry(item);
     this.results = [];
+    this.cachedBarcode = null;
+    this.aiStatus = '';
+    this.formStatus = '';
     this.scanStatus = `Found via ${item.source} — double-check the numbers before saving.`;
   }
 
   // ---------- Meal-instance picker ----------
   openMealPicker(): void {
     this.mealPickerOpen = true;
-    this.api.getLog(todayStr()).subscribe((r) => (this.pickerEntries = r.entries));
+    this.formStatus = '';
+    this.loadPickerDate(todayStr());
+  }
+
+  loadPickerDate(day: string): void {
+    this.pickerRequest?.unsubscribe();
+    this.logDate = day;
+    this.pickerEntries = null;
+    this.pickerError = false;
+    if (!day) return;
+    this.pickerRequest = this.api.getLog(day).subscribe({
+      next: (r) => (this.pickerEntries = r.entries),
+      error: () => (this.pickerError = true),
+    });
   }
 
   existingInstances(mealType: string): number[] {
-    return sharedExistingInstances(this.pickerEntries, mealType);
+    return sharedExistingInstances(this.pickerEntries ?? [], mealType);
   }
 
   nextInstance(mealType: string): number {
-    return sharedNextInstance(this.pickerEntries, mealType);
+    return sharedNextInstance(this.pickerEntries ?? [], mealType);
   }
 
   mealLabel(mealType: string, instance: number): string {
@@ -634,9 +763,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
   }
 
   logManualEntry(mealType: string, instance: number): void {
+    if (this.lookupPending || this.saving || !this.logDate || !this.pickerEntries || !this.manualEntry.name.trim()) return;
     const m = this.manualEntry;
+    const date = this.logDate;
     const unit = m.servingUnit.toLowerCase() || null;
     const grams = unit === 'g' && m.servingQty != null ? m.qty * m.servingQty : null;
+    this.stopCamera();
+    this.saving = true;
+    this.formStatus = '';
     this.api.log({
       meal: mealType, meal_instance: instance, item_name: m.name,
       source: 'manual',
@@ -645,12 +779,14 @@ export class InventoryComponent implements OnInit, OnDestroy {
         cal: m.cal, protein: m.protein, carbs: m.carbs, fat: m.fat,
         sugar_g: m.sugar_g, fiber_g: m.fiber_g, sat_fat_g: m.sat_fat_g, sodium_mg: m.sodium_mg,
       },
-      grams, log_date: todayStr(),
-    }).subscribe(() => {
-      this.mealPickerOpen = false;
-      this.scanStatus = `Logged ${this.mealLabel(mealType, instance)}.`;
-      this.manualEntry = this.blankManualEntry();
-      if (this.viewMode === 'log') this.reloadLog();
+      grams, log_date: date,
+    }).pipe(finalize(() => (this.saving = false))).subscribe({
+      next: () => {
+        this.resetAddFields();
+        this.formStatus = `Logged ${this.mealLabel(mealType, instance)} on ${date}.`;
+        if (this.viewMode === 'log') this.reloadLog();
+      },
+      error: () => (this.formStatus = 'Could not log this item. Try again.'),
     });
   }
 

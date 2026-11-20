@@ -6,13 +6,14 @@ receive Gemini-powered coaching nudges when you're behind pace for the day.
 
 ## What it does
 
-- **Scan** — point your phone camera at a barcode; resolves via a layered lookup
-  (local cache → Open Food Facts → Chomp → manual entry) and adds it to your pantry
-  or logs it straight to a meal.
-- **Manual entry** — a third Add/Scan tab for hand-entering an ingredient from
-  scratch: name, category, location, servings, all 8 macros, image URL, and a
-  free-text ingredients list — no barcode/AI match required.
+- **Add item** — expand one section to scan or type a barcode, search by product
+  name, ask AI, or fill in the food details yourself. Barcode lookup checks the
+  cache, Open Food Facts, then Chomp (if configured). **Refresh cached item**
+  skips the cache and replaces the cached data and form details on a successful
+  lookup. Add the item to your pantry, or choose a date and meal to log it.
 - **Log** — record meals with macros, either from a scan, your pantry, or manual entry.
+  On a pantry item's **Log this** card, tap **−** or **+** to adjust by one serving,
+  or type a fractional amount.
 - **Today** — consumed-vs-goal macro bars for the day, plus an itemized table of
   everything logged that day, with inline edit/delete per entry (and a quick
   delete from the Inventory tab's Log view too) — corrects the log's own data
